@@ -1,34 +1,41 @@
 # Freaky Friday — Stat Switcher
 
-**Project:** NeoForge Minecraft mod for reciprocal whole-category stat and ability exchanges between players and mobs.
+A NeoForge mod for reciprocal **whole-category** exchanges between living entities.
+The selected category is the unit of exchange: the player does not select individual attributes or mob-pair exceptions.
 
-## Core gameplay
-1. Select entity A with the **Freaky Friday** book (or **Ctrl+S**, remappable, to select yourself).
-2. Choose an entire stat/behavior **category**.
-3. Select entity B.
-4. Exchange **all** values, attached functions, and transferable behaviors in that category atomically and reciprocally. Neither entity changes identity.
+## Intended gameplay
+1. Select entity A with the **Freaky Friday** book (or use the remappable **Ctrl+S** shortcut to select yourself).
+2. Choose an **entire category**.
+3. Select a different entity B.
+4. Transfer all category values, permanent modifiers, and ultimately all functions/abilities/behaviors **in both directions**, exactly and atomically, without changing identity or appearance.
 
-A swap must not be reported as successful unless the relevant capabilities really transfer. Modded registered attributes should be discovered dynamically; custom abilities require validated adapters.
+**Implemented so far:** Numerical attributes, permanent modifiers and current vitality with preflight, exact read-back and rollback. Arbitrary asymmetric attributes are deliberately rejected rather than silently skipped. **Not yet implemented:** functional bat flight ↔ creeper detonation, other executable abilities, persistent behavior ownership, complete modded-attribute portability, or verified multiplayer gameplay.
 
-## Targets
-- Primary: Minecraft **26.2**, NeoForge **26.2.0.95**, JDK 25.
-- Secondary compatibility: Minecraft **26.3**, NeoForge **26.3.0.115**.
-- Future versions: separate adapters/build profiles sharing the same core engine.
+## Build targets
+- **Minecraft 26.2 / NeoForge 26.2.0.95** — primary target.
+- **Minecraft 26.3 / NeoForge 26.3.0.115** — secondary target.
+- **Java 25**, **Gradle 9.2.1**, **ModDevGradle 2.0.148**.
+- One shared source tree, thin platform adapters under `src/platform/minecraft-*/java`.
 
-## Status (R0.11)
-Local synthetic tests and compilation with Minecraft/NeoForge server-side classes have passed. **A fully packaged, runnable NeoForge JAR and live game tests have not yet been verified.** Executable behavior swapping, persistence, and mismatched modded-attribute portability remain open.
+## Continuous integration
+GitHub Actions [**Freaky Friday builds**](../../actions/workflows/build.yml) provisions Java 25/Gradle 9.2.1, resolves NeoForge and ModDevGradle itself, caches dependencies, runs the core exchange harness, and attempts **separate 26.2 and 26.3 builds**. Successful jobs upload their version-specific JARs and reports; a compiled JAR is not the same as a passed in-game acceptance test.
 
-## Building
-The repository's `gradlew` and `gradle/wrapper/` must be committed alongside the source. GitHub Actions supplies **JDK 25**, Gradle **9.2.1**, ModDevGradle, NeoForge and dependencies automatically; no manual downloads or giant Gradle caches should be required.
+To compile locally (Java 25 installed):
 
-Local Windows build (after source import):
 ```powershell
 .\gradlew.bat build -PtargetMinecraft=26.2 --no-daemon
 ```
 
-Select **Actions → Build Freaky Friday → Run workflow** to build supported versions. Successful jobs attach **version-specific JAR artifacts**. The workflow requires the complete project files at the repository root.
+To check core logic without downloading NeoForge (Java 25 installed):
 
-## Repository policy
-Commit source, resources, Gradle wrapper, build scripts, test harnesses, goals, progress and audits. **Do not commit** downloaded JDKs, Minecraft/NeoForge redistributable JARs, Gradle distributions, `.gradle/` caches or private assets. GitHub Actions fetches them as needed and caches dependencies outside Git.
+```bash
+sh scripts/test-core.sh
+python3 scripts/test-version-profiles.py
+```
 
-The historical source handoff is `FreakyFriday_R0_11_Full_Source.zip`. Once imported and verified, GitHub becomes authoritative. See `docs/REPOSITORY_SETUP.md`.
+## Source of truth and asset policy
+The repository contains the **production source, game resources, version profiles, core tests, Java and Gradle build configuration, official Gradle wrapper, and CI scripts**. Historical auxiliary tests and documents from the original `FreakyFriday_R0_11_Full_Source.zip` are still being imported/compared; do not mistake this for a fully checksum-reconciled historical archive.
+
+Large third-party JDK installers, vanilla Minecraft JARs, NeoForge universal/userdev artifacts, Gradle distribution ZIPs, and per-machine dependency caches **do not belong in Git**. The Gradle wrapper, upstream resolution, GitHub Actions caches and build artifacts eliminate transferring those archives during ordinary development.
+
+See `docs/GOALS_AND_STATUS_R0_11.md`, `docs/BUILD_TOOLCHAIN_R0_11.md`, and `AUDIT_R0_11.md` for history and the remaining testing gates.
