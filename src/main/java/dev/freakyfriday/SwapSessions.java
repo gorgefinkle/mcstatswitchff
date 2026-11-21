@@ -1,6 +1,7 @@
 package dev.freakyfriday;
 
 import dev.freakyfriday.core.CategoryDefinitions;
+import dev.freakyfriday.core.CategoryOffers;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -93,12 +94,14 @@ public final class SwapSessions {
     }
     public static void showCategories(ServerPlayer player, LivingEntity selected) {
         if (selected == null) { message(player,"First target is no longer available."); return; }
-        Map<String,Integer> groups = AttributeCategorySwapper.availableCategories(selected);
-        if (groups.isEmpty()) { message(player,"No compatible stat categories found."); return; }
-        for (var entry: groups.entrySet()) {
-            String id = entry.getKey();
-            String label = CategoryDefinitions.GROUPS.get(id).label();
-            player.sendSystemMessage(Component.literal("  [" + label + " · " + entry.getValue() + " values]")
+        Map<String, CategoryOffers.Offer> groups = AttributeCategorySwapper.categoryOffers(selected);
+        if (groups.isEmpty()) { message(player,"No supported numerical category found on this target."); return; }
+        message(player, "Categories below are discovered from this target's actual attributes. "
+            + "Transfer is checked again against the second target before any changes.");
+        for (CategoryOffers.Offer offer : groups.values()) {
+            String id = offer.categoryId();
+            player.sendSystemMessage(Component.literal("  [" + offer.label() + " · "
+                + offer.memberCount() + " actual values]")
                 .withStyle(ChatFormatting.AQUA)
                 .withStyle(style -> style.withClickEvent(
                     new ClickEvent.RunCommand("/freakyfriday category " + id))));
@@ -113,7 +116,7 @@ public final class SwapSessions {
         if (session == null) { message(player,"Select the first target first."); return; }
         LivingEntity first = resolve(player,session);
         if (first == null || !first.isAlive()) { cancel(player); return; }
-        if (!AttributeCategorySwapper.availableCategories(first).containsKey(category)) {
+        if (!AttributeCategorySwapper.categoryOffers(first).containsKey(category)) {
             message(player,"That category is not available on the selected target."); return;
         }
         SESSIONS.put(player.getUUID(),new Session(session.first,session.dimension,category,session.started));
