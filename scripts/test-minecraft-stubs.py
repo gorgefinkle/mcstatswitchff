@@ -35,7 +35,7 @@ import net.minecraft.world.entity.Mob;
 /** Headless stand-in. Only real NeoForge builds compile the detached EntityType factory. */
 public final class DetachedMindHostProbe {
  public static String inspect(Mob donor,Mob recipient) {
-  return "Dual-instance host feasibility: nonspawned donor type (synthetic only)";
+  return "Dual-instance host feasibility: nonspawned donor type (synthetic only) donor=" + donor.name + " recipient=" + recipient.name;
  }
 }''',
 'dev/freakyfriday/mind/LiveBodyProbe.java':'''package dev.freakyfriday.mind;
@@ -581,18 +581,20 @@ public class BookInteractionHarness {
       && cow.getAttributes().getInstance(armor).getBaseValue()==2,
      "failed hybrid swap leaves physical body stats unchanged");
 
-  // An unsupported second selection leaves the first selected. No donor AI
-  // should be ticked or its goals relocated by this research checkpoint.
+  // Once the first two NPCs are selected, later clicks cannot silently
+  // replace the recipient. The first in-game R0.15.2 test accidentally
+  // ended as cow->cow after an initial cow->zombie selection.
   w.tick();
   LivingEntity unportable=new LivingEntity("OpaqueGoal",w);
+  long lockedBefore=p.messages.stream().filter(s->s.contains("Diagnostic pair is LOCKED")).count();
   BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,unportable));
-  ok(received(p,"NO swap performed"),
-     "unknown modded goal is not silently executed or partially transplanted");
-  // This is an intentionally unsupported LivingEntity second body in the
-  // fake harness: the saved pair must not trigger native host construction.
+  ok(p.messages.stream().filter(s->s.contains("Diagnostic pair is LOCKED")).count()==lockedBefore+1,
+     "later right-clicks refuse to overwrite a locked diagnostic pair");
+  int countBefore=p.messages.size();
   MindSwapSessions.dualInstanceProbe(p);
-  ok(received(p,"Both probe bodies must still be loaded, alive NPC mobs"),
-     "dualprobe rejects non-NPC mock targets without constructing a host");
+  ok(p.messages.size()==countBefore+1
+      && p.messages.get(p.messages.size()-1).contains("donor=Villager recipient=Cow"),
+     "locked donor/recipient identities are unchanged after an extra book click");
 
   MindSwapSessions.cancel(p);
   w.tick();
