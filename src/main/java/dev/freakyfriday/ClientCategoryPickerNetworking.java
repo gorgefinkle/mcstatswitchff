@@ -20,7 +20,7 @@ public final class ClientCategoryPickerNetworking {
     private static void handle(CategoryPickerPayload payload, IPayloadContext context) {
         Minecraft client = Minecraft.getInstance();
         if (client.player != null && client.player.connection != null) {
-            client.setScreen(new CategoryPickerScreen(payload.targetName(), payload.entries()));
+            client.gui.setScreen(new CategoryPickerScreen(payload.targetName(), payload.entries()));
         }
     }
 }
