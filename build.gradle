@@ -94,3 +94,13 @@ tasks.register("runDynamicObjectGraphSelfTest", JavaExec) {
     enableAssertions = true
 }
 tasks.named('check') { dependsOn tasks.named('runDynamicObjectGraphSelfTest') }
+
+tasks.register("runBodyActionGateSelfTest", JavaExec) {
+    group = 'verification'
+    description = "Verify all original body traits survive complete controller exchange"
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.freakyfriday.mind.BodyActionGateSelfTest'
+    enableAssertions = true
+}
+tasks.named('check') { dependsOn tasks.named('runBodyActionGateSelfTest') }
