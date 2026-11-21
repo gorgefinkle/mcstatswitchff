@@ -17,7 +17,7 @@ if (profile.getProperty('minecraft_version') != selectedMinecraft) {
 }
 
 group = 'dev.freakyfriday'
-version = '0.13.3-alpha'
+version = '0.14.0-alpha'
 base { archivesName = "freakyfriday-mc${selectedMinecraft}-neoforge" }
 java.toolchain.languageVersion = JavaLanguageVersion.of(25)
 
@@ -104,3 +104,13 @@ tasks.register("runBodyActionGateSelfTest", JavaExec) {
     enableAssertions = true
 }
 tasks.named('check') { dependsOn tasks.named('runBodyActionGateSelfTest') }
+
+tasks.register("runMindHostEngineSelfTest", JavaExec) {
+    group = 'verification'
+    description = "Verify hybrid native mind host contract, full-controller swaps and safe action capture"
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.freakyfriday.mind.MindHostEngineSelfTest'
+    enableAssertions = true
+}
+tasks.named('check') { dependsOn tasks.named('runMindHostEngineSelfTest') }
