@@ -130,8 +130,8 @@ public final class GoalMindRuntime {
             return "Both different bodies must be alive in the same loaded dimension.";
         if (!(first instanceof Animal firstAnimal) || !(second instanceof Animal secondAnimal))
             return "These bodies are not supported animal AI recipients.";
-        if (!first.getTargetSelector().getAvailableGoals().isEmpty()
-                || !second.getTargetSelector().getAvailableGoals().isEmpty())
+        if (!first.targetSelector.getAvailableGoals().isEmpty()
+                || !second.targetSelector.getAvailableGoals().isEmpty())
             return "One of these mobs has unportable targeting goals; whole mind swap rejected.";
 
         UUID a = first.getUUID(), b = second.getUUID();
