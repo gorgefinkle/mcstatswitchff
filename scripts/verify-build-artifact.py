@@ -25,8 +25,6 @@ def main():
         "dev/freakyfriday/mind/MindSwapSessions.class",
         "dev/freakyfriday/CategoryPickerPayload.class",
         "dev/freakyfriday/CategoryPickerNetworking.class",
-        "dev/freakyfriday/ClientCategoryPickerNetworking.class",
-        "dev/freakyfriday/CategoryPickerScreen.class",
         "assets/freakyfriday/lang/en_us.json",
         "data/freakyfriday/recipe/book.json",
     }
