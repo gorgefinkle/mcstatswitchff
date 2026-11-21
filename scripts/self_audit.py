@@ -23,6 +23,8 @@ assert 'ClientKeyFactory.create()' in (root/'src/main/java/dev/freakyfriday/Clie
 assert 'CategoryExchange.exchange(first,second,port)' in (root/'src/main/java/dev/freakyfriday/AttributeCategorySwapper.java').read_text()
 assert not (root/'src/main/java/dev/freakyfriday/core/ExchangeEngine.java').exists()
 assert (root/'src/main/java/dev/freakyfriday/mind/DynamicObjectGraph.java').exists()
+assert (root/'src/main/java/dev/freakyfriday/mind/BodyActionGate.java').exists()
+assert (root/'src/test/java/dev/freakyfriday/mind/BodyActionGateSelfTest.java').exists()
 dynamic_runtime=(root/'src/main/java/dev/freakyfriday/mind/GoalMindRuntime.java').read_text()
 assert 'DynamicObjectGraph.capture(roots, Goal[].class' in dynamic_runtime
 assert 'body.targetSelector' in dynamic_runtime
