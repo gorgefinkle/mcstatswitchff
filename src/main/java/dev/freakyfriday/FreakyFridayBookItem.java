@@ -14,7 +14,7 @@ public final class FreakyFridayBookItem extends Item {
     @Override
     public InteractionResult interactLivingEntity(ItemStack stack, Player player, LivingEntity target, InteractionHand hand) {
         if (player instanceof ServerPlayer serverPlayer) {
-            SwapSessions.selectFromInteraction(serverPlayer, target);
+            dev.freakyfriday.mind.MindSwapSessions.selectFromInteraction(serverPlayer, target);
         }
         return InteractionResult.SUCCESS;
     }
