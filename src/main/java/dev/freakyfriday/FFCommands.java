@@ -36,6 +36,10 @@ public final class FFCommands {
             .then(Commands.literal("hostprobe").executes(ctx -> {
                 MindSwapSessions.hostProbe(ctx.getSource().getPlayerOrException());
                 return 1;
+            }))
+            .then(Commands.literal("hostprobe40").executes(ctx -> {
+                MindSwapSessions.timedHostProbe(ctx.getSource().getPlayerOrException());
+                return 1;
             })));
     }
 }
