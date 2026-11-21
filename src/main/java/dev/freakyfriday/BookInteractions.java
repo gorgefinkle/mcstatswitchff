@@ -28,7 +28,7 @@ public final class BookInteractions {
         if (!holdingBook) return;
 
         if (player instanceof ServerPlayer serverPlayer) {
-            SwapSessions.selectFromInteraction(serverPlayer, target);
+            dev.freakyfriday.mind.MindSwapSessions.selectFromInteraction(serverPlayer, target);
         }
         event.setCancellationResult(InteractionResult.SUCCESS);
         event.setCanceled(true);
