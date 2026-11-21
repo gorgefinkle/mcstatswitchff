@@ -21,5 +21,6 @@ public final class FreakyFriday {
         NeoForge.EVENT_BUS.register(FFCommands.class);
         NeoForge.EVENT_BUS.register(BookInteractions.class);
         NeoForge.EVENT_BUS.register(dev.freakyfriday.mind.LiveBodyProbe.class);
+        NeoForge.EVENT_BUS.register(dev.freakyfriday.mind.DetachedHostMirrorProbe.class);
     }
 }
