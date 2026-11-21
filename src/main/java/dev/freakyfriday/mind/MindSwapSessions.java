@@ -82,6 +82,28 @@ public final class MindSwapSessions {
         }
     }
 
+    /**
+     * This diagnostic uses a synthetic isolated source. It executes look/path
+     * commands on the SELECTED Mob via the real body port; no donor AI ticks.
+     */
+    public static void hostProbe(ServerPlayer p) {
+        if (!hasBook(p)) {
+            message(p, "Hold the Freaky Friday book to use the host probe.");
+            return;
+        }
+        Pending pending = current(p);
+        if (pending == null) {
+            message(p, "Select one mob with the book before running the host probe.");
+            return;
+        }
+        Entity selected = p.level().getEntity(pending.firstBody());
+        if (!(selected instanceof net.minecraft.world.entity.Mob mob)) {
+            message(p, "Host probe requires a loaded NPC Mob, not a player.");
+            return;
+        }
+        message(p, MinecraftHostProbe.run(p, mob));
+    }
+
     public static void selectFromInteraction(ServerPlayer p, LivingEntity target) {
         if (!hasBook(p)) return;
         Stamp stamp = new Stamp(target.getUUID(), p.level().getGameTime());
