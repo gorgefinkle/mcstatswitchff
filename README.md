@@ -17,6 +17,27 @@ The book now uses **two-click, category-free selection**, with a **dynamic runti
 
 See [dynamic AI capture architecture and acceptance gates](docs/R0_13_DYNAMIC_AI_CAPTURE.md). The prior [cow/pig hardcoded prototype](docs/R0_13_CROSS_SPECIES_GOAL_PROOF.md) is **superseded**, not the current implementation.
 
+## Body vs Mind — New R0.13.3 implementation direction
+
+**A mind decides; its recipient body performs only physically supported actions.**
+The cow keeps cow health, native speed, dimensions, loot and the ability to be
+milked. A creeper mind controlling that cow may intend to detonate, but the cow
+body does not possess the explosion mechanism, so that action is unavailable
+**without invalidating the mind swap**. A creeper body retains its fuse and
+gunpowder drops even when a peaceful mind controls it.
+
+The development branch adds a pure whole-mind `BodyActionGate` (dynamic
+namespaced intents and three result states) and a native
+`MinecraftBodyPort` with movement, looking, jumping and creeper fuse
+capability dispatched **on the receiving body**. Body invariance and
+reversal are covered by `BodyActionGateSelfTest`.
+
+**Still incomplete:** The new body-action bridge has not yet been connected
+to the native Minecraft AI decision-tick pipeline; the older goal/Brain
+transfer remains experimental, and true arbitrary-species runtime behavior
+and player control are not yet proven. Do not treat this as a completed
+gameplay mind swap. See [R0.13.3 body/mind contract](docs/BODY_MIND_CONTRACT_R0_13_3.md).
+
 The existing R0.12 numerical-category prototype remains on [main](../../tree/main) as a known buildable reference. The historical original is preserved on [archive/r0.11-original](../../tree/archive/r0.11-original).
 
 ## Build targets
