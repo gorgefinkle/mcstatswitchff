@@ -1,0 +1,40 @@
+#!/usr/bin/env python3
+"""Source checkpoint audit. Fails on any detectable local test/structure error."""
+import json, re, subprocess, sys, pathlib, tomllib
+root=pathlib.Path(__file__).resolve().parent.parent
+for cmd in (['sh',str(root/'scripts/test-core.sh')],[sys.executable,str(root/'scripts/test-minecraft-stubs.py')]):
+    print('+',' '.join(cmd),flush=True)
+    subprocess.run(cmd,cwd=root,check=True)
+resources=root/'src/main/resources'
+for file in sorted(resources.rglob('*.json')):
+    json.loads(file.read_text())
+    print('JSON PASS',file.relative_to(root))
+mods=tomllib.loads((resources/'META-INF/neoforge.mods.toml').read_text())
+assert mods['mods'][0]['modId']=='freakyfriday'
+assert mods['mods'][0]['version']=='${ff_mod_version}'
+assert "version = '0.11.0-alpha'" in (root/'build.gradle').read_text()
+assert (root/'src/platform/minecraft-26.2/java/dev/freakyfriday/compat/PlatformHooks.java').exists()
+assert (root/'src/platform/minecraft-26.3/java/dev/freakyfriday/compat/PlatformHooks.java').exists()
+assert 'PlatformHooks::addBookToCreativeTab' in (root/'src/main/java/dev/freakyfriday/FreakyFriday.java').read_text()
+assert not (root/'src/main/java/dev/freakyfriday/AttributeSwapper.java').exists()
+assert (root/'src/main/java/dev/freakyfriday/api/AbilityCategoryAdapter.java').exists()
+assert 'KeyModifier.CONTROL' in (root/'src/main/java/dev/freakyfriday/ClientBindings.java').read_text()
+assert 'CategoryExchange.exchange(first,second,port)' in (root/'src/main/java/dev/freakyfriday/AttributeCategorySwapper.java').read_text()
+assert not (root/'src/main/java/dev/freakyfriday/core/ExchangeEngine.java').exists()
+assert (root/'src/main/java/dev/freakyfriday/core/CategorySchema.java').exists()
+assert (root/'src/main/java/dev/freakyfriday/PortableAttributes.java').exists()
+assert (root/'src/main/java/dev/freakyfriday/BookInteractions.java').exists()
+assert 'NeoForge.EVENT_BUS.register(BookInteractions.class)' in (root/'src/main/java/dev/freakyfriday/FreakyFriday.java').read_text()
+assert 'modBus.addListener(PortableAttributes::addToEntityTypes)' in (root/'src/main/java/dev/freakyfriday/FreakyFriday.java').read_text()
+assert 'EntityAttributeModificationEvent' in (root/'src/main/java/dev/freakyfriday/PortableAttributes.java').read_text()
+assert 'sanitizeValue' in (root/'src/main/java/dev/freakyfriday/AttributeCategorySwapper.java').read_text()
+assert (root/'src/main/java/dev/freakyfriday/core/PermanentModifier.java').exists()
+assert (root/'src/main/java/dev/freakyfriday/AttributeModifierTransfer.java').exists()
+assert 'AttributeModifierTransfer.replace(' in (root/'src/main/java/dev/freakyfriday/AttributeCategorySwapper.java').read_text()
+assert 'getPermanentModifiers()' in (root/'src/main/java/dev/freakyfriday/AttributeModifierTransfer.java').read_text()
+assert 'addPermanentModifier' in (root/'src/main/java/dev/freakyfriday/AttributeModifierTransfer.java').read_text()
+assert 'removeModifiers()' not in '\n'.join(line for line in (root/'src/main/java/dev/freakyfriday/AttributeModifierTransfer.java').read_text().splitlines() if not line.strip().startswith('*') and not line.strip().startswith('//'))
+assert 'Category replacement was not exact' in (root/'src/main/java/dev/freakyfriday/core/CategoryExchange.java').read_text()
+subprocess.run([sys.executable, str(root/'scripts/test-version-profiles.py')], cwd=root, check=True)
+print('PASS: resources, metadata, source wiring and versions')
+print('NOT TESTED HERE: real NeoForge build/integrated/dedicated server runtime. Run scripts/build_doctor.py separately.')
