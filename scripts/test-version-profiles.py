@@ -34,13 +34,13 @@ assert (ROOT/'src/main/java/dev/freakyfriday/core/CategoryExchange.java').exists
 assert not list((ROOT/'src/platform').rglob('CategoryExchange.java')), 'shared core may not be duplicated'
 metadata=(ROOT/'src/main/resources/META-INF/neoforge.mods.toml').read_text()
 for mc, d in profiles.items():
-    expanded=metadata.replace('${ff_mod_version}','0.13.0-alpha').replace('${ff_mc_version}',mc).replace('${ff_neo_version}',d['neo_version'])
+    expanded=metadata.replace('${ff_mod_version}','0.13.1-alpha').replace('${ff_mc_version}',mc).replace('${ff_neo_version}',d['neo_version'])
     info=tomllib.loads(expanded)
-    assert info['mods'][0]['version']=='0.13.0-alpha'
+    assert info['mods'][0]['version']=='0.13.1-alpha'
     deps={x['modId']:x['versionRange'] for x in info['dependencies']['freakyfriday']}
     assert deps['minecraft']==f'[{mc}]'
     assert deps['neoforge']==f"[{d['neo_version']},)"
-    assert mc in f'freakyfriday-mc{mc}-neoforge-0.13.0-alpha.jar'
+    assert mc in f'freakyfriday-mc{mc}-neoforge-0.13.1-alpha.jar'
     print(f'PASS offline target profile: mc={mc} neo={d["neo_version"]} exact metadata + unique artifact naming')
 # Evidence: source trees include exactly one version hook with same binary name.
 assert all(sum(1 for x in (ROOT/f'src/platform/minecraft-{mc}/java').rglob('PlatformHooks.java'))==1 for mc in profiles)
