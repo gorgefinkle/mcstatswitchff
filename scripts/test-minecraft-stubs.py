@@ -533,24 +533,26 @@ public class BookInteractionHarness {
   var second=new PlayerInteractEvent.EntityInteract(p,cow);
   BookInteractions.onInteract(second);
   ok(second.isCanceled(),"second click consumes normal interaction");
-  ok(received(p,"Exchanged complete supported AI mind controllers"),
-     "cross-species first/second inputs reach dynamic swap without categories");
+  ok(received(p,"R0.14 hybrid native mind runner is not activated yet: NO swap"),
+     "unisolated native AI never claims a successful whole-mind swap");
   ok(villager.getAttributes().getInstance(armor).getBaseValue()==8
       && cow.getAttributes().getInstance(armor).getBaseValue()==2,
-     "body stats are not silently exchanged alongside minds");
+     "failed hybrid swap leaves physical body stats unchanged");
 
-  // The synthetic driver only tests book/session decisions. Real Goal capture
-  // is tested by DynamicObjectGraphSelfTest and actual NeoForge compilation.
+  // An unsupported second selection leaves the first selected. No donor AI
+  // should be ticked or its goals relocated by this research checkpoint.
   w.tick();
   LivingEntity unportable=new LivingEntity("OpaqueGoal",w);
-  BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,villager));
   BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,unportable));
-  ok(received(p,"Dynamic AI capture rejected the COMPLETE exchange"),
-     "opaque AI rejects the entire transaction without pretending success");
+  ok(received(p,"NO swap performed"),
+     "unknown modded goal is not silently executed or partially transplanted");
+  MindSwapSessions.cancel(p);
+  w.tick();
   LivingEntity anotherVillager=new LivingEntity("Villager",w);
   BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,anotherVillager));
-  ok(received(p,"Exchanged complete supported AI mind controllers"),
-     "after rejection, second-target replacement still works");
+  ok(received(p,"First body: Villager"),
+     "after explicit cancellation new first-body selection remains available");
+  MindSwapSessions.cancel(p);
 
   p.setMainHand(new Object());
   var noBook=new PlayerInteractEvent.EntityInteract(p,villager);
