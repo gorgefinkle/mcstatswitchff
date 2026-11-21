@@ -16,6 +16,7 @@ import dev.freakyfriday.core.CategoryOffers;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.network.chat.Component;
 public final class CategoryPickerNetworking {
+  public static void register(Object event) {}
   public static void open(ServerPlayer player,String name,Map<String,CategoryOffers.Offer> offers) {
     if(offers.isEmpty())throw new AssertionError("empty GUI offer snapshot");
     player.sendSystemMessage(Component.literal("Category GUI for " + name));
@@ -460,7 +461,12 @@ public static void main(String[] args){
 }''')
 (STUB/'dev/freakyfriday/FreakyFriday.java').unlink()
 # Full source compile from project, no fake project class.
-all_prod=list((ROOT/'src/main/java').rglob('*.java')) + list((ROOT/'src/platform/minecraft-26.2/java').rglob('*.java'))
+# The real NeoForge CI build compiles network codecs and native Screen classes.
+# They must not be passed to the legacy headless harness whose fake APIs do not
+# implement actual packet serialization, GUI rendering or client registration.
+real_api_only = {'CategoryPickerPayload.java','CategoryPickerNetworking.java',
+                 'CategoryPickerScreen.java','ClientCategoryPickerNetworking.java'}
+all_prod=[p for p in (ROOT/'src/main/java').rglob('*.java') if p.name not in real_api_only] + list((ROOT/'src/platform/minecraft-26.2/java').rglob('*.java'))
 full_cmd=['javac','-d',str(OUT)]+list(map(str,STUB.rglob('*.java')))+list(map(str,all_prod))
 subprocess.run(full_cmd,check=True)
 # Run the same simulation against the full mod class, not the surrogate book registrar.
