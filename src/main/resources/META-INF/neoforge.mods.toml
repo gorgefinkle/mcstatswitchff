@@ -1,0 +1,19 @@
+license="MIT"
+[[mods]]
+modId="freakyfriday"
+version="${ff_mod_version}"
+displayName="Freaky Friday"
+authors="Freaky Friday Project"
+description='''Exchange complete categories of numerical attributes with the Freaky Friday book.'''
+[[dependencies.freakyfriday]]
+modId="neoforge"
+type="required"
+versionRange="[${ff_neo_version},)"
+ordering="NONE"
+side="BOTH"
+[[dependencies.freakyfriday]]
+modId="minecraft"
+type="required"
+versionRange="[${ff_mc_version}]"
+ordering="NONE"
+side="BOTH"

@@ -1,0 +1,56 @@
+import java.util.Properties
+
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.148'
+}
+
+def selectedMinecraft = providers.gradleProperty('targetMinecraft').orElse('26.2').get()
+def selectedProfile = file("versions/minecraft-${selectedMinecraft}.properties")
+if (!selectedProfile.isFile()) {
+    throw new GradleException("Unsupported targetMinecraft=${selectedMinecraft}. Available profiles: 26.2, 26.3")
+}
+def profile = new Properties()
+selectedProfile.withInputStream { profile.load(it) }
+if (profile.getProperty('minecraft_version') != selectedMinecraft) {
+    throw new GradleException('Selected version does not match profile metadata')
+}
+
+group = 'dev.freakyfriday'
+version = '0.11.0-alpha'
+base { archivesName = "freakyfriday-mc${selectedMinecraft}-neoforge" }
+java.toolchain.languageVersion = JavaLanguageVersion.of(25)
+
+// Both targets compile the exact same generic engine and adapters.
+// Isolate version-specific hooks here; do not maintain separate forks of the mod.
+sourceSets.main.java.srcDir("src/platform/minecraft-${selectedMinecraft}/java")
+
+neoForge {
+    version = profile.getProperty('neo_version')
+    runs {
+        client { client() }
+        server { server(); programArgument '--nogui' }
+    }
+    mods { freakyfriday { sourceSet(sourceSets.main) } }
+}
+
+processResources {
+    inputs.property 'freakyFridayMcVersion', selectedMinecraft
+    inputs.property 'freakyFridayNeoVersion', profile.getProperty('neo_version')
+    inputs.property 'freakyFridayModVersion', project.version.toString()
+    filesMatching('META-INF/neoforge.mods.toml') {
+        expand(
+            ff_mc_version: selectedMinecraft,
+            ff_neo_version: profile.getProperty('neo_version'),
+            ff_mod_version: project.version.toString()
+        )
+    }
+}
+
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+tasks.register('showTarget') {
+    group = 'verification'
+    doLast {
+        println "FreakyFriday ${version} targets Minecraft ${selectedMinecraft} / NeoForge ${profile.getProperty('neo_version')}"
+    }
+}
