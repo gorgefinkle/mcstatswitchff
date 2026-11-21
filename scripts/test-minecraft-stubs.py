@@ -543,13 +543,21 @@ public static void main(String[] args) throws Exception{
  mc.player.main=new net.minecraft.world.item.ItemStack(FreakyFriday.BOOK.get());
  ClientBindings.tick(new ClientTickEvent.Post());
  if(mc.player.hints.isEmpty()||!mc.player.hints.get(0).contains("Ctrl+S"))throw new AssertionError("missing actionbar hint");
+ for(int i=0;i<400;i++)ClientBindings.tick(new ClientTickEvent.Post());
+ if(mc.player.hints.size()!=1)throw new AssertionError("book hint should not repeat while continuously held");
  // The hint must report a remapped key instead of hardcoding Ctrl+S.
  registration.registered.display="Alt+R";
  for(int i=0;i<201;i++)ClientBindings.tick(new ClientTickEvent.Post());
  if(!mc.player.hints.get(mc.player.hints.size()-1).contains("Alt+R"))throw new AssertionError("remapped hint not updated");
+ if(mc.player.hints.size()!=2)throw new AssertionError("key remap should trigger exactly one new hint");
  registration.registered.trigger();ClientBindings.tick(new ClientTickEvent.Post());
  if(!mc.player.connection.commands.contains("freakyfriday self")) throw new AssertionError("Ctrl+S did not select self");
  mc.player.connection.commands.clear();mc.player.main=new net.minecraft.world.item.ItemStack(new Object());
+ ClientBindings.tick(new ClientTickEvent.Post());
+ mc.player.main=new net.minecraft.world.item.ItemStack(FreakyFriday.BOOK.get());
+ ClientBindings.tick(new ClientTickEvent.Post());
+ if(mc.player.hints.size()!=3)throw new AssertionError("re-equipping the book should show the hint again");
+ mc.player.main=new net.minecraft.world.item.ItemStack(new Object());
  registration.registered.trigger();ClientBindings.tick(new ClientTickEvent.Post());
  if(!mc.player.connection.commands.isEmpty())throw new AssertionError("shortcut active without book");
  mc.player=null; ClientBindings.tick(new ClientTickEvent.Post());
