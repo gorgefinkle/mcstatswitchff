@@ -3,6 +3,7 @@ package dev.freakyfriday;
 import dev.freakyfriday.core.CategoryBundle;
 import dev.freakyfriday.core.CategoryDefinitions;
 import dev.freakyfriday.core.CategoryExchange;
+import dev.freakyfriday.core.CategoryOffers;
 import dev.freakyfriday.core.CategorySchema;
 import dev.freakyfriday.core.PermanentModifier;
 import java.util.ArrayList;
@@ -48,19 +49,39 @@ public final class AttributeCategorySwapper {
         values.sort(Comparator.comparing(e -> e.id));
         return values;
     }
-    public static Map<String, Integer> availableCategories(LivingEntity entity) {
-        Map<String, Integer> result = new LinkedHashMap<>();
+    /**
+     * Discover the first target's category membership from its real live
+     * AttributeInstances. This is an OFFER, not a claim that an unknown second
+     * entity can receive the category. Signature abilities are not advertised
+     * until executable behavior adapters exist.
+     */
+    public static Map<String, CategoryOffers.Offer> categoryOffers(LivingEntity entity) {
+        Map<String, Set<String>> observed = new LinkedHashMap<>();
         for (String category : CategoryDefinitions.GROUPS.keySet()) {
-            if (!CategoryDefinitions.numericCategories().contains(category)) continue;
-            int count = 0;
-            for (Entry entry : registered(category)) {
-                if (entity.getAttributes().getInstance(entry.holder) != null) count++;
-            }
-            if (CategoryDefinitions.VITALITY.id().equals(category)) count += 2; // live health + absorption
-            if (count > 0) result.put(category, count);
+            if (CategoryDefinitions.numericCategories().contains(category))
+                observed.put(category, new java.util.LinkedHashSet<>());
         }
-        return Collections.unmodifiableMap(result);
+        BuiltInRegistries.ATTRIBUTE.listElements().forEach(holder -> {
+            Identifier id = BuiltInRegistries.ATTRIBUTE.getKey(holder.value());
+            if (id == null || entity.getAttributes().getInstance(holder) == null) return;
+            String category = CategoryDefinitions.categoryFor(id.toString());
+            Set<String> members = observed.get(category);
+            if (members != null) members.add(id.toString());
+        });
+        // Vitality also contains actual mutable state, not just registry stats.
+        Set<String> vitality = observed.get(CategoryDefinitions.VITALITY.id());
+        vitality.add(CURRENT_HEALTH);
+        vitality.add(ABSORPTION);
+        return CategoryOffers.discover(observed);
     }
+
+    /** Backward-compatible category count API, derived from the same offers. */
+    public static Map<String, Integer> availableCategories(LivingEntity entity) {
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        categoryOffers(entity).forEach((id, offer) -> counts.put(id, offer.memberCount()));
+        return Collections.unmodifiableMap(counts);
+    }
+
     public static String exchange(LivingEntity first, LivingEntity second, String category) {
         if (!CategoryDefinitions.numericCategories().contains(category))
             return "Category not available for numerical swapping: " + category;
