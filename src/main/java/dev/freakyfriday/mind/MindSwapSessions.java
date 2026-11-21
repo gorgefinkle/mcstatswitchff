@@ -13,8 +13,9 @@ import net.minecraft.world.entity.LivingEntity;
  * One book, two bodies, no category choice. Everything is resolved on the
  * server; the client never provides a target UUID in a command.
  *
- * A pair is committed only if the whole-mind runtime validates and activates
- * both recipient Brains. Unsupported pairings receive an explicit diagnostic.
+ * R0.15.3 records a LOCKED diagnostic pair only. This experimental
+ * branch does not execute donor-native AI or commit a real mind swap.
+ * The book is still one select-first/select-second interaction sequence.
  */
 public final class MindSwapSessions {
     private MindSwapSessions() {}
