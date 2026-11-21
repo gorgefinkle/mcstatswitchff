@@ -107,6 +107,16 @@ public final class DynamicObjectGraphSelfTest {
         check(cloned.copy[0] == cloned.child, "alias identity preserved across arrays");
         check(cloned.marks.get("owner") == pig, "mapped members inside maps");
         check(nested.marks.get("owner") == cow, "donor graph unchanged");
+        // Two native GoalSelector roots may share a helper object. One graph
+        // traversal must retain that alias, not duplicate it per goal.
+        DynamicGoal[] twoRoots = new DynamicGoal[]{nested, nested.child, nested.child};
+        DynamicGoal[] clonedRoots =
+            DynamicObjectGraph.capture(twoRoots, DynamicGoal[].class, binding(cow, pig));
+        check(clonedRoots != twoRoots && clonedRoots[0] != nested,
+            "complete multi-selector graph cloned once");
+        check(((NestedGoal) clonedRoots[0]).child == clonedRoots[1]
+                && clonedRoots[1] == clonedRoots[2],
+            "shared state and repeated goal identities preserved across roots");
 
         var special = new SpecificGoal(new SpecialBody("original"));
         try {
