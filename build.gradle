@@ -124,3 +124,13 @@ tasks.register("runBodyCapabilityRegistrySelfTest", JavaExec) {
     enableAssertions = true
 }
 tasks.named('check') { dependsOn tasks.named('runBodyCapabilityRegistrySelfTest') }
+
+tasks.register("runNativeAiEffectSurveySelfTest", JavaExec) {
+    group = 'verification'
+    description = "Verify conservative classfile survey of potential modded AI world effects"
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.freakyfriday.mind.NativeAiEffectSurveySelfTest'
+    enableAssertions = true
+}
+tasks.named('check') { dependsOn tasks.named('runNativeAiEffectSurveySelfTest') }
