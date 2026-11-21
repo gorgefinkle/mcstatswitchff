@@ -387,12 +387,14 @@ public static class Items{public <T extends Item> DeferredItem<T> registerItem(S
 public void register(IEventBus bus){}}}''',
 'net/minecraft/commands/Commands.java':'''package net.minecraft.commands;
 import net.minecraft.server.level.ServerPlayer;
-public class Commands{public static Builder literal(String name){return new Builder();}
+public class Commands{public static final Object LEVEL_GAMEMASTERS=new Object();
+public static java.util.function.Predicate<Source> hasPermission(Object level){return source -> true;}
+public static Builder literal(String name){return new Builder();}
 public static Builder argument(String name,Object type){return new Builder();}
 public static class Context{public Source getSource(){return new Source();}}
 public static class Source {public ServerPlayer getPlayerOrException(){return null;}}
 @FunctionalInterface public interface Action{int run(Context ctx) throws Exception;}
-public static class Builder{public Builder then(Builder child){return this;}public Builder executes(Action action){return this;}}}''',
+public static class Builder{public Builder then(Builder child){return this;}public Builder requires(java.util.function.Predicate<Source> permission){return this;}public Builder executes(Action action){return this;}}}''',
 'com/mojang/brigadier/arguments/StringArgumentType.java':'''package com.mojang.brigadier.arguments;
 public final class StringArgumentType {public static Object word(){return new Object();}
 public static String getString(Object ctx,String name){return "mobility";}}''',
