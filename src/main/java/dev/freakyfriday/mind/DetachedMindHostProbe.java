@@ -6,11 +6,9 @@ import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.Mob;
 
 /**
- * Builds a real, donor-class Mob without registering/ticking it in the world.
- * Used ONLY by explicit disposable-world diagnostics.
- *
- * This is not a sandbox: arbitrary mod constructors/position updates can
- * perform unexpected effects even if the entity is never world-registered.
+ * Exact donor EntityType factory feasibility test. Never world-registers or
+ * ticks the detached entity. This is not an arbitrary-mod-code sandbox:
+ * constructors / class initializers / setPos may perform real world effects.
  */
 public final class DetachedMindHostProbe {
     private DetachedMindHostProbe() {}
@@ -23,81 +21,130 @@ public final class DetachedMindHostProbe {
     }
 
     public static Creation construct(Mob donor, Mob recipient) {
+        return construct(donor, recipient, ProbeTelemetry.newTrace());
+    }
+
+    public static Creation construct(Mob donor, Mob recipient, String trace) {
         if (donor == null || recipient == null || donor == recipient
                 || !donor.isAlive() || !recipient.isAlive()
                 || donor.level() != recipient.level()
                 || !(donor.level() instanceof ServerLevel level)) {
+            ProbeTelemetry.warn(trace, "constructor_reject",
+                "Invalid pair; distinct living NPC bodies in one ServerLevel required");
             return new Creation(null,
                 "Two different, alive NPCs must share the same loaded server world.");
         }
-        // This is the donor's real EntityType factory, not a hand-written
-        // cow/zombie/creeper/mobbed-pair constructor or a copied Goal graph.
-        // No spawn/finalizeSpawn, addFreshEntity, or AI tick is requested.
+        ProbeTelemetry.info(trace, "constructor_begin",
+            "donorId=%s donorType=%s donorClass=%s recipientId=%s recipientType=%s recipientClass=%s donorPos=%s recipientPos=%s donorHealth=%.2f recipientHealth=%.2f",
+            donor.getUUID(), donor.getType(), donor.getClass().getName(),
+            recipient.getUUID(), recipient.getType(), recipient.getClass().getName(),
+            donor.position(), recipient.position(),
+            donor.getHealth(), recipient.getHealth());
+
+        // The registered EntityType factory, never spawn/finalizeSpawn or tick.
         final Entity created;
         try {
             created = donor.getType().create(level, EntitySpawnReason.COMMAND);
-        } catch (Exception | LinkageError constructionFailure) {
+        } catch (Exception | LinkageError error) {
+            ProbeTelemetry.error(trace, "constructor_exception", error,
+                "Factory threw before a host was returned; original mob AI not executed");
             return new Creation(null, "Native donor factory failed: "
-                + constructionFailure.getClass().getSimpleName());
+                + error.getClass().getSimpleName() + " (trace " + trace + ")");
         }
-        if (!(created instanceof Mob host))
+        if (!(created instanceof Mob host)) {
+            ProbeTelemetry.warn(trace, "constructor_reject",
+                "Non-Mob or null donor factory result: %s",
+                created == null ? "null" : created.getClass().getName());
             return new Creation(null, "Donor factory did not create an NPC Mob.");
-        if (host.getClass() != donor.getClass())
-            return new Creation(null, "Donor factory returned a different Java class.");
-        if (host.getType() != donor.getType())
-            return new Creation(null, "Donor factory returned a different EntityType.");
-        if (host.getUUID().equals(donor.getUUID())
-                || host.getUUID().equals(recipient.getUUID()))
-            return new Creation(null, "New host unexpectedly shares an original body UUID.");
-        if (level.getEntity(host.getUUID()) != null)
-            return new Creation(null, "New host is ALREADY world registered; refuse.");
+        }
+
+        boolean exactClass = host.getClass() == donor.getClass();
+        boolean exactType = host.getType() == donor.getType();
+        boolean uniqueId = !host.getUUID().equals(donor.getUUID())
+            && !host.getUUID().equals(recipient.getUUID());
+        boolean detached = level.getEntity(host.getUUID()) == null;
+        ProbeTelemetry.info(trace, "constructor_result",
+            "hostId=%s class=%s type=%s exactClass=%s exactType=%s uniqueUUID=%s worldUnregistered=%s hostGoalCount=%d hostTargetCount=%d hostBrainActive=%s",
+            host.getUUID(), host.getClass().getName(), host.getType(),
+            exactClass, exactType, uniqueId, detached,
+            host.goalSelector.getAvailableGoals().size(),
+            host.targetSelector.getAvailableGoals().size(),
+            !host.getBrain().isBrainDead());
+
+        if (!exactClass) return reject(trace, "Donor factory returned a different Java class.");
+        if (!exactType) return reject(trace, "Donor factory returned a different EntityType.");
+        if (!uniqueId) return reject(trace, "Host shares an original body's UUID.");
+        if (!detached) return reject(trace,
+            "Host is ALREADY world registered; experimental construction unsafe.");
         return new Creation(host, null);
     }
 
+    private static Creation reject(String trace, String reason) {
+        ProbeTelemetry.warn(trace, "constructor_reject", "%s", reason);
+        return new Creation(null, reason);
+    }
+
     public static String inspect(Mob donor, Mob recipient) {
-        Creation candidate = construct(donor, recipient);
-        if (candidate.host() == null)
-            return "Detached donor host rejected: " + candidate.problem()
-                + " No host AI was ticked.";
+        String trace = ProbeTelemetry.newTrace();
+        Creation candidate = construct(donor, recipient, trace);
+        if (candidate.host() == null) {
+            ProbeTelemetry.warn(trace, "one_shot_abort", "reason=%s", candidate.problem());
+            return "Detached host rejected (" + trace + "): " + candidate.problem()
+                + ". No host AI was ticked.";
+        }
 
         Mob host = candidate.host();
         ServerLevel level = (ServerLevel) recipient.level();
-        final java.util.UUID recipientId = recipient.getUUID();
-        final String recipientType = recipient.getType().toString();
-        final float recipientHealth = recipient.getHealth();
-        final float recipientMaxHealth = recipient.getMaxHealth();
+        final java.util.UUID originalRecipientId = recipient.getUUID();
+        final String originalRecipientType = recipient.getType().toString();
+        final float originalHealth = recipient.getHealth();
+        final float originalMaxHealth = recipient.getMaxHealth();
 
         try {
-            // Position mirror only. A mod can override setPos, so this test
-            // must never be used on important worlds.
+            ProbeTelemetry.info(trace, "one_shot_before_setpos",
+                "hostPos=%s recipientPos=%s hostPresentInLevel=%s",
+                host.position(), recipient.position(),
+                level.getEntity(host.getUUID()) != null);
             host.setPos(recipient.getX(), recipient.getY(), recipient.getZ());
-            boolean unregistered = level.getEntity(host.getUUID()) == null;
-            boolean mirrored = host.position().distanceToSqr(recipient.position()) < 0.000001;
-            boolean physicalBodyIntact = recipient.getUUID().equals(recipientId)
-                && recipient.getType().toString().equals(recipientType)
-                && Float.compare(recipient.getHealth(), recipientHealth) == 0
-                && Float.compare(recipient.getMaxHealth(), recipientMaxHealth) == 0;
+            boolean detached = level.getEntity(host.getUUID()) == null;
+            double alignmentErrorSq = host.position().distanceToSqr(recipient.position());
+            boolean aligned = alignmentErrorSq < 0.000001;
+            boolean originalIntact = recipient.getUUID().equals(originalRecipientId)
+                && recipient.getType().toString().equals(originalRecipientType)
+                && Float.compare(recipient.getHealth(), originalHealth) == 0
+                && Float.compare(recipient.getMaxHealth(), originalMaxHealth) == 0;
 
-            return "Dual-instance host feasibility: donor=" + donor.getType()
-                + " recipient=" + recipient.getType()
-                + "; original donor Java class preserved=true"
-                + "; distinct host UUID=true"
-                + "; host NOT world-registered=" + unregistered
-                + "; host mirrored recipient position=" + mirrored
-                + "; original physical body intact=" + physicalBodyIntact
-                + "; goal counts donor/host="
-                + donor.goalSelector.getAvailableGoals().size() + "/"
-                + host.goalSelector.getAvailableGoals().size()
-                + "; target counts donor/host="
-                + donor.targetSelector.getAvailableGoals().size() + "/"
-                + host.targetSelector.getAvailableGoals().size()
-                + "; Brain active donor/host=" + !donor.getBrain().isBrainDead()
-                + "/" + !host.getBrain().isBrainDead()
-                + ". No ghost AI was ticked. Native AI isolation and "
-                + "world-effect-free construction remain UNVERIFIED.";
-        } catch (Exception | LinkageError issue) {
-            return "Detached host inspection failed without AI tick: "
-                + issue.getClass().getSimpleName();
+            String result = "trace=" + trace
+                + " donorType=" + donor.getType()
+                + " recipientType=" + recipient.getType()
+                + " hostType=" + host.getType()
+                + " hostUUID=" + host.getUUID()
+                + " registered=" + !detached
+                + " aligned=" + aligned
+                + " alignmentErrorSquared=" + alignmentErrorSq
+                + " bodyUnchanged=" + originalIntact
+                + " goalCountDonor=" + donor.goalSelector.getAvailableGoals().size()
+                + " goalCountHost=" + host.goalSelector.getAvailableGoals().size()
+                + " targetCountDonor=" + donor.targetSelector.getAvailableGoals().size()
+                + " targetCountHost=" + host.targetSelector.getAvailableGoals().size()
+                + " brainActiveDonor=" + !donor.getBrain().isBrainDead()
+                + " brainActiveHost=" + !host.getBrain().isBrainDead();
+            if (!detached || !aligned || !originalIntact)
+                ProbeTelemetry.warn(trace, "one_shot_result", "%s", result);
+            else
+                ProbeTelemetry.info(trace, "one_shot_result", "%s", result);
+            return "Dual-instance host feasibility (" + trace
+                + "): host NOT world-registered=" + detached
+                + "; host aligned=" + aligned
+                + "; recipient unchanged=" + originalIntact
+                + "; see latest.log [FF-PROBE] for detailed entity identities and AI counts."
+                + " Host AI never ticked; constructor effects are NOT sandboxed.";
+        } catch (Exception | LinkageError error) {
+            ProbeTelemetry.error(trace, "one_shot_exception", error,
+                "Host inspection / setPos failed; AI not ticked");
+            return "Detached host inspection failed (" + trace + "): "
+                + error.getClass().getSimpleName()
+                + ". Full stack trace in latest.log; no host AI tick.";
         }
     }
 }
