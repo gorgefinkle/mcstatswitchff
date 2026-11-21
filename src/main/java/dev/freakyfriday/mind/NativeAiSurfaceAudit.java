@@ -19,7 +19,7 @@ import net.minecraft.world.entity.ai.goal.WrappedGoal;
 public final class NativeAiSurfaceAudit {
     private NativeAiSurfaceAudit() {}
 
-    public record GoalInfo(int priority, String implementation) {}
+    public record GoalInfo(int priority, boolean running, String implementation) {}
     public record OverrideInfo(String declaringClass, String method) {}
     public record Report(String entityType, boolean brainActive,
                          List<GoalInfo> goals, List<GoalInfo> targeting,
@@ -37,9 +37,9 @@ public final class NativeAiSurfaceAudit {
                 + goals.size() + " goals, " + targeting.size()
                 + " target goals, active Brain=" + brainActive);
             for (GoalInfo goal : goals.stream().limit(6).toList())
-                lines.add("  goal [" + goal.priority() + "] " + goal.implementation());
+                lines.add("  goal [" + goal.priority() + "]" + (goal.running() ? " RUNNING " : " idle ") + goal.implementation());
             for (GoalInfo goal : targeting.stream().limit(6).toList())
-                lines.add("  target [" + goal.priority() + "] " + goal.implementation());
+                lines.add("  target [" + goal.priority() + "]" + (goal.running() ? " RUNNING " : " idle ") + goal.implementation());
             if (goals.size() > 6 || targeting.size() > 6)
                 lines.add("  additional goals omitted from chat display (count remains exact)");
             if (nativeOverrides.isEmpty()) {
@@ -57,7 +57,7 @@ public final class NativeAiSurfaceAudit {
     private static List<GoalInfo> goals(GoalSelector selector) {
         List<GoalInfo> result = new ArrayList<>();
         for (WrappedGoal wrapper : selector.getAvailableGoals()) {
-            result.add(new GoalInfo(wrapper.getPriority(),
+            result.add(new GoalInfo(wrapper.getPriority(), wrapper.isRunning(),
                 wrapper.getGoal().getClass().getName()));
         }
         result.sort((a,b) -> Integer.compare(a.priority(),b.priority()));
