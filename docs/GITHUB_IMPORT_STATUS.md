@@ -1,74 +1,88 @@
-# Freaky Friday — R0.11 source migration audit (November 21, 2026)
+# Freaky Friday — R0.11 GitHub migration acceptance report
+Date: 2026-11-21
 
-## Original archive recovered
+## Status: original archive complete; working branch builds verified
 
-Original user-provided `FreakyFriday_R0_11_Full_Source.zip` was inspected
-directly: 70 files, 198,096 compressed bytes, 362,866 uncompressed bytes.
+The user-provided `FreakyFriday_R0_11_Full_Source.zip` contains **70 files**.
+GitHub's `archive/r0.11-original` branch is an exact file-for-file
+snapshot, including its original DOCX, sources, reports and test programs.
+All 70 Git blob SHA-1 hashes were compared with the original archive:
+**70 matched, 0 missing, 0 extra**.
 
-Its original `scripts/self_audit.py` was run against the complete extracted
-archive and **passed** with local Java 21 for the synthetic tests:
+- Archive branch: `archive/r0.11-original`
+- Archive commit: `5597fc267edbf4125a5351426c5eb279bd47f68c`
+- Archive root tree: `d608d4e2460b9f140d538067f03b44cd3f28b622`
+- Original ZIP: 198,096 compressed bytes, 362,866 uncompressed bytes
 
-- CategoryExchangeSelfTest: 1,025 assertions plus 500 seeded fuzz rounds
-- BridgeHarness: 50 assertions
-- PortabilityHarness: 34 checks
-- BookInteractionHarness: 13 assertions
-- ClientKeyHarness: passed
-- Synthetic compilation of 16 production Java sources: passed
-- Both offline Minecraft profile tests: passed
-- JSON resources and R0.11 wiring assertions: passed
+The **main** branch is authoritative for active R0.12 development, and does
+not replace its working build/compatibility adjustments with older originals.
+Historical source and resources are accessible directly by switching to the
+archive branch. The main branch contains the original roadmap (Markdown and
+DOCX), R0.2–R0.10 audits, original test programs (with needed compatibility
+updates), Mojang API tests, and smoke-test procedures.
 
-These checks are *not* a real NeoForge build or live game test. Existing GitHub
-CI has separately produced successful builds for Minecraft 26.2 and 26.3.
+## Differences on main versus the immutable original
 
-## Direct GitHub imports verified byte-identical to the archive
+The original archive was compared against main. Before the two required
+test-harness compatibility changes, the comparison found 58 identical files,
+11 files intentionally updated by GitHub migration/build repairs, and
+one original disposable `logs/latest.log` not kept on main.
 
-- `scripts/self_audit.py` — original Git blob c9b2d8814be2cc943d53f458cd75df323313ee01
-- `scripts/build_doctor.py` — original Git blob fd31b7f774db0d40bcbecc83507f8c9ff3819621
-- `scripts/inspect-neoforge-api.py` — original Git blob 6b6c00d212d4603d327adf7249692873055df74b
+Updated files include `.gitignore`, the current README/build records,
+`build.gradle`, Gradle wrapper files, `ClientBindings.java`, and the
+book recipe. The original versions of every such file remain in the archive
+branch. The main-branch `scripts/test-minecraft-stubs.py` was subsequently
+updated to provide the GUI/HUD API already used by production code, and
+`scripts/self_audit.py` was updated to check `ClientKeyFactory` for the
+Ctrl+S modifier rather than looking for it in `ClientBindings`. These
+are compatibility changes to the test fixtures and static assertions, not
+changes to production gameplay code.
 
-## Remaining historical import
+The strict `scripts/audit-source-import.py` comparator correctly reports
+the intentional main-branch differences; it is **not** expected to report
+literal archive parity for main. For exact historical byte parity, compare
+the user ZIP against `archive/r0.11-original`.
 
-The original archive also includes historical R0.2–R0.10 audit reports,
-roadmap markdown and DOCX, smoke-test procedures, Mojang API test scripts,
-`scripts/java/MojangAttributeRuntimeTest.java`, and the full
-`scripts/test-minecraft-stubs.py` synthetic harness. Not all have been
-committed yet.
+## Verified GitHub Actions acceptance
 
-Do not claim full archive parity until this material is imported and audited.
-Do not overwrite existing updated GitHub files blindly: the original
-`ClientBindings.java`, book recipe, Gradle build, wrapper scripts and some
-docs differ from the current CI-capable repository.
+Successful run: https://github.com/gorgefinkle/mcstatswitchff/actions/runs/44887362310
 
-To import **only missing original files** from the archive without replacing
-working GitHub files:
+- Pure-Java core regression suite: PASS
+- Original synthetic Minecraft bridge/portability/book/client-key harness:
+  PASS (17 production Java sources compiled against synthetic API)
+- JSON/TOML and static-wiring audits: PASS
+- Version profiles for 26.2 and 26.3: PASS
+- Real NeoForge Gradle build for Minecraft 26.2: PASS
+- Real NeoForge Gradle build for Minecraft 26.3: PASS
+- JAR integrity, version metadata, required entries, SHA-256 reports: PASS
+- Separate GitHub build artifacts uploaded for both targets
 
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts/IMPORT_MISSING_R0_11_WINDOWS.ps1 -SourceZip "C:\\path\\FreakyFriday_R0_11_Full_Source.zip"
-```
+GitHub Actions automatically downloads Java 25, Gradle, ModDevGradle,
+Minecraft and NeoForge components. Gradle dependency caches are managed by
+Actions; **none of these large downloaded caches or installers need to be
+committed or exchanged by chat**. The Gradle wrapper scripts/JAR and
+source/resources stay under version control.
 
-Run the PowerShell launcher from the existing repository checkout; it
-resolves that checkout automatically from its own location.
+## Still not verified / R0.12 acceptance work
 
-After import, the launcher runs the recovered `self_audit.py` and commits
-and pushes only if it passes. Historical contents can be verified with:
+A successfully compiled mod is **not** an in-game acceptance pass. Live
+client and dedicated-server startup, multiplayer selection/swaps, arbitrary
+asymmetric category portability, persistence, and transferable executable
+abilities/AI remain to be implemented or physically verified.
+
+The historical Mojang 26.2 API test requires a vanilla server bundler as
+an explicit local argument; this optional test is not claimed as executed
+by the latest GitHub workflow. The runtime test and original source scripts
+are now present in GitHub.
+
+## Build commands
 
 ```bash
-python3 scripts/audit-source-import.py FreakyFriday_R0_11_Full_Source.zip
+sh scripts/test-core.sh
+python3 scripts/self_audit.py
+bash ./gradlew build -PtargetMinecraft=26.2 --no-daemon
+bash ./gradlew build -PtargetMinecraft=26.3 --no-daemon
 ```
 
-The strict comparison deliberately flags differences in already-updated
-repository files: inspect and justify those, rather than forcing old versions
-over the working CI code.
-
-## Resource policy
-
-GitHub tracks first-party source, runtime resources, version profiles,
-audit scripts, roadmap and tests. Java 25, Gradle, NeoForge, Minecraft jars
-and dependency caches are obtained through the wrapper/GitHub Actions.
-Historical runtime logs and build output are excluded.
-
-## R0.12 runtime gates remain open
-
-Live client/server startup, multiplayer state, full asymmetric entity
-attribute portability, and actual ability/AI ownership exchange remain
-unverified until real game tests are performed.
+The `main` branch is the buildable active project. The archive branch is the
+literal original historical snapshot, not an alternative development fork.
