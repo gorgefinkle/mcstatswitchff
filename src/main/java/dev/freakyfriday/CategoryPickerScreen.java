@@ -39,7 +39,7 @@ public final class CategoryPickerScreen extends Screen {
     protected void init() {
         int width = Math.min(260, this.width - 24);
         int left = (this.width - width) / 2;
-        int top = Math.max(14, (this.height - (rows.size() + 3) * 24) / 2);
+        int top = Math.max(14, (this.height - (rows.size() + 4) * 24) / 2);
         Button heading = Button.builder(Component.literal("Freaky Friday · " + target),
             b -> {}).bounds(left, top, width, 20).build();
         heading.active = false;
@@ -52,8 +52,12 @@ public final class CategoryPickerScreen extends Screen {
                 .bounds(left, y, width, 20).build());
             y += 24;
         }
+        Button pending = Button.builder(Component.literal("Transfer verified after second target"),
+            b -> {}).bounds(left, y + 2, width, 20).build();
+        pending.active = false;
+        this.addRenderableWidget(pending);
         this.addRenderableWidget(Button.builder(Component.literal("Cancel"),
-            b -> onClose()).bounds(left, y + 4, width, 20).build());
+            b -> onClose()).bounds(left, y + 27, width, 20).build());
     }
 
     private void choose(String categoryId) {
