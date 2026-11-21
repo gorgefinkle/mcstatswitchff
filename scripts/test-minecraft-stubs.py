@@ -10,6 +10,17 @@ DEST=ROOT/'build'/'stub-harness'; STUB=DEST/'stubs'; OUT=DEST/'classes'
 if DEST.exists(): shutil.rmtree(DEST)
 STUB.mkdir(parents=True,exist_ok=True); OUT.mkdir(parents=True,exist_ok=True)
 S={
+'dev/freakyfriday/CategoryPickerNetworking.java':'''package dev.freakyfriday;
+import java.util.Map;
+import dev.freakyfriday.core.CategoryOffers;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.network.chat.Component;
+public final class CategoryPickerNetworking {
+  public static void open(ServerPlayer player,String name,Map<String,CategoryOffers.Offer> offers) {
+    if(offers.isEmpty())throw new AssertionError("empty GUI offer snapshot");
+    player.sendSystemMessage(Component.literal("Category GUI for " + name));
+  }
+}''',
 'net/minecraft/resources/Identifier.java':'''package net.minecraft.resources;
 public record Identifier(String id) { public static Identifier parse(String id){if(id==null||!id.contains(":"))throw new IllegalArgumentException("bad id");return new Identifier(id);} public static Identifier withDefaultNamespace(String path){return new Identifier("minecraft:"+path);} public static Identifier tryParse(String id){return parse(id);} public String toString(){return id;} }''',
 'net/minecraft/core/Holder.java':'''package net.minecraft.core;
