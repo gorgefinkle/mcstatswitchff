@@ -153,7 +153,7 @@ public Entity getEntity(UUID id){return entities.get(id);} }''',
 import java.util.UUID;import net.minecraft.server.level.ServerLevel;import net.minecraft.network.chat.Component;
 public class Entity {private final UUID uuid=UUID.randomUUID();private final ServerLevel level;public final String name;
 public Entity(String name,ServerLevel l){this.name=name;level=l;l.add(this);}public UUID getUUID(){return uuid;}public ServerLevel level(){return level;}
-public Component getDisplayName(){return Component.literal(name);} }''',
+public Component getDisplayName(){return Component.literal(name);} public String getType(){return "mock:"+name;} }''',
 'net/minecraft/world/entity/LivingEntity.java':'''package net.minecraft.world.entity;
 import net.minecraft.server.level.ServerLevel;import net.minecraft.world.entity.ai.attributes.*;import net.minecraft.core.registries.BuiltInRegistries;
 public class LivingEntity extends Entity{private final AttributeMap attrs=new AttributeMap();private float health=20, absorption=0; private boolean alive=true; public float maxHealthPenalty=0;
