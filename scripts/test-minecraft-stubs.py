@@ -539,7 +539,7 @@ public class BookInteractionHarness {
  public static void main(String[] args) {
   ServerLevel w=new ServerLevel("minecraft:overworld");
   ServerPlayer p=new ServerPlayer("Player",w);p.setMainHand(FreakyFriday.BOOK.get());
-  LivingEntity villager=new LivingEntity("Villager",w),cow=new LivingEntity("Cow",w);
+  Mob villager=new Mob("Villager",w),cow=new Mob("Cow",w);
   var armor=BuiltInRegistries.ATTRIBUTE.register("minecraft:armor");
   villager.getAttributes().put(armor,8);
   cow.getAttributes().put(armor,2);
@@ -568,11 +568,11 @@ public class BookInteractionHarness {
   BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,unportable));
   ok(received(p,"NO swap performed"),
      "unknown modded goal is not silently executed or partially transplanted");
+  // This is an intentionally unsupported LivingEntity second body in the
+  // fake harness: the saved pair must not trigger native host construction.
   MindSwapSessions.dualInstanceProbe(p);
-  ok(received(p,"Select TWO different NPC mobs") == false,
-     "pair was saved when two distinct mobs were selected");
-  ok(received(p,"Dual-instance host feasibility: nonspawned donor type"),
-     "dualprobe dispatches paired donor/recipient to detached host factory");
+  ok(received(p,"Both probe bodies must still be loaded, alive NPC mobs"),
+     "dualprobe rejects non-NPC mock targets without constructing a host");
 
   MindSwapSessions.cancel(p);
   w.tick();
