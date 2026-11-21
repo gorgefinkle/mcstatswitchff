@@ -164,6 +164,35 @@ public final class MindSwapSessions {
         message(p, DetachedMindHostProbe.inspect(donor, recipient));
     }
 
+    /** Genuine 40-tick dual-instance LIFECYCLE test; the ghost AI is never ticked. */
+    public static void timedDualInstanceProbe(ServerPlayer p) {
+        if (!hasBook(p)) {
+            message(p, "Hold the Freaky Friday book for the detached-host mirror probe.");
+            return;
+        }
+        Pair pair = PAIRS.get(p.getUUID());
+        if (pair == null) {
+            message(p, "Select two different NPC mobs before /freakyfriday dualprobe40.");
+            return;
+        }
+        if (!pair.dimension.equals(p.level().dimension().identifier().toString())
+                || System.nanoTime() - pair.createdNanos > TIMEOUT_NANOS) {
+            PAIRS.remove(p.getUUID());
+            message(p, "The donor/recipient selection expired or changed dimension.");
+            return;
+        }
+        Entity first = p.level().getEntity(pair.donorBody());
+        Entity second = p.level().getEntity(pair.recipientBody());
+        if (!(first instanceof net.minecraft.world.entity.Mob donor)
+                || !(second instanceof net.minecraft.world.entity.Mob recipient)
+                || !donor.isAlive() || !recipient.isAlive()) {
+            PAIRS.remove(p.getUUID());
+            message(p, "Both pair members must be loaded, living NPC mobs.");
+            return;
+        }
+        message(p, DetachedHostMirrorProbe.start(p, donor, recipient));
+    }
+
     public static void selectFromInteraction(ServerPlayer p, LivingEntity target) {
         if (!hasBook(p)) return;
         Stamp stamp = new Stamp(target.getUUID(), p.level().getGameTime());
