@@ -29,23 +29,23 @@ public final class FFCommands {
                 MindSwapSessions.cancel(ctx.getSource().getPlayerOrException());
                 return 1;
             }))
-            .then(Commands.literal("inspect").executes(ctx -> {
+            .then(Commands.literal("inspect").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)).executes(ctx -> {
                 MindSwapSessions.inspect(ctx.getSource().getPlayerOrException());
                 return 1;
             }))
-            .then(Commands.literal("hostprobe").executes(ctx -> {
+            .then(Commands.literal("hostprobe").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)).executes(ctx -> {
                 MindSwapSessions.hostProbe(ctx.getSource().getPlayerOrException());
                 return 1;
             }))
-            .then(Commands.literal("hostprobe40").executes(ctx -> {
+            .then(Commands.literal("hostprobe40").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)).executes(ctx -> {
                 MindSwapSessions.timedHostProbe(ctx.getSource().getPlayerOrException());
                 return 1;
             }))
-            .then(Commands.literal("dualprobe").executes(ctx -> {
+            .then(Commands.literal("dualprobe").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)).executes(ctx -> {
                 MindSwapSessions.dualInstanceProbe(ctx.getSource().getPlayerOrException());
                 return 1;
             }))
-            .then(Commands.literal("dualprobe40").executes(ctx -> {
+            .then(Commands.literal("dualprobe40").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)).executes(ctx -> {
                 MindSwapSessions.timedDualInstanceProbe(ctx.getSource().getPlayerOrException());
                 return 1;
             })));
