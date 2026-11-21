@@ -555,7 +555,7 @@ public class BookInteractionHarness {
   ok(received(p,"Dual-instance host feasibility: nonspawned donor type"),
      "real paired book inputs reach non-ticking host diagnostic");
 
-  ok(received(p,"R0.14 hybrid native mind runner is not activated yet: NO swap"),
+  ok(received(p,"R0.15 dual-instance host experiment: NO swap"),
      "unisolated native AI never claims a successful whole-mind swap");
   ok(villager.getAttributes().getInstance(armor).getBaseValue()==8
       && cow.getAttributes().getInstance(armor).getBaseValue()==2,
