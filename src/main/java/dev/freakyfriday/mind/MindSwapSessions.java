@@ -20,6 +20,9 @@ public final class MindSwapSessions {
     private MindSwapSessions() {}
 
     private record Pending(UUID firstBody, String dimension, long startedNanos) {}
+    /** Last selected two-body candidate is a diagnostic, NOT a committed swap. */
+    private record Pair(UUID donorBody, UUID recipientBody, String dimension, long createdNanos) {}
+    private static final Map<UUID, Pair> PAIRS = new ConcurrentHashMap<>();
     private record Stamp(UUID target, long tick) {}
     private static final Map<UUID, Pending> PENDING = new ConcurrentHashMap<>();
     private static final Map<UUID, Stamp> LAST_INTERACTION = new ConcurrentHashMap<>();
@@ -47,10 +50,12 @@ public final class MindSwapSessions {
     public static void clearOnLogout(UUID playerId) {
         PENDING.remove(playerId);
         LAST_INTERACTION.remove(playerId);
+        PAIRS.remove(playerId);
     }
 
     public static void cancel(ServerPlayer p) {
         PENDING.remove(p.getUUID());
+        PAIRS.remove(p.getUUID());
         message(p, "Mind swap selection cancelled.");
     }
 
@@ -123,6 +128,42 @@ public final class MindSwapSessions {
         message(p, LiveBodyProbe.start(p, mob));
     }
 
+    /**
+     * Explicit diagnostic for the TWO selected bodies. The donor factory is
+     * called once to construct a detached host candidate. It is never added
+     * to the level or ticked; the real recipient body is never replaced.
+     *
+     * Construction/position methods of third-party mobs may still have
+     * side effects, so this experiment belongs in a disposable world.
+     */
+    public static void dualInstanceProbe(ServerPlayer p) {
+        if (!hasBook(p)) {
+            message(p, "Hold the Freaky Friday book for the dual-instance probe.");
+            return;
+        }
+        Pair pair = PAIRS.get(p.getUUID());
+        if (pair == null) {
+            message(p, "Select TWO different NPC mobs with the book before /freakyfriday dualprobe.");
+            return;
+        }
+        if (!pair.dimension.equals(p.level().dimension().identifier().toString())
+                || System.nanoTime() - pair.createdNanos > TIMEOUT_NANOS) {
+            PAIRS.remove(p.getUUID());
+            message(p, "The two-body probe selection expired or changed dimension.");
+            return;
+        }
+        Entity source = p.level().getEntity(pair.donorBody());
+        Entity target = p.level().getEntity(pair.recipientBody());
+        if (!(source instanceof net.minecraft.world.entity.Mob donor)
+                || !(target instanceof net.minecraft.world.entity.Mob recipient)
+                || !donor.isAlive() || !recipient.isAlive()) {
+            PAIRS.remove(p.getUUID());
+            message(p, "Both probe bodies must still be loaded, alive NPC mobs.");
+            return;
+        }
+        message(p, DetachedMindHostProbe.inspect(donor, recipient));
+    }
+
     public static void selectFromInteraction(ServerPlayer p, LivingEntity target) {
         if (!hasBook(p)) return;
         Stamp stamp = new Stamp(target.getUUID(), p.level().getGameTime());
@@ -146,6 +187,7 @@ public final class MindSwapSessions {
         }
         Pending pending = current(p);
         if (pending == null) {
+            PAIRS.remove(p.getUUID());
             PENDING.put(p.getUUID(), new Pending(target.getUUID(),
                 p.level().dimension().identifier().toString(), System.nanoTime()));
             message(p, "First body: " + target.getDisplayName().getString()
@@ -166,10 +208,13 @@ public final class MindSwapSessions {
         // Goal/Brain transplant. Until we can isolate native donor AI, that
         // would be a different (unsafe/unproven) engine and could appear to
         // succeed without actually exchanging full controllers.
-        message(p, "R0.14 hybrid native mind runner is not activated yet: NO swap "
-            + "performed between " + first.getDisplayName().getString()
+        PAIRS.put(p.getUUID(), new Pair(first.getUUID(), target.getUUID(),
+            p.level().dimension().identifier().toString(), System.nanoTime()));
+        message(p, "R0.15 dual-instance host experiment: NO swap performed between "
+            + first.getDisplayName().getString()
             + " and " + target.getDisplayName().getString()
-            + ". Use /freakyfriday inspect or /freakyfriday hostprobe to "
-            + "audit the selected first body, or /freakyfriday cancel.");
+            + ". Pair recorded for /freakyfriday dualprobe; the command constructs "
+            + "a non-spawned donor-type host and checks the visible recipient. "
+            + "Host AI is NEVER ticked. Use only in a disposable world.");
     }
 }
