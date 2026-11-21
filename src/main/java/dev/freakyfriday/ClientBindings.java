@@ -19,8 +19,8 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 public final class ClientBindings {
     private ClientBindings() {}
     private static final KeyMapping SELECT_SELF = ClientKeyFactory.create();
-    private static int hintTimer;
     private static boolean wasHolding;
+    private static String lastHintKey;
 
     @SubscribeEvent
     public static void registerKeys(RegisterKeyMappingsEvent event) {
@@ -32,7 +32,7 @@ public final class ClientBindings {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.player.connection == null) {
             wasHolding = false;
-            hintTimer = 0;
+            lastHintKey = null;
             return;
         }
         boolean holding = mc.player.getMainHandItem().is(FreakyFriday.BOOK.get())
@@ -41,12 +41,15 @@ public final class ClientBindings {
             if (holding && mc.gui.screen() == null)
                 mc.player.connection.sendCommand("freakyfriday self");
         }
-        if (holding && mc.gui.screen() == null && (!wasHolding || ++hintTimer >= 200)) {
-            hintTimer = 0;
+        // Show once per equip, and again if the user remaps the shortcut.
+        // Do not periodically overwrite other mods' action-bar messages.
+        String shownKey = SELECT_SELF.getTranslatedKeyMessage().getString();
+        if (holding && mc.gui.screen() == null && (!wasHolding || !shownKey.equals(lastHintKey))) {
             mc.gui.hud.setOverlayMessage(Component.literal("Freaky Friday: right-click mob or "
-                + SELECT_SELF.getTranslatedKeyMessage().getString() + " to select yourself"), true);
+                + shownKey + " to select yourself"), true);
+            lastHintKey = shownKey;
         }
-        if (!holding) hintTimer = 0;
+        if (!holding) lastHintKey = null;
         wasHolding = holding;
     }
 }
