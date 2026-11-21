@@ -10,6 +10,13 @@ DEST=ROOT/'build'/'stub-harness'; STUB=DEST/'stubs'; OUT=DEST/'classes'
 if DEST.exists(): shutil.rmtree(DEST)
 STUB.mkdir(parents=True,exist_ok=True); OUT.mkdir(parents=True,exist_ok=True)
 S={
+'dev/freakyfriday/mind/ProbeTelemetry.java':'''package dev.freakyfriday.mind;
+public final class ProbeTelemetry {
+ public static String newTrace(){return "SYNTHETIC";}
+ public static void info(String t,String p,String f,Object... v){}
+ public static void warn(String t,String p,String f,Object... v){}
+ public static void error(String t,String p,Throwable e,String detail){}
+}''',
 'net/minecraft/world/entity/Mob.java':'''package net.minecraft.world.entity;
 import net.minecraft.server.level.ServerLevel;
 public class Mob extends LivingEntity {
@@ -523,7 +530,7 @@ public static void main(String[] args){
 # The real NeoForge CI build compiles network codecs and native Screen classes.
 # They must not be passed to the legacy headless harness whose fake APIs do not
 # implement actual packet serialization, GUI rendering or client registration.
-real_api_only = {'NativeBrainSwap.java', 'GoalMindRuntime.java', 'MinecraftBodyPort.java', 'MinecraftHostProbe.java', 'LiveBodyProbe.java', 'DetachedMindHostProbe.java', 'DetachedHostMirrorProbe.java', 'NativeAiSurfaceAudit.java', 'CategoryPickerPayload.java','CategoryPickerNetworking.java',
+real_api_only = {'NativeBrainSwap.java', 'GoalMindRuntime.java', 'MinecraftBodyPort.java', 'MinecraftHostProbe.java', 'LiveBodyProbe.java', 'DetachedMindHostProbe.java', 'ProbeTelemetry.java', 'DetachedHostMirrorProbe.java', 'NativeAiSurfaceAudit.java', 'CategoryPickerPayload.java','CategoryPickerNetworking.java',
                  'CategoryPickerScreen.java','ClientCategoryPickerNetworking.java'}
 all_prod=[p for p in (ROOT/'src/main/java').rglob('*.java') if p.name not in real_api_only] + list((ROOT/'src/platform/minecraft-26.2/java').rglob('*.java'))
 full_cmd=['javac','-d',str(OUT)]+list(map(str,STUB.rglob('*.java')))+list(map(str,all_prod))
