@@ -10,6 +10,19 @@ DEST=ROOT/'build'/'stub-harness'; STUB=DEST/'stubs'; OUT=DEST/'classes'
 if DEST.exists(): shutil.rmtree(DEST)
 STUB.mkdir(parents=True,exist_ok=True); OUT.mkdir(parents=True,exist_ok=True)
 S={
+'net/minecraft/world/entity/Mob.java':'''package net.minecraft.world.entity;
+import net.minecraft.server.level.ServerLevel;
+public class Mob extends LivingEntity {
+ public Mob(String name, ServerLevel level){super(name,level);}
+}''',
+'dev/freakyfriday/mind/MinecraftHostProbe.java':'''package dev.freakyfriday.mind;
+import net.minecraft.server.level.ServerPlayer;import net.minecraft.world.entity.Mob;
+/** Headless probe stub only, real body port tested by NeoForge. */
+public final class MinecraftHostProbe {
+ public static String run(ServerPlayer p,Mob b){
+  return "Host action probe (SYNTHETIC; not native mind swap): mock "+b.name;
+ }
+}''',
 'dev/freakyfriday/mind/NativeAiSurfaceAudit.java':'''package dev.freakyfriday.mind;
 import java.util.List;import net.minecraft.world.entity.LivingEntity;
 /** Mock report only; real goal introspection is validated in NeoForge builds. */
@@ -482,7 +495,7 @@ public static void main(String[] args){
 # The real NeoForge CI build compiles network codecs and native Screen classes.
 # They must not be passed to the legacy headless harness whose fake APIs do not
 # implement actual packet serialization, GUI rendering or client registration.
-real_api_only = {'NativeBrainSwap.java', 'GoalMindRuntime.java', 'MinecraftBodyPort.java', 'NativeAiSurfaceAudit.java', 'CategoryPickerPayload.java','CategoryPickerNetworking.java',
+real_api_only = {'NativeBrainSwap.java', 'GoalMindRuntime.java', 'MinecraftBodyPort.java', 'MinecraftHostProbe.java', 'NativeAiSurfaceAudit.java', 'CategoryPickerPayload.java','CategoryPickerNetworking.java',
                  'CategoryPickerScreen.java','ClientCategoryPickerNetworking.java'}
 all_prod=[p for p in (ROOT/'src/main/java').rglob('*.java') if p.name not in real_api_only] + list((ROOT/'src/platform/minecraft-26.2/java').rglob('*.java'))
 full_cmd=['javac','-d',str(OUT)]+list(map(str,STUB.rglob('*.java')))+list(map(str,all_prod))
@@ -570,6 +583,14 @@ public class BookInteractionHarness {
   BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,villager));
   ok(p.messages.stream().filter(x->x.contains("First body:")).count()==selections+1,
      "after cancellation a new first body can be selected");
+  MindSwapSessions.cancel(p);
+  w.tick();
+  net.minecraft.world.entity.Mob probeMob =
+      new net.minecraft.world.entity.Mob("ProbeMob",w);
+  BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,probeMob));
+  MindSwapSessions.hostProbe(p);
+  ok(received(p,"Host action probe (SYNTHETIC; not native mind swap)"),
+     "book-selected native Mob probe reaches host without swapping minds");
   MindSwapSessions.cancel(p);
 
   var nonliving=new PlayerInteractEvent.EntityInteract(p,new Entity("Minecart",w));
