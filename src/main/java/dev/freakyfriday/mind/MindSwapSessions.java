@@ -143,15 +143,14 @@ public final class MindSwapSessions {
             message(p, "Choose a DIFFERENT second body.");
             return;
         }
-        String problem = NativeBrainSwap.exchange(first, target);
-        if (problem != null) {
-            message(p, problem + " Selection remains active; choose another body or cancel.");
-            return;
-        }
-        PENDING.remove(p.getUUID());
-        message(p, "Exchanged complete supported AI mind controllers between "
-            + first.getDisplayName().getString() + " and "
-            + target.getDisplayName().getString()
-            + ". Experimental: test in a disposable world; persistence is not verified.");
+        // R0.14 deliberately does NOT call the older R0.13 reflective
+        // Goal/Brain transplant. Until we can isolate native donor AI, that
+        // would be a different (unsafe/unproven) engine and could appear to
+        // succeed without actually exchanging full controllers.
+        message(p, "R0.14 hybrid native mind runner is not activated yet: NO swap "
+            + "performed between " + first.getDisplayName().getString()
+            + " and " + target.getDisplayName().getString()
+            + ". Use /freakyfriday inspect or /freakyfriday hostprobe to "
+            + "audit the selected first body, or /freakyfriday cancel.");
     }
 }
