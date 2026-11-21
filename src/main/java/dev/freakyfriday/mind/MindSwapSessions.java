@@ -104,6 +104,25 @@ public final class MindSwapSessions {
         message(p, MinecraftHostProbe.run(p, mob));
     }
 
+    /** Runs a bounded, real-Minecraft action uptake trace for the selected body. */
+    public static void timedHostProbe(ServerPlayer p) {
+        if (!hasBook(p)) {
+            message(p, "Hold the Freaky Friday book for the timed host probe.");
+            return;
+        }
+        Pending pending = current(p);
+        if (pending == null) {
+            message(p, "Select a living Mob with the book before /freakyfriday hostprobe40.");
+            return;
+        }
+        Entity selected = p.level().getEntity(pending.firstBody());
+        if (!(selected instanceof net.minecraft.world.entity.Mob mob)) {
+            message(p, "The selected body is not a loaded NPC Mob.");
+            return;
+        }
+        message(p, LiveBodyProbe.start(p, mob));
+    }
+
     public static void selectFromInteraction(ServerPlayer p, LivingEntity target) {
         if (!hasBook(p)) return;
         Stamp stamp = new Stamp(target.getUUID(), p.level().getGameTime());
