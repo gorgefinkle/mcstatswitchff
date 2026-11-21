@@ -109,7 +109,10 @@ public final class GoalMindRuntime {
                 // Levels, immutable positions and registry-owned values are
                 // world-owned or immutable and never cloned.
                 return value instanceof Entity || value instanceof Level
-                    || value instanceof BlockPos || value instanceof Vec3
+                    // Exact immutable position classes only. A mutable
+                    // BlockPos subclass would otherwise leak live AI state.
+                    || value.getClass() == BlockPos.class
+                    || value.getClass() == Vec3.class
                     || value instanceof Identifier || value instanceof TagKey<?>
                     || value instanceof Item;
             }
