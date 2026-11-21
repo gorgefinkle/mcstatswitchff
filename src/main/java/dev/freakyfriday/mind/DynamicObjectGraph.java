@@ -5,7 +5,6 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.EnumSet;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
@@ -57,7 +56,17 @@ public final class DynamicObjectGraph {
         Objects.requireNonNull(rebinding, "rebinding");
         if (source == null || !expected.isInstance(source))
             throw new Uncapturable("Missing or wrong-type AI root");
-        Object result = new Copier(rebinding).copy(source, 0);
+        final Object result;
+        try {
+            result = new Copier(rebinding).copy(source, 0);
+        } catch (Uncapturable unsupported) {
+            throw unsupported;
+        } catch (RuntimeException problem) {
+            // E.g. InaccessibleObjectException on a JDK-owned helper class.
+            // Never let an opaque field silently crash the game thread.
+            throw new Uncapturable("Cannot safely inspect and rebind the complete AI graph: "
+                + problem.getClass().getSimpleName(), problem);
+        }
         if (!expected.isInstance(result) || result == source)
             throw new Uncapturable("AI root was shared instead of captured");
         return (T) result;
