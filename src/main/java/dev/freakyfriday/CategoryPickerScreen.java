@@ -60,7 +60,7 @@ public final class CategoryPickerScreen extends Screen {
         if (minecraft != null && minecraft.player != null && minecraft.player.connection != null) {
             selected = true;
             minecraft.player.connection.sendCommand("freakyfriday category " + categoryId);
-            minecraft.setScreen(null);
+            minecraft.gui.setScreen(null);
         }
     }
 
