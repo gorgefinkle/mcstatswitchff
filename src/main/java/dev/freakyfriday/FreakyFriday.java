@@ -18,6 +18,7 @@ public final class FreakyFriday {
         ITEMS.register(modBus);
         modBus.addListener(PlatformHooks::addBookToCreativeTab);
         modBus.addListener(PortableAttributes::addToEntityTypes);
+        modBus.addListener(CategoryPickerNetworking::register);
         NeoForge.EVENT_BUS.register(FFCommands.class);
         NeoForge.EVENT_BUS.register(BookInteractions.class);
     }
