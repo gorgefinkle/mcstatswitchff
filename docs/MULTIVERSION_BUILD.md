@@ -10,6 +10,6 @@ Version matching is strict. Never install a 26.3 binary into a 26.2 server or vi
 
 The single `src/main/java` tree contains all generic category transaction and Minecraft-facing logic. Version-specific source is limited to `src/platform/minecraft-26.2/java` and `src/platform/minecraft-26.3/java` and must be expanded only when a real version-specific API difference is verified. We do not duplicate or fork the category engine. Matching version metadata is expanded at build time into `neoforge.mods.toml`.
 
-**Verification status at R0.11:** Minecraft 26.2 passed real Mojang server-side library checks with NeoForge API stubs. The full 26.2 NeoForge build and game testing were blocked in the assistant's offline environment. Neither target is certified playable by this historical audit. GitHub Actions is configured to attempt both profiles from an internet-connected runner.
+**Verification status:** Minecraft 26.2 has passed real Mojang *server-side* library checks with NeoForge API stubs. The full 26.2 NeoForge build and game testing remain blocked by unavailable Gradle/ModDevGradle dependencies. The 26.3 universal JAR establishes some API signatures but is **not** a full 26.3 development environment. Neither profile is certified playable yet. The two `PlatformHooks` implementations are initially the same because no change to that hook has been proven necessary; they still need genuine builds separately.
 
-Do not bundle the user-provided vanilla Mojang JAR, NeoForge universal JAR or the Java 25 installer into release source/JAR distributions.
+Do not bundle the user-provided vanilla Mojang JAR, NeoForge universal JAR or the Java 25 installer into release source/JAR distributions. Development assets remain separate.

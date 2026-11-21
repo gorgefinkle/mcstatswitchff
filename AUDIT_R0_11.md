@@ -8,23 +8,37 @@
 
 ## Changes
 
-1. Copied `gradlew`, `gradlew.bat`, `gradle/wrapper/gradle-wrapper.jar` and `gradle-wrapper.properties` from the official 26.2 MDK. Preserved Gradle 9.2.1 and ModDevGradle 2.0.148.
-2. Raised mod version to `0.11.0-alpha` without changing gameplay semantics.
-3. Updated the build doctor and helper scripts; added versioned handoff documentation and SHA-256 manifests.
+1. Copied `gradlew`, `gradlew.bat`, `gradle/wrapper/gradle-wrapper.jar` and `gradle-wrapper.properties` directly from the official 26.2 MDK. Preserved version `9.2.1` and ModDevGradle `2.0.148` from that official template.
+2. Raised mod source version to `0.11.0-alpha` without changing existing gameplay semantics.
+3. Updated the build doctor to use `GRADLE_BIN`, `GRADLE_HOME`, official wrapper or an installed Gradle; added an `--offline` flag and accurate BLOCKED vs FAIL diagnostic for missing plugins.
+4. Added `scripts/BUILD_WINDOWS.cmd`, `scripts/BUILD_LINUX.sh`, build-toolchain instructions, current status and a clean SHA-256 manifest.
 
-## Original R0.11 tests
+## Actually attempted build
 
-- `scripts/self_audit.py`: **PASS** locally, including 1,025 core assertions, 500 seeded randomized tests, 50 synthetic Minecraft integration checks, 34 portability checks, 13 book event checks, client input simulation and synthetic source compilation.
-- `scripts/test-mojang-api.py`: **PASS**, 15 production Java files compiled against real Minecraft 26.2 server classes with simulated NeoForge interfaces.
-- `scripts/test-mojang-attributes.py`: **PASS**, 25 actual Minecraft 26.2 attribute-instance assertions.
-- `scripts/inspect-neoforge-api.py`: **PASS**, six NeoForge 26.3 universal declarations checked (not equivalent to a development build).
-- `scripts/test-version-profiles.py`: **PASS**.
-- Full NeoForge build/gameplay: **BLOCKED** in the offline environment; no playable JAR claimed.
+The downloaded **Java 25** compiler and **Gradle 9.2.1** binary both launch. This command was actually executed:
 
-## Current GitHub migration
+`JAVA_HOME=<Java 25> GRADLE_HOME=<Gradle 9.2.1> python3 scripts/build_doctor.py --mc 26.2 --offline`
 
-The GitHub `build.yml` workflow executes the pure-Java and profile checks, then attempts real NeoForge 26.2 and 26.3 compilation on internet-connected GitHub runners. This historic R0.11 audit remains evidence of earlier local checks; GitHub CI results must be inspected separately.
+Gradle reached **project configuration**, then reported:
 
-## Unfinished
+`Plugin [id: 'net.neoforged.moddev', version: '2.0.148'] was not found`.
 
-Full asymmetric category portability, actual executable abilities/AI ownership transfer, persistence and multiplayer in-game tests. Phase 1 remains open.
+The missing plugin's metadata/artifacts and its transitive dependencies are not in the available Gradle cache. The container cannot DNS-resolve `plugins.gradle.org` or `maven.neoforged.net`. **This is a real attempt that was blocked before Java compilation, not a compile success.** An internet-connected build can populate the dependencies.
+
+## Tests run against R0.11
+
+- `scripts/self_audit.py`: **PASS**, including 1,025 core assertions, 500 seeded randomized tests, 50 synthetic Minecraft integration checks, 34 cross-species portability checks, 13 book event checks, client input simulation, and synthetic source compile.
+- `scripts/test-mojang-api.py <user Minecraft 26.2 bundler>`: **PASS** for 15 production Java files compiled against actual server classes, with NeoForge interfaces stubbed.
+- `scripts/test-mojang-attributes.py <user Minecraft 26.2 bundler>`: **PASS**, 25 live attribute-instance assertions with the real Minecraft library.
+- `scripts/inspect-neoforge-api.py <user NeoForge 26.3 universal jar>`: **PASS**, six declarations inspected. This does not prove 26.2 API compatibility or either version's real mod build.
+- `scripts/test-version-profiles.py`: **PASS**, still yields distinct 26.2 and 26.3 metadata/filenames.
+- Windows build helper: **not executable here**; batch script manually audited, and fixed errorlevel expansion using delayed expansion.
+- Real NeoForge build/client/dedicated server: **BLOCKED / NOT TESTED**.
+
+## Open requirements
+
+- Resolve full ModDevGradle/NeoForge 26.2 dependencies via internet-connected Gradle and run a real build.
+- Fix any compiler errors revealed by the real API, launch integrated and dedicated-server smoke tests, and verify book and keybinding behavior.
+- Full asymmetric category portability, abilities, persistence and version-26.3 support remain incomplete/unverified.
+
+This checkpoint is **source and toolchain only**. No JAR is included or claimed playable.

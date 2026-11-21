@@ -373,10 +373,7 @@ public class PlayerInteractEvent {
 import net.minecraft.world.item.ItemStack;import net.minecraft.network.chat.Component;
 import java.util.*;
 public class Minecraft {private static final Minecraft SELF=new Minecraft();public LocalPlayer player;public Object screen;
-public GUI gui=new GUI();
 public static Minecraft getInstance(){return SELF;}
-public static class GUI{public HUD hud=new HUD();public Object screen(){return Minecraft.getInstance().screen;}}
-public static class HUD{public void setOverlayMessage(Component msg,boolean actionbar){if(Minecraft.getInstance().player!=null)Minecraft.getInstance().player.hints.add(msg.getString());}}
 public static class LocalPlayer{public Connection connection=new Connection();public ItemStack main=new ItemStack(new Object()),off=new ItemStack(new Object());
 public final List<String> hints=new ArrayList<>();public ItemStack getMainHandItem(){return main;}public ItemStack getOffhandItem(){return off;}
 public void displayClientMessage(Component msg,boolean actionbar){hints.add(msg.getString());}}
