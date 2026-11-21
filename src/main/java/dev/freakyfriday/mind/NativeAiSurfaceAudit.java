@@ -3,6 +3,8 @@ package dev.freakyfriday.mind;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.List;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
@@ -23,11 +25,13 @@ public final class NativeAiSurfaceAudit {
     public record OverrideInfo(String declaringClass, String method) {}
     public record Report(String entityType, boolean brainActive,
                          List<GoalInfo> goals, List<GoalInfo> targeting,
-                         List<OverrideInfo> nativeOverrides) {
+                         List<OverrideInfo> nativeOverrides,
+                         List<String> effectCandidates) {
         public Report {
             goals = List.copyOf(goals);
             targeting = List.copyOf(targeting);
             nativeOverrides = List.copyOf(nativeOverrides);
+            effectCandidates = List.copyOf(effectCandidates);
         }
 
         /** NEVER say a count of goals proves a world-side-effect-free mind. */
@@ -49,7 +53,13 @@ public final class NativeAiSurfaceAudit {
                 for (OverrideInfo info : nativeOverrides.stream().limit(6).toList())
                     lines.add("  " + info.declaringClass() + "." + info.method());
             }
-            lines.add("  ISOLATION UNVERIFIED: native AI execution is not sandboxed");
+            lines.add("  Potential side-effect API references: " + effectCandidates.size());
+            for (String call : effectCandidates.stream().limit(8).toList())
+                lines.add("  candidate " + call);
+            if (effectCandidates.size() > 8)
+                lines.add("  remaining candidates omitted (full count above)");
+            lines.add("  ISOLATION UNVERIFIED: classfile references do not prove executed code "
+                + "and cannot detect all dynamic/indirect effects");
             return List.copyOf(lines);
         }
     }
@@ -87,7 +97,42 @@ public final class NativeAiSurfaceAudit {
                 }
             }
         }
+        Set<String> candidates = new LinkedHashSet<>();
+        Set<Class<?>> classes = new LinkedHashSet<>();
+        classes.add(mob.getClass());
+        classes.add(mob.getBrain().getClass());
+        for (var slot : mob.goalSelector.getAvailableGoals())
+            classes.add(slot.getGoal().getClass());
+        for (var slot : mob.targetSelector.getAvailableGoals())
+            classes.add(slot.getGoal().getClass());
+        // Include inherited native/goal code. Avoid loading arbitrary linked
+        // classes: this remains a bounded, read-only classfile survey.
+        Set<Class<?>> expanded = new LinkedHashSet<>();
+        for (Class<?> source : classes) {
+            for (Class<?> cls=source; cls != null && cls != Object.class
+                    && expanded.size() < 96; cls=cls.getSuperclass()) {
+                expanded.add(cls);
+            }
+        }
+        for (Class<?> cls : expanded) {
+            var survey = NativeAiEffectSurvey.inspect(cls);
+            if (!survey.bytesAvailable()) {
+                candidates.add("UNSCANNABLE " + cls.getName() + ": " + survey.limitation());
+                continue;
+            }
+            for (var effect : survey.candidates()) {
+                candidates.add(cls.getSimpleName() + " -> "
+                    + effect.className() + "." + effect.operation()
+                    + " (" + effect.concern() + ")");
+                if (candidates.size() >= 256) break;
+            }
+            if (candidates.size() >= 256) {
+                candidates.add("TRUNCATED: additional effects may exist");
+                break;
+            }
+        }
         return new Report(mob.getType().toString(), !mob.getBrain().isBrainDead(),
-            goals(mob.goalSelector), goals(mob.targetSelector), methods);
+            goals(mob.goalSelector), goals(mob.targetSelector), methods,
+            new ArrayList<>(candidates));
     }
 }
