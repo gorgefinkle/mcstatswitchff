@@ -8,16 +8,13 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.monster.Creeper;
 
 /**
- * The body side of a real Minecraft entity. Native entity identity, type,
- * attributes, geometry, loot and vanilla physical interactions stay untouched.
+ * Physical actions are registered by CAPABILITY, not by pairs of mob types.
+ * The body remains the actual original LivingEntity: health, native speed,
+ * interactions, loot, appearance, collision and UUID never change.
  *
- * This adapter provides the first small set of physical action dispatchers.
- * The AI runtime must translate mind decisions into these intents; this class
- * does NOT itself transplant goals, brains or player inputs.
- *
- * More physical abilities can be registered through further body-action ports.
- * These rules describe abilities of the recipient BODY, never allowed pairs
- * of donor/recipient mob types.
+ * Modded creatures may register additional actions dynamically. Registering
+ * a capability is NOT sufficient to sandbox that mod's AI decision code:
+ * a future isolated AI backend must still intercept side effects.
  */
 public final class MinecraftBodyPort implements BodyActionGate.BodyPort {
     public static final String MOVE_TO = "freakyfriday:move_to";
@@ -25,78 +22,87 @@ public final class MinecraftBodyPort implements BodyActionGate.BodyPort {
     public static final String JUMP = "freakyfriday:jump";
     public static final String DETONATE = "freakyfriday:detonate";
 
+    private static final BodyCapabilityRegistry<LivingEntity> CAPABILITIES =
+        new BodyCapabilityRegistry<>();
+
+    static {
+        CAPABILITIES.register(MOVE_TO, capability(Mob.class, (body, intent) -> {
+            double[] destination = target(intent.arguments());
+            double speed = parse(intent.arguments(), "speed", 1.0);
+            // This is a path speed multiplier; the receiving body still has
+            // its own movement speed, dimensions, physics and navigation.
+            if (speed <= 0 || speed > 2.0)
+                return BodyActionGate.Result.blocked("Invalid movement speed multiplier");
+            if (!body.getNavigation().moveTo(destination[0], destination[1], destination[2], speed))
+                return BodyActionGate.Result.blocked("Recipient body found no navigable path");
+            return BodyActionGate.Result.executed();
+        }));
+        CAPABILITIES.register(LOOK_AT, capability(Mob.class, (body, intent) -> {
+            double[] destination = target(intent.arguments());
+            body.getLookControl().setLookAt(destination[0], destination[1], destination[2]);
+            return BodyActionGate.Result.executed();
+        }));
+        CAPABILITIES.register(JUMP, capability(Mob.class, (body, intent) -> {
+            body.getJumpControl().jump();
+            return BodyActionGate.Result.executed();
+        }));
+        // This is a physical mechanism on a CREEPER BODY, not a creeper-mind
+        // donor-recipient pair. Modded explosion-capable bodies can register
+        // additional implementation(s) for this same action ID.
+        CAPABILITIES.register(DETONATE, capability(Creeper.class, (body, intent) -> {
+            body.ignite();
+            return BodyActionGate.Result.executed();
+        }));
+    }
+
     private final LivingEntity body;
 
     public MinecraftBodyPort(LivingEntity body) {
         this.body = Objects.requireNonNull(body, "body");
     }
 
-    @Override
-    public UUID id() {
-        return body.getUUID();
+    /** Third-party extensions register BODY action implementations, never mob pairs. */
+    public static void registerCapability(String actionId,
+            BodyCapabilityRegistry.Executor<LivingEntity> executor) {
+        CAPABILITIES.register(actionId, executor);
     }
+
+    private interface TypedAction<T extends LivingEntity> {
+        BodyActionGate.Result perform(T body, BodyActionGate.Intent intent);
+    }
+
+    private static <T extends LivingEntity> BodyCapabilityRegistry.Executor<LivingEntity>
+            capability(Class<T> bodyClass, TypedAction<T> implementation) {
+        return new BodyCapabilityRegistry.Executor<>() {
+            @Override public boolean supports(LivingEntity candidate) {
+                return bodyClass.isInstance(candidate);
+            }
+            @Override public BodyActionGate.Result perform(LivingEntity candidate,
+                                                           BodyActionGate.Intent intent) {
+                return implementation.perform(bodyClass.cast(candidate), intent);
+            }
+        };
+    }
+
+    @Override public UUID id() { return body.getUUID(); }
 
     @Override
     public boolean supports(String actionId) {
-        // Only Mob has these native controls, and only a creeper's physical
-        // body has the actual creeper fuse. Every other species may still
-        // have a mind that WANTS to explode; the request is unavailable.
-        return switch (actionId) {
-            case MOVE_TO, LOOK_AT, JUMP -> body instanceof Mob;
-            case DETONATE -> body instanceof Creeper;
-            default -> false;
-        };
+        return CAPABILITIES.supports(body, actionId);
     }
 
     @Override
     public BodyActionGate.Result perform(BodyActionGate.Intent intent) {
-        Objects.requireNonNull(intent, "intent");
-        if (!supports(intent.actionId()))
-            return new BodyActionGate.Result(BodyActionGate.Status.UNAVAILABLE,
-                "Body cannot execute " + intent.actionId());
         try {
-            switch (intent.actionId()) {
-                case MOVE_TO -> {
-                    Mob mob = (Mob) body;
-                    double[] target = target(intent.arguments());
-                    double speed = parse(intent.arguments(), "speed", 1.0);
-                    // Navigation speed is an instruction multiplier, not a
-                    // copied donor movement attribute. Actual physical speed
-                    // remains the receiving mob's own native attribute.
-                    if (speed <= 0 || speed > 2.0)
-                        return BodyActionGate.Result.blocked("Invalid movement speed multiplier");
-                    if (!mob.getNavigation().moveTo(target[0], target[1], target[2], speed))
-                        return BodyActionGate.Result.blocked("Body has no navigable path");
-                    return BodyActionGate.Result.executed();
-                }
-                case LOOK_AT -> {
-                    Mob mob = (Mob) body;
-                    double[] target = target(intent.arguments());
-                    mob.getLookControl().setLookAt(target[0], target[1], target[2]);
-                    return BodyActionGate.Result.executed();
-                }
-                case JUMP -> {
-                    ((Mob) body).getJumpControl().jump();
-                    return BodyActionGate.Result.executed();
-                }
-                case DETONATE -> {
-                    // This is the creeper BODY's own fuse mechanism. A cow
-                    // with a creeper mind is NOT granted this mechanism.
-                    ((Creeper) body).ignite();
-                    return BodyActionGate.Result.executed();
-                }
-                default -> {
-                    return new BodyActionGate.Result(BodyActionGate.Status.UNAVAILABLE,
-                        "Unknown physical body action");
-                }
-            }
+            return CAPABILITIES.execute(body, intent);
         } catch (IllegalArgumentException invalid) {
-            return BodyActionGate.Result.blocked("Invalid body action parameters: " + invalid.getMessage());
+            return BodyActionGate.Result.blocked(
+                "Invalid body action parameters: " + invalid.getMessage());
         }
     }
 
     private static double[] target(Map<String, String> params) {
-        return new double[]{
+        return new double[] {
             parse(params, "x", Double.NaN),
             parse(params, "y", Double.NaN),
             parse(params, "z", Double.NaN)
@@ -104,15 +110,15 @@ public final class MinecraftBodyPort implements BodyActionGate.BodyPort {
     }
 
     private static double parse(Map<String, String> params, String key, double fallback) {
-        double value;
+        final double number;
         try {
             String raw = params.get(key);
-            value = raw == null ? fallback : Double.parseDouble(raw);
+            number = raw == null ? fallback : Double.parseDouble(raw);
         } catch (NumberFormatException failure) {
             throw new IllegalArgumentException("Not a number: " + key, failure);
         }
-        if (!Double.isFinite(value))
+        if (!Double.isFinite(number))
             throw new IllegalArgumentException("Nonfinite coordinate or speed: " + key);
-        return value;
+        return number;
     }
 }
