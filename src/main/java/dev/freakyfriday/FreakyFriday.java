@@ -20,5 +20,6 @@ public final class FreakyFriday {
         modBus.addListener(PortableAttributes::addToEntityTypes);
         NeoForge.EVENT_BUS.register(FFCommands.class);
         NeoForge.EVENT_BUS.register(BookInteractions.class);
+        NeoForge.EVENT_BUS.register(dev.freakyfriday.mind.LiveBodyProbe.class);
     }
 }
