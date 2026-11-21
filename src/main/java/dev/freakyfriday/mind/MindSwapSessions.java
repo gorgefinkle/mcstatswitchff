@@ -217,6 +217,25 @@ public final class MindSwapSessions {
             message(p, "Both bodies must be in the same dimension.");
             return;
         }
+        // Once a two-body diagnostic pair is selected, further right-clicks
+        // must NEVER silently replace its recipient. The R0.15.2 real-world
+        // test exposed that exact problem (cow -> zombie overwritten by
+        // subsequent clicks, resulting in an unintended cow -> cow probe).
+        Pair locked = PAIRS.get(p.getUUID());
+        if (locked != null) {
+            if (locked.dimension().equals(p.level().dimension().identifier().toString())
+                    && System.nanoTime() - locked.createdNanos() <= TIMEOUT_NANOS) {
+                message(p, "Diagnostic pair is LOCKED. Further clicks cannot change it. "
+                    + "Run /freakyfriday dualprobe or dualprobe40; "
+                    + "use /freakyfriday cancel to choose a new pair.");
+                return;
+            }
+            PAIRS.remove(p.getUUID(), locked);
+            PENDING.remove(p.getUUID());
+            ProbeTelemetry.info("selection", "pair_expired",
+                "Removed expired/cross-dimension locked pair; new selection begins");
+        }
+
         Pending pending = current(p);
         if (pending == null) {
             PAIRS.remove(p.getUUID());
@@ -250,8 +269,9 @@ public final class MindSwapSessions {
         message(p, "R0.15 dual-instance host experiment: NO swap performed between "
             + first.getDisplayName().getString()
             + " and " + target.getDisplayName().getString()
-            + ". Pair recorded for /freakyfriday dualprobe; the command constructs "
-            + "a non-spawned donor-type host and checks the visible recipient. "
-            + "Host AI is NEVER ticked. Use only in a disposable world.");
+            + ". Pair LOCKED for /freakyfriday dualprobe and dualprobe40. "
+            + "Further book clicks cannot replace either body. "
+            + "Use /freakyfriday cancel before selecting another pair. "
+            + "Host AI is NEVER ticked; test only in a disposable world.");
     }
 }
