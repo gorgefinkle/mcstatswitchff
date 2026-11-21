@@ -31,6 +31,7 @@ def main():
         "dev/freakyfriday/mind/NativeAiSurfaceAudit.class",
         "dev/freakyfriday/mind/NativeAiEffectSurvey.class",
         "dev/freakyfriday/mind/MinecraftHostProbe.class",
+        "dev/freakyfriday/mind/LiveBodyProbe.class",
         "dev/freakyfriday/mind/MinecraftBodyPort.class",
         "dev/freakyfriday/mind/MindSwapSessions.class",
         "dev/freakyfriday/CategoryPickerPayload.class",
