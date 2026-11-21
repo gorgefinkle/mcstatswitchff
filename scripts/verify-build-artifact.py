@@ -18,6 +18,7 @@ def main():
         raise SystemExit(f"Wrong Minecraft variant: {jar}")
     required = {
         "META-INF/neoforge.mods.toml",
+        "META-INF/accesstransformer.cfg",
         "dev/freakyfriday/FreakyFriday.class",
         "dev/freakyfriday/AttributeCategorySwapper.class",
         "dev/freakyfriday/mind/MindLedger.class",
@@ -35,6 +36,9 @@ def main():
         missing = required - set(archive.namelist())
         if missing:
             raise SystemExit(f"Missing required mod entries: {sorted(missing)}")
+        access = archive.read("META-INF/accesstransformer.cfg").decode("utf-8")
+        if "public net.minecraft.world.entity.LivingEntity brain" not in access:
+            raise SystemExit("Whole-Brain access transformer missing or incorrect")
         metadata = archive.read("META-INF/neoforge.mods.toml").decode("utf-8")
         if "${ff_" in metadata:
             raise SystemExit("Unexpanded Gradle metadata placeholder")
