@@ -131,8 +131,36 @@ public final class NativeAiSurfaceAudit {
                 break;
             }
         }
-        return new Report(mob.getType().toString(), !mob.getBrain().isBrainDead(),
-            goals(mob.goalSelector), goals(mob.targetSelector), methods,
-            new ArrayList<>(candidates));
+        Report report = new Report(mob.getType().toString(),
+            !mob.getBrain().isBrainDead(),
+            goals(mob.goalSelector), goals(mob.targetSelector),
+            methods, new ArrayList<>(candidates));
+        String trace = ProbeTelemetry.newTrace();
+        ProbeTelemetry.info(trace, "ai_inspect_summary",
+            "entityId=%s entityType=%s javaClass=%s pos=%s goalCount=%d targetGoalCount=%d brainActive=%s overrideCount=%d effectCandidateCount=%d",
+            mob.getUUID(), mob.getType(), mob.getClass().getName(), mob.position(),
+            report.goals().size(), report.targeting().size(), report.brainActive(),
+            report.nativeOverrides().size(), report.effectCandidates().size());
+        for (GoalInfo goal : report.goals()) {
+            ProbeTelemetry.info(trace, "ai_goal",
+                "priority=%d running=%s implementation=%s",
+                goal.priority(), goal.running(), goal.implementation());
+        }
+        for (GoalInfo goal : report.targeting()) {
+            ProbeTelemetry.info(trace, "ai_target_goal",
+                "priority=%d running=%s implementation=%s",
+                goal.priority(), goal.running(), goal.implementation());
+        }
+        for (OverrideInfo override : report.nativeOverrides()) {
+            ProbeTelemetry.info(trace, "ai_native_override",
+                "declaringClass=%s method=%s",
+                override.declaringClass(), override.method());
+        }
+        for (String effect : report.effectCandidates()) {
+            ProbeTelemetry.info(trace, "ai_effect_candidate", "%s", effect);
+        }
+        ProbeTelemetry.warn(trace, "ai_inspect_limitation",
+            "This is a bounded static survey only. It is NOT a guarantee against real-world effects or a native AI execution sandbox.");
+        return report;
     }
 }
