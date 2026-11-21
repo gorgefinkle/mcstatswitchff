@@ -30,3 +30,36 @@ These are client simulation tests; they **do not** validate the feature in a run
 ## Build targets
 
 Java 25, NeoForge 26.2 first, 26.3 second; use the single shared production source and versioned Gradle profiles. GitHub Actions builds and core checks are mandatory per commit. Successful compilation does not imply any in-game acceptance.
+
+## R0.12.1 — dynamic source-grounded category offers (CI pending)
+
+The category choice must reflect a **live server observation**, not a static
+menu of imagined values. `AttributeCategorySwapper.categoryOffers(entity)`
+reads the entity's actual attribute instances from the registered attributes,
+classifies their registry IDs, and includes the two genuine live vitality
+values. It returns immutable whole-category offers with exact member IDs.
+
+`CategoryOffers.discover` offers only nonempty implemented numerical
+categories in stable category order. In particular, **Signature Abilities
+are excluded** until a working executable adapter and ownership lifecycle
+exist. The offer is not proof of compatibility with an as-yet-unselected second
+entity. The existing `CategoryExchange` transaction preflights both complete
+snapshots and rolls back on an inexact write; asymmetric unportable category
+schemas must fail rather than lose their surplus attributes.
+
+The current clickable chat picker now describes live observed counts and
+explicitly distinguishes **offered on the first target** from **safe to
+transfer between both targets**. The final dedicated client GUI and dynamic
+ability functionality are not yet implemented.
+
+The added `CategoryOffersSelfTest` checks missing/empty categories,
+unsupported abilities, immutable offers, modded member preservation,
+asymmetric schema rejection, and matching schema compatibility.
+`scripts/test-core.sh`, Gradle's `check`, and the synthetic Minecraft
+production compile exercise this new model.
+
+**Remaining subtleties:** The first-target menu cannot truthfully promise
+transfer success before the second target is known. Real in-game GUI and
+player-friendly two-target diagnostics need further implementation. Numerical
+attribute presence does not substantiate the behavioral effects of a trait
+such as flight; abilities remain unavailable until verified end-to-end.
