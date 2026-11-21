@@ -28,6 +28,10 @@ public final class FFCommands {
             .then(Commands.literal("cancel").executes(ctx -> {
                 MindSwapSessions.cancel(ctx.getSource().getPlayerOrException());
                 return 1;
+            }))
+            .then(Commands.literal("inspect").executes(ctx -> {
+                MindSwapSessions.inspect(ctx.getSource().getPlayerOrException());
+                return 1;
             })));
     }
 }
