@@ -124,17 +124,22 @@ public final class GoalMindRuntime {
             }
         };
 
-        List<Slot> goals = new ArrayList<>(donor.goals().size());
-        for (Slot entry : donor.goals()) {
-            Goal rebound = DynamicObjectGraph.capture(entry.goal(), Goal.class, rebinder);
-            goals.add(new Slot(entry.priority(), rebound));
-        }
+        // Capture the entire TWO-selector graph in one traversal, not one
+        // goal at a time. Nested references and shared helper instances must
+        // retain their original alias relationships across all goals.
+        int goalCount = donor.goals().size();
+        Goal[] roots = new Goal[goalCount + donor.targets().size()];
+        int index = 0;
+        for (Slot entry : donor.goals()) roots[index++] = entry.goal();
+        for (Slot entry : donor.targets()) roots[index++] = entry.goal();
+        Goal[] rebound = DynamicObjectGraph.capture(roots, Goal[].class, rebinder);
 
+        List<Slot> goals = new ArrayList<>(goalCount);
+        for (int i = 0; i < goalCount; i++)
+            goals.add(new Slot(donor.goals().get(i).priority(), rebound[i]));
         List<Slot> targets = new ArrayList<>(donor.targets().size());
-        for (Slot entry : donor.targets()) {
-            Goal rebound = DynamicObjectGraph.capture(entry.goal(), Goal.class, rebinder);
-            targets.add(new Slot(entry.priority(), rebound));
-        }
+        for (int i = 0; i < donor.targets().size(); i++)
+            targets.add(new Slot(donor.targets().get(i).priority(), rebound[goalCount + i]));
         return new Snapshot(goals, targets);
     }
 
