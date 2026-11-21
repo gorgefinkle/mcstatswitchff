@@ -74,3 +74,13 @@ coreChecks.each { checkName ->
 tasks.named('check') {
     dependsOn(coreChecks.collect { tasks.named("run${it}") })
 }
+
+tasks.register("runMindLedgerSelfTest", JavaExec) {
+    group = 'verification'
+    description = "Verify whole-mind ownership exchange across all three pairing modes"
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.freakyfriday.mind.MindLedgerSelfTest'
+    enableAssertions = true
+}
+tasks.named('check') { dependsOn tasks.named('runMindLedgerSelfTest') }
