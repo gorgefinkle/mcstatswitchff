@@ -27,6 +27,7 @@ def main():
         "dev/freakyfriday/mind/DynamicObjectGraph.class",
         "dev/freakyfriday/mind/BodyActionGate.class",
         "dev/freakyfriday/mind/MindHostEngine.class",
+        "dev/freakyfriday/mind/BodyCapabilityRegistry.class",
         "dev/freakyfriday/mind/NativeAiSurfaceAudit.class",
         "dev/freakyfriday/mind/MinecraftBodyPort.class",
         "dev/freakyfriday/mind/MindSwapSessions.class",
