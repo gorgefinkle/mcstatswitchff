@@ -24,7 +24,7 @@ public final class MindHostEngineSelfTest {
         final List<String> executed = new ArrayList<>();
         Body(long id, String type, double speed, double maxHealth,
              String loot, String physicalInteraction, String... supported) {
-            this.identity = id(id);
+            this.identity = MindHostEngineSelfTest.id(id);
             this.type = type;
             this.speed = speed;
             this.maxHealth = maxHealth;
