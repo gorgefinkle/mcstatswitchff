@@ -4,7 +4,7 @@ modId="freakyfriday"
 version="${ff_mod_version}"
 displayName="Freaky Friday"
 authors="Freaky Friday Project"
-description='''Exchange complete categories of numerical attributes with the Freaky Friday book.'''
+description='''Experimental dual-instance mind host prototype. Test unspawned donor-class AI hosts while physical mob bodies remain unchanged. No full mind swap yet.'''
 [[dependencies.freakyfriday]]
 modId="neoforge"
 type="required"
