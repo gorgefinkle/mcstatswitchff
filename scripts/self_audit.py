@@ -35,6 +35,12 @@ assert (root/'src/main/java/dev/freakyfriday/mind/LiveBodyProbe.java').exists()
 assert (root/'src/main/java/dev/freakyfriday/mind/DetachedMindHostProbe.java').exists()
 assert (root/'src/main/java/dev/freakyfriday/mind/DetachedHostMirrorProbe.java').exists()
 assert (root/'src/main/java/dev/freakyfriday/mind/ProbeTelemetry.java').exists()
+probe_source = (root/'src/main/java/dev/freakyfriday/mind/DetachedHostMirrorProbe.java').read_text()
+assert 'mirror_tick' in probe_source and 'mirror_finished' in probe_source and 'registration_violation' in probe_source
+assert 'EntityJoinLevelEvent' in probe_source and 'event.setCanceled(true)' in probe_source
+inspect_source = (root/'src/main/java/dev/freakyfriday/mind/NativeAiSurfaceAudit.java').read_text()
+assert 'ai_inspect_summary' in inspect_source and 'ai_goal' in inspect_source and 'ai_effect_candidate' in inspect_source
+
 assert 'ProbeTelemetry.info' in (root/'src/main/java/dev/freakyfriday/mind/DetachedMindHostProbe.java').read_text()
 assert 'ProbeTelemetry.info' in (root/'src/main/java/dev/freakyfriday/mind/DetachedHostMirrorProbe.java').read_text()
 assert 'ProbeTelemetry.info' in (root/'src/main/java/dev/freakyfriday/mind/LiveBodyProbe.java').read_text()
