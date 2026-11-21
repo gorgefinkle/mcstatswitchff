@@ -1,4 +1,4 @@
-# Freaky Friday — R0.15.0 Dual-Instance Native Host Feasibility
+# Freaky Friday — R0.15.1 Dual-Instance Native Host Feasibility
 
 **Development branch:** `feature/native-mind-host-poc`  
 **Minecraft targets:** 26.2 and 26.3 / NeoForge / Java 25
@@ -12,7 +12,11 @@ body. It keeps its own health, speed, model, milking/shearing behavior, loot,
 inventory and collision.
 
 **Test:** In a disposable world hold the book, select donor then recipient,
-and issue `/freakyfriday dualprobe`. The command constructs an unspawned
+and issue `/freakyfriday dualprobe`. After that, run
+`/freakyfriday dualprobe40` to retain the detached donor-class instance
+across **40 real recipient entity ticks** while mirroring its position
+without executing its AI. The report checks that the host stays absent
+from the server world's entity registry and the original body is unchanged. The command constructs an unspawned
 donor-type candidate and reports whether its Java class/EntityType matches,
 its UUID remains absent from the world, its location can be aligned to the
 recipient, and its native goals/Brain are initialized. It does **not** tick
