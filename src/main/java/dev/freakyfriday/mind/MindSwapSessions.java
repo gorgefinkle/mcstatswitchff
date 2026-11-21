@@ -34,6 +34,9 @@ public final class MindSwapSessions {
     }
 
     private static void message(ServerPlayer p, String text) {
+        // Command and selection diagnostics must survive chat history clearing.
+        // Full per-tick results have their own correlated trace identifiers.
+        ProbeTelemetry.info("selection", "message", "%s", text);
         p.sendSystemMessage(Component.literal("[Freaky Friday] " + text));
     }
 
@@ -239,6 +242,11 @@ public final class MindSwapSessions {
         // succeed without actually exchanging full controllers.
         PAIRS.put(p.getUUID(), new Pair(first.getUUID(), target.getUUID(),
             p.level().dimension().identifier().toString(), System.nanoTime()));
+        ProbeTelemetry.info("selection", "pair_selected",
+            "donorType=%s donorId=%s donorClass=%s recipientType=%s recipientId=%s recipientClass=%s dimension=%s",
+            first.getType(), first.getUUID(), first.getClass().getName(),
+            target.getType(), target.getUUID(), target.getClass().getName(),
+            p.level().dimension().identifier());
         message(p, "R0.15 dual-instance host experiment: NO swap performed between "
             + first.getDisplayName().getString()
             + " and " + target.getDisplayName().getString()
