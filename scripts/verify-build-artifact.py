@@ -20,6 +20,10 @@ def main():
         "META-INF/neoforge.mods.toml",
         "dev/freakyfriday/FreakyFriday.class",
         "dev/freakyfriday/AttributeCategorySwapper.class",
+        "dev/freakyfriday/CategoryPickerPayload.class",
+        "dev/freakyfriday/CategoryPickerNetworking.class",
+        "dev/freakyfriday/ClientCategoryPickerNetworking.class",
+        "dev/freakyfriday/CategoryPickerScreen.class",
         "assets/freakyfriday/lang/en_us.json",
         "data/freakyfriday/recipe/book.json",
     }
