@@ -114,3 +114,13 @@ tasks.register("runMindHostEngineSelfTest", JavaExec) {
     enableAssertions = true
 }
 tasks.named('check') { dependsOn tasks.named('runMindHostEngineSelfTest') }
+
+tasks.register("runBodyCapabilityRegistrySelfTest", JavaExec) {
+    group = 'verification'
+    description = "Prove action-based mod extensions without source-target species rules"
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.freakyfriday.mind.BodyCapabilityRegistrySelfTest'
+    enableAssertions = true
+}
+tasks.named('check') { dependsOn tasks.named('runBodyCapabilityRegistrySelfTest') }
