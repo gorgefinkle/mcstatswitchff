@@ -262,7 +262,7 @@ public static void main(String[] args){
 }
 }
 ''')
-prod=[ROOT/'src/main/java/dev/freakyfriday/core/CategoryExchange.java',ROOT/'src/main/java/dev/freakyfriday/core/PermanentModifier.java',ROOT/'src/main/java/dev/freakyfriday/core/CategoryBundle.java',ROOT/'src/main/java/dev/freakyfriday/core/CategoryDefinitions.java',ROOT/'src/main/java/dev/freakyfriday/core/CategorySchema.java',ROOT/'src/main/java/dev/freakyfriday/AttributeModifierTransfer.java',ROOT/'src/main/java/dev/freakyfriday/AttributeCategorySwapper.java',ROOT/'src/main/java/dev/freakyfriday/SwapSessions.java',ROOT/'src/main/java/dev/freakyfriday/FreakyFridayBookItem.java']
+prod=[ROOT/'src/main/java/dev/freakyfriday/core/CategoryExchange.java',ROOT/'src/main/java/dev/freakyfriday/core/PermanentModifier.java',ROOT/'src/main/java/dev/freakyfriday/core/CategoryBundle.java',ROOT/'src/main/java/dev/freakyfriday/core/CategoryDefinitions.java',ROOT/'src/main/java/dev/freakyfriday/core/CategorySchema.java',ROOT/'src/main/java/dev/freakyfriday/core/CategoryOffers.java',ROOT/'src/main/java/dev/freakyfriday/AttributeModifierTransfer.java',ROOT/'src/main/java/dev/freakyfriday/AttributeCategorySwapper.java',ROOT/'src/main/java/dev/freakyfriday/SwapSessions.java',ROOT/'src/main/java/dev/freakyfriday/FreakyFridayBookItem.java']
 cmd=['javac','-d',str(OUT)]+list(map(str,STUB.rglob('*.java')))+list(map(str,prod))
 subprocess.run(cmd,check=True)
 subprocess.run(['java','-ea','-cp',str(OUT),'dev.freakyfriday.BridgeHarness'],check=True)
