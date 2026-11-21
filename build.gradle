@@ -60,7 +60,7 @@ tasks.register('showTarget') {
 // Execute all three assertions under `check` so a successful build is contingent
 // on passing them, rather than silently skipping the actual regression suite.
 tasks.named('test', Test) { failOnNoDiscoveredTests = false }
-def coreChecks = ['CategoryExchangeSelfTest', 'CategoryDefinitionsSelfTest', 'CategorySchemaSelfTest']
+def coreChecks = ['CategoryExchangeSelfTest', 'CategoryDefinitionsSelfTest', 'CategorySchemaSelfTest', 'CategoryOffersSelfTest']
 coreChecks.each { checkName ->
     tasks.register("run${checkName}", JavaExec) {
         group = 'verification'
