@@ -6,3 +6,4 @@ javac -d build/core-test src/main/java/dev/freakyfriday/core/*.java src/test/jav
 java -ea -cp build/core-test dev.freakyfriday.core.CategoryExchangeSelfTest
 java -ea -cp build/core-test dev.freakyfriday.core.CategoryDefinitionsSelfTest
 java -ea -cp build/core-test dev.freakyfriday.core.CategorySchemaSelfTest
+java -ea -cp build/core-test dev.freakyfriday.core.CategoryOffersSelfTest
