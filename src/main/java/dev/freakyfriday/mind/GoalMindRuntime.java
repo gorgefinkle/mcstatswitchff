@@ -2,15 +2,11 @@ package dev.freakyfriday.mind;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.animal.Animal;
-import net.minecraft.world.entity.animal.cow.AbstractCow;
 import net.minecraft.world.entity.animal.pig.Pig;
 import net.minecraft.world.entity.ai.goal.BreedGoal;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
@@ -46,7 +42,6 @@ public final class GoalMindRuntime {
     private GoalMindRuntime() {}
 
     private static final MindLedger OWNERS = new MindLedger();
-    private static final Map<UUID, String> PROFILES = new HashMap<>();
 
     /** Exact class + priority is important; the pig has TWO priority-4 tempt goals. */
     private record GoalEntry(int priority, Goal goal) {}
@@ -140,11 +135,9 @@ public final class GoalMindRuntime {
         try {
             if (!OWNERS.snapshot().containsKey(a)) {
                 OWNERS.registerOriginal(a, new MindLedger.Mind(a, MindLedger.Kind.NPC, nativeA.name()));
-                PROFILES.put(a, nativeA.name());
             }
             if (!OWNERS.snapshot().containsKey(b)) {
                 OWNERS.registerOriginal(b, new MindLedger.Mind(b, MindLedger.Kind.NPC, nativeB.name()));
-                PROFILES.put(b, nativeB.name());
             }
             mindA = Profile.valueOf(OWNERS.controlling(a).nativeProfile());
             mindB = Profile.valueOf(OWNERS.controlling(b).nativeProfile());
