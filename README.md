@@ -1,4 +1,41 @@
-# Freaky Friday — Whole Mind Swap (R0.13 development branch)
+# Freaky Friday — R0.14 Native Mind Host Feasibility
+
+**Current branch:** `feature/native-mind-host-poc`. This is a serious engineering
+checkpoint toward dynamically running one mob's **actual native AI** while
+routing its requests to a different, fully unchanged physical body.
+
+## R0.14 checkpoint — what actually works
+
+- `MindHostEngine`: bounded read-only decision frames, once-per-tick
+  execution, reciprocal whole-mind ownership, exact body-owned traits,
+  safe capture rejection, honest partial-execution reporting.
+- `BodyCapabilityRegistry`: mods register executable physical actions by
+  namespaced **capability**, not by species pair. Multiple providers can
+  support one action when their recipient bodies have the mechanism.
+- `MinecraftBodyPort`: real native movement, look, jump and creeper-fuse
+  operations now use the capability registry. Extensions can call
+  `MinecraftBodyPort.registerCapability(...)`.
+- `NativeAiSurfaceAudit`: a real, read-only inspection of any selected
+  vanilla/modded mob's actual goal classes, priorities, running status,
+  target goals, Brain status and subclass methods outside the selectors.
+  Hold book → choose one mob → `/freakyfriday inspect`.
+- New core tests cover two unlike mock minds, body invariance, reverse,
+  capture overflow/failure, duplicate tick prevention and modded actions.
+
+**Do not overread the milestone:** The host kernel is currently supplied with
+isolated *synthetic* decision sources. It does **not** invoke a real donor
+`Mob.serverAiStep` or arbitrary modded Goal/Brain code in a sandbox. Native
+AI can perform arbitrary world mutations while ticking; hiding or detaching
+the donor entity would not make that safe. A verified interception layer and
+recipient observation proxy remain the next substantive engineering gates.
+The old R0.13 experimental book swap path remains for comparison; this new
+kernel is not yet connected to that book's two-target gameplay.
+
+Read [the full isolation feasibility audit](docs/R0_14_NATIVE_HOST_FEASIBILITY.md).
+Build and tests are not gameplay proof.
+
+---
+
 
 **New gameplay direction:** One book, two living bodies, **exchange their complete minds/controllers**. No stat-category picker in the final experience.
 
