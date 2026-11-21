@@ -11,9 +11,11 @@ The new source of truth for the redesign is [docs/WHOLE_MIND_SWAP_R0_13.md](docs
 
 ### Important status distinction
 
-This branch now has a **two-click, category-free book workflow** and two AI runtimes: a native `Brain` exchange for compatible same-species Brain-driven mobs, plus a **first cross-species cow ↔ pig whole-goal AI exchange**. The cow/pig route rebuilds every recognized donor goal against the other living body, including all temptation rules and priorities. It refuses unknown or mismatched goal sets rather than skipping them. Both runtime controllers are tracked through a server-side mind ledger. This is an **experimental in-game test candidate**, not a universal mind-swap release.
+The book now uses **two-click, category-free selection**, with a **dynamic runtime capturer** for goal-driven NPCs. `GoalMindRuntime` scans both native goal selectors, captures every actual goal and its nested state, and attempts to rebind donor-owned references to the recipient as one complete graph. There is no cow/pig profile table, no mob whitelist, and no fallback that quietly skips unsupported goals. A separate same-class native-`Brain` path remains available.
 
-**Not yet supported:** arbitrary cross-species Goal/Brain rebinding, most goal-driven mobs, player↔player or player↔mob control, reliable save/reload/death lifecycle, multiplayer behavior validation. **Test only in a disposable world** until those gates pass. See [cow/pig cross-species test plan](docs/R0_13_CROSS_SPECIES_GOAL_PROOF.md) and [native Brain proof](docs/R0_13_NATIVE_BRAIN_PROOF.md).
+**Status: experimental.** This proves a dynamic capture strategy and compiling integration, **not** that every mob's AI can be executed in an arbitrary body. Source-specific cast/method expectations, `Brain` activities, hardwired AI outside selectors, player input, and world persistence remain major unsolved gates. Test only in a disposable world; a field-level rejection is intentional when a goal cannot be safely rebound.
+
+See [dynamic AI capture architecture and acceptance gates](docs/R0_13_DYNAMIC_AI_CAPTURE.md). The prior [cow/pig hardcoded prototype](docs/R0_13_CROSS_SPECIES_GOAL_PROOF.md) is **superseded**, not the current implementation.
 
 The existing R0.12 numerical-category prototype remains on [main](../../tree/main) as a known buildable reference. The historical original is preserved on [archive/r0.11-original](../../tree/archive/r0.11-original).
 
