@@ -63,3 +63,39 @@ transfer success before the second target is known. Real in-game GUI and
 player-friendly two-target diagnostics need further implementation. Numerical
 attribute presence does not substantiate the behavioral effects of a trait
 such as flight; abilities remain unavailable until verified end-to-end.
+
+## R0.12.2 — Broad categories and first native picker (build gate in progress)
+
+The player-facing category catalog is intentionally compact: **Vitality,
+Movement & Body, Combat, Defense, Other Traits**. **Signature Abilities**
+remains unavailable until working, fully transferable behavior ownership exists.
+
+Movement and physical-body attributes are combined in one atomic numerical
+category; previously separate unclassified vanilla and modded categories use
+Other Traits. No individual stat choices or bespoke mob pair menus were added.
+The category ID and full member set are determined by registered attribute IDs
+and actual AttributeInstances observed on the first target.
+
+When the first target is selected, `CategoryPickerNetworking` sends the
+server-generated offer snapshot to a small client-only
+`CategoryPickerScreen`. Its buttons use the existing
+`/freakyfriday category <id>` command, which always revalidates
+the server session, living target and available category. Escape/Cancel
+issues a server-side cancel; `/freakyfriday categories` reopens the picker,
+and explicit category/cancel commands remain available.
+
+This is a **server-backed UI snapshot**, not a claim of ability portability,
+live multiplayer synchronization, or verified GUI runtime. The second target
+is still preflighted by the transactional exchange engine at commit time.
+An unportable member rejects the entire category, rather than being silently
+excluded. The independent synthetic Minecraft harness does not fake native
+26.x networking; the real NeoForge 26.2/26.3 CI builds must compile it.
+
+The old chat message saying to choose a category still supplies stage
+instructions, but category buttons now live in the GUI rather than a spammy
+chat list.
+
+**Pending acceptance:** Real client opens the UI; dedicated server loads
+without client-side classes; category selection, Escape cancel, target death,
+reconnect, stale sessions, modded attributes and actual reciprocal transfers
+work in-game. A compiled client/server jar is not proof of these behaviors.
