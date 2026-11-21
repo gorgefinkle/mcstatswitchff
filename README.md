@@ -1,7 +1,29 @@
-# Freaky Friday — R0.14.2 Native Mind Host Feasibility
+# Freaky Friday — R0.15.0 Dual-Instance Native Host Feasibility
 
 **Development branch:** `feature/native-mind-host-poc`  
 **Minecraft targets:** 26.2 and 26.3 / NeoForge / Java 25
+
+## New R0.15 architecture experiment
+
+The candidate system now physically instantiates a **second NPC object of
+the donor's exact EntityType** without adding it to the world. The existing
+recipient NPC remains the only visible, registered, physically interactive
+body. It keeps its own health, speed, model, milking/shearing behavior, loot,
+inventory and collision.
+
+**Test:** In a disposable world hold the book, select donor then recipient,
+and issue `/freakyfriday dualprobe`. The command constructs an unspawned
+donor-type candidate and reports whether its Java class/EntityType matches,
+its UUID remains absent from the world, its location can be aligned to the
+recipient, and its native goals/Brain are initialized. It does **not** tick
+the new host, change either real body, or perform a mind swap.
+
+Entity constructors and position methods in unfamiliar mods can themselves
+affect the live world. This experiment is not yet a safe sandbox and must
+only be used in disposable worlds; do not treat a passing report as proof
+that the original donor AI can safely execute.
+
+See [the R0.15 dual-instance test and safety gate](docs/R0_15_DETACHED_DUAL_INSTANCE_PROOF.md).
 
 ## Intended gameplay
 
