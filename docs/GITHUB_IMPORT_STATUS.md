@@ -1,54 +1,75 @@
-# Freaky Friday — R0.11 repository migration status
+# Freaky Friday — R0.11 source migration audit (November 21, 2026)
 
-Repository: `gorgefinkle/mcstatswitchff` (private)
+## Original archive recovered
 
-## Verified in repository
+Original user-provided `FreakyFriday_R0_11_Full_Source.zip` was inspected
+directly: 70 files, 198,096 compressed bytes, 362,866 uncompressed bytes.
 
-- Production Java source and the generic category-exchange engine
-- Version-specific NeoForge 26.2 and 26.3 adapters
-- Mod metadata, book resources, recipes, and English localization
-- Java 25 / Gradle 9.2.1 wrapper and version profiles
-- Core Java regression tests and GitHub Actions build matrix
-- CI artifacts for separate Minecraft versions, with dependency caches managed by Actions
-- JAR integrity/metadata checks and SHA-256 manifests in the current workflow
+Its original `scripts/self_audit.py` was run against the complete extracted
+archive and **passed** with local Java 21 for the synthetic tests:
 
-## Historical archive reconciliation: OPEN
+- CategoryExchangeSelfTest: 1,025 assertions plus 500 seeded fuzz rounds
+- BridgeHarness: 50 assertions
+- PortabilityHarness: 34 checks
+- BookInteractionHarness: 13 assertions
+- ClientKeyHarness: passed
+- Synthetic compilation of 16 production Java sources: passed
+- Both offline Minecraft profile tests: passed
+- JSON resources and R0.11 wiring assertions: passed
 
-The original `FreakyFriday_R0_11_Full_Source.zip` is the historical source of truth,
-but its contents are not available in this repository. The previous offline
-R0.11 audit documents additional scripts, including:
+These checks are *not* a real NeoForge build or live game test. Existing GitHub
+CI has separately produced successful builds for Minecraft 26.2 and 26.3.
 
-- `scripts/self_audit.py`
-- `scripts/test-mojang-api.py`
-- `scripts/test-mojang-attributes.py`
-- `scripts/inspect-neoforge-api.py`
+## Direct GitHub imports verified byte-identical to the archive
 
-These historical scripts are **not currently tracked in this repository**.
-Do not mark their historical assertions as run by GitHub CI.
-Do not substitute invented replacements and claim original parity.
+- `scripts/self_audit.py` — original Git blob c9b2d8814be2cc943d53f458cd75df323313ee01
+- `scripts/build_doctor.py` — original Git blob fd31b7f774db0d40bcbecc83507f8c9ff3819621
+- `scripts/inspect-neoforge-api.py` — original Git blob 6b6c00d212d4603d327adf7249692873055df74b
 
-To perform a source-by-source hash reconciliation, obtain the original ZIP
-once and run from the repository root:
+## Remaining historical import
 
-```bash
-python3 scripts/audit-source-import.py FreakyFriday_R0_11_Full_Source.zip --output build/reports/r011-import-audit.json
+The original archive also includes historical R0.2–R0.10 audit reports,
+roadmap markdown and DOCX, smoke-test procedures, Mojang API test scripts,
+`scripts/java/MojangAttributeRuntimeTest.java`, and the full
+`scripts/test-minecraft-stubs.py` synthetic harness. Not all have been
+committed yet.
+
+Do not claim full archive parity until this material is imported and audited.
+Do not overwrite existing updated GitHub files blindly: the original
+`ClientBindings.java`, book recipe, Gradle build, wrapper scripts and some
+docs differ from the current CI-capable repository.
+
+To import **only missing original files** from the archive without replacing
+working GitHub files:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/IMPORT_MISSING_R0_11_WINDOWS.ps1 -SourceZip "C:\\path\\FreakyFriday_R0_11_Full_Source.zip"
 ```
 
-The audit returns nonzero if original noncache files are missing or differ.
-It records GitHub-only files separately. Inspect differences, import originals
-that remain relevant, and rerun before declaring historical archive parity.
-Keep the original ZIP out of Git; Git should contain extracted project sources,
-needed tools and test assets, not opaque redundant archives.
+Run the PowerShell launcher from the parent directory containing (or intended
+to contain) a `mcstatswitchff` checkout. If already inside a checkout,
+provide `-RepoDirectory "."`.
 
-## Build verification versus runtime verification
+After import, the launcher runs the recovered `self_audit.py` and commits
+and pushes only if it passes. Historical contents can be verified with:
 
-A successful GitHub Actions build proves its Gradle tasks passed, not
-that multiplayer swaps, portability across modded species, or ability/AI
-transfer work in a running game. Physical client and dedicated-server
-testing remains an independent R0.12 acceptance requirement.
+```bash
+python3 scripts/audit-source-import.py FreakyFriday_R0_11_Full_Source.zip
+```
 
-## No repeated large dependency transfers
+The strict comparison deliberately flags differences in already-updated
+repository files: inspect and justify those, rather than forcing old versions
+over the working CI code.
 
-The Gradle wrapper and version profiles are committed. GitHub Actions obtains
-Java, Minecraft, NeoForge, ModDevGradle and caches from their upstream sources.
-Do not commit per-run caches, JDK installers or third-party binary distributions.
+## Resource policy
+
+GitHub tracks first-party source, runtime resources, version profiles,
+audit scripts, roadmap and tests. Java 25, Gradle, NeoForge, Minecraft jars
+and dependency caches are obtained through the wrapper/GitHub Actions.
+Historical runtime logs and build output are excluded.
+
+## R0.12 runtime gates remain open
+
+Live client/server startup, multiplayer state, full asymmetric entity
+attribute portability, and actual ability/AI ownership exchange remain
+unverified until real game tests are performed.
