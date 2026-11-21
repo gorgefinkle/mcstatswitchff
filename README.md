@@ -1,4 +1,4 @@
-# Freaky Friday — R0.14.1 Native Mind Host Feasibility
+# Freaky Friday — R0.14.2 Native Mind Host Feasibility
 
 **Development branch:** `feature/native-mind-host-poc`  
 **Minecraft targets:** 26.2 and 26.3 / NeoForge / Java 25
@@ -14,7 +14,7 @@ actual anatomy and abilities determine whether it can execute.
 No hand-written source-species / recipient-species pairing table.
 Modded bodies may register physical capabilities by action ID.
 
-## What R0.14.1 implements
+## What R0.14.2 implements
 
 - `MindHostEngine`: isolated-decision **interface**, reciprocal controller
   ownership, bounded actions, one frame per body per tick, explicit failures
@@ -28,6 +28,11 @@ Modded bodies may register physical capabilities by action ID.
   through the new host and body port, reports accepted/blocked actions,
   and verifies body UUID, type and health didn't change. This is a physical
   execution probe, **not a donor AI swap**, and native Mob AI can override it.
+- **`/freakyfriday hostprobe40`**: after selecting a real Mob,
+  executes a bounded synthetic action source over 40 real entity ticks
+  and reports actual displacement, physical body invariants and native
+  body-command outcomes. The mob's normal AI remains enabled, so observed
+  displacement is not automatically caused by the probe.
 - **`/freakyfriday inspect`**: after selecting a Mob, prints its actual
   goal/target goal classes, priorities and running status, Brain activity,
   subclass AI overrides, and **possible world-effect API references**
@@ -44,15 +49,15 @@ original Goal/Brain/subclass code without physical world side effects is
 **not implemented**. An ordinary hidden or unspawned Mob can still modify
 a real Level through Java calls. That is the critical next engineering gate.
 
-Until native effects are isolated, **selecting two book targets in R0.14.1
+Until native effects are isolated, **selecting two book targets in R0.14.2
 does not claim or perform a complete mind swap**. It provides a clear
 diagnostic instead of invoking the earlier experimental reflective
 Goal/Brain transplant. That original proof remains available on
-`feature/whole-mind-swap` for comparison. R0.14.1 does not provide full
+`feature/whole-mind-swap` for comparison. R0.14.2 does not provide full
 cross-species swaps, player control, world persistence, or multiplayer
 runtime validation.
 
-See [R0.14.1 runtime probe and effect audit](docs/R0_14_1_LIVE_PROBE_AND_EFFECT_AUDIT.md)
+See [R0.14.2 timed real-body probe](docs/R0_14_2_TIMED_BODY_PROBE.md) and [R0.14.1 effect audit](docs/R0_14_1_LIVE_PROBE_AND_EFFECT_AUDIT.md)
 and [native mind-host feasibility and acceptance gates](docs/R0_14_NATIVE_HOST_FEASIBILITY.md).
 Neither CI compilation nor synthetic tests are proof of in-game AI behavior.
 
