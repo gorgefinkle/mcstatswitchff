@@ -472,7 +472,7 @@ public static void main(String[] args){
 # The real NeoForge CI build compiles network codecs and native Screen classes.
 # They must not be passed to the legacy headless harness whose fake APIs do not
 # implement actual packet serialization, GUI rendering or client registration.
-real_api_only = {'NativeBrainSwap.java', 'CategoryPickerPayload.java','CategoryPickerNetworking.java',
+real_api_only = {'NativeBrainSwap.java', 'GoalMindRuntime.java', 'CategoryPickerPayload.java','CategoryPickerNetworking.java',
                  'CategoryPickerScreen.java','ClientCategoryPickerNetworking.java'}
 all_prod=[p for p in (ROOT/'src/main/java').rglob('*.java') if p.name not in real_api_only] + list((ROOT/'src/platform/minecraft-26.2/java').rglob('*.java'))
 full_cmd=['javac','-d',str(OUT)]+list(map(str,STUB.rglob('*.java')))+list(map(str,all_prod))
@@ -520,7 +520,7 @@ public class BookInteractionHarness {
   // prove live AI transplantation: that is the separate NeoForge runtime gate.
   LivingEntity anotherVillager=new LivingEntity("Villager",w);
   BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,anotherVillager));
-  ok(received(p,"Exchanged complete native Brains"),
+  ok(received(p,"Exchanged complete supported AI mind controllers"),
      "two clicks can commit an admissible whole-mind pairing");
 
   p.setMainHand(new Object());
