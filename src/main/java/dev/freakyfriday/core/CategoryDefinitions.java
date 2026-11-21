@@ -8,32 +8,30 @@ import java.util.Set;
 
 /**
  * One selector swaps the WHOLE category. These rules classify registered attribute IDs;
- * unknown modded attributes remain discoverable under "modded", never silently dropped.
+ * unknown attributes remain discoverable under "modded" (Other Traits), never silently dropped.
  * Third-party integrations may override classification before registration is frozen.
  */
 public final class CategoryDefinitions {
     private CategoryDefinitions() {}
     public record Group(String id, String label) {}
     public static final Group VITALITY = new Group("vitality", "Vitality");
-    public static final Group MOBILITY = new Group("mobility", "Mobility");
+    public static final Group MOBILITY = new Group("mobility", "Movement & Body");
     public static final Group COMBAT = new Group("combat", "Combat");
     public static final Group DEFENSE = new Group("defense", "Defense");
-    public static final Group PHYSICAL = new Group("physical", "Physical Traits");
-    public static final Group UTILITY = new Group("utility", "Other Vanilla Stats");
-    public static final Group MODDED = new Group("modded", "Modded Stats");
+    public static final Group MODDED = new Group("modded", "Other Traits");
     // Deliberately not selectable until real ability/behavior transfer is implemented.
     public static final Group SIGNATURE = new Group("signature", "Signature Abilities");
     public static final Map<String, Group> GROUPS;
     private static final Map<String, String> ASSIGNMENTS = new LinkedHashMap<>();
     static {
         Map<String,Group> groups = new LinkedHashMap<>();
-        for (Group g : new Group[]{VITALITY,MOBILITY,COMBAT,DEFENSE,PHYSICAL,UTILITY,MODDED,SIGNATURE}) groups.put(g.id(),g);
+        for (Group g : new Group[]{VITALITY,MOBILITY,COMBAT,DEFENSE,MODDED,SIGNATURE}) groups.put(g.id(),g);
         GROUPS = Collections.unmodifiableMap(groups);
         assign(VITALITY, "max_health", "max_absorption", "oxygen_bonus", "healing_efficiency");
         assign(MOBILITY, "movement_speed", "flying_speed", "jump_strength", "gravity", "step_height", "safe_fall_distance", "fall_damage_multiplier", "sneaking_speed", "movement_efficiency", "water_movement_efficiency", "submerged_mining_speed", "mining_efficiency");
         assign(COMBAT, "attack_damage", "attack_speed", "attack_knockback", "attack_range", "entity_interaction_range", "block_interaction_range", "sweeping_damage_ratio");
         assign(DEFENSE, "armor", "armor_toughness", "knockback_resistance", "explosion_knockback_resistance", "burning_time", "enchantment_effectiveness");
-        assign(PHYSICAL, "scale", "block_break_speed");
+        assign(MOBILITY, "scale", "block_break_speed");
     }
     private static void assign(Group group, String... paths) {
         for (String path : paths) ASSIGNMENTS.put("minecraft:" + path,group.id());
@@ -51,7 +49,7 @@ public final class CategoryDefinitions {
         if (known != null) return known;
         // Modded attributes are classified by intent when the ID clearly says
         // what the stat measures, without a whitelist of mod names or species.
-        // Unclear names remain under Modded Stats for explicit integrations.
+        // Unclear names remain in Other Traits pending explicit integrations.
         if (!id.startsWith("minecraft:")) {
             int colon = id.indexOf(':');
             String path = colon >= 0 ? id.substring(colon + 1).toLowerCase(java.util.Locale.ROOT) : id;
@@ -68,12 +66,12 @@ public final class CategoryDefinitions {
             if (words.contains("speed") || words.contains("movement") || words.contains("gravity")
                     || words.contains("flight") || words.contains("jump") || words.contains("swim")) return MOBILITY.id();
             if (words.contains("scale") || words.contains("mass") || words.contains("weight")
-                    || words.contains("size")) return PHYSICAL.id();
+                    || words.contains("size")) return MOBILITY.id();
             return MODDED.id();
         }
-        return UTILITY.id();
+        return MODDED.id();
     }
     public static Set<String> numericCategories() {
-        return Set.of(VITALITY.id(),MOBILITY.id(),COMBAT.id(),DEFENSE.id(),PHYSICAL.id(),UTILITY.id(),MODDED.id());
+        return Set.of(VITALITY.id(),MOBILITY.id(),COMBAT.id(),DEFENSE.id(),MODDED.id());
     }
 }
