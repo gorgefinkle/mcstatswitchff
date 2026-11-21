@@ -5,8 +5,6 @@ import dev.freakyfriday.core.CategoryOffers;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import net.minecraft.ChatFormatting;
-import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
@@ -96,19 +94,20 @@ public final class SwapSessions {
         if (selected == null) { message(player,"First target is no longer available."); return; }
         Map<String, CategoryOffers.Offer> groups = AttributeCategorySwapper.categoryOffers(selected);
         if (groups.isEmpty()) { message(player,"No supported numerical category found on this target."); return; }
-        message(player, "Categories below are discovered from this target's actual attributes. "
-            + "Transfer is checked again against the second target before any changes.");
-        for (CategoryOffers.Offer offer : groups.values()) {
-            String id = offer.categoryId();
-            player.sendSystemMessage(Component.literal("  [" + offer.label() + " · "
-                + offer.memberCount() + " actual values]")
-                .withStyle(ChatFormatting.AQUA)
-                .withStyle(style -> style.withClickEvent(
-                    new ClickEvent.RunCommand("/freakyfriday category " + id))));
+        CategoryPickerNetworking.open(player, selected.getDisplayName().getString(), groups);
+    }
+    /** Reopen an offer snapshot; never accept the client claiming a different target. */
+    public static void reopenPicker(ServerPlayer player) {
+        if (!hasBook(player)) { message(player,"Hold the book first."); return; }
+        Session session = current(player);
+        if (session == null) { message(player,"Select a first target with the book."); return; }
+        LivingEntity first = resolve(player, session);
+        if (first == null || !first.isAlive()) {
+            cancel(player);
+            message(player,"First target is no longer available.");
+            return;
         }
-        player.sendSystemMessage(Component.literal("  [Cancel]")
-            .withStyle(ChatFormatting.GRAY)
-            .withStyle(style -> style.withClickEvent(new ClickEvent.RunCommand("/freakyfriday cancel"))));
+        showCategories(player, first);
     }
     public static void choose(ServerPlayer player, String category) {
         if (!hasBook(player)) { message(player,"Hold the book first."); return; }
