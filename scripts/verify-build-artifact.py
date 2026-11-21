@@ -25,6 +25,8 @@ def main():
         "dev/freakyfriday/mind/NativeBrainSwap.class",
         "dev/freakyfriday/mind/GoalMindRuntime.class",
         "dev/freakyfriday/mind/DynamicObjectGraph.class",
+        "dev/freakyfriday/mind/BodyActionGate.class",
+        "dev/freakyfriday/mind/MinecraftBodyPort.class",
         "dev/freakyfriday/mind/MindSwapSessions.class",
         "dev/freakyfriday/CategoryPickerPayload.class",
         "dev/freakyfriday/CategoryPickerNetworking.class",
