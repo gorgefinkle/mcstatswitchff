@@ -1,0 +1,32 @@
+# R0.12 — book UX and gameplay implementation ledger
+
+R0.12 is **in development**. R0.11 remains the last source checkpoint with green compilation for both NeoForge targets. This document tracks concrete changes and explicit gates rather than promising unfinished features.
+
+## R0.12.0 change — selection hint lifecycle
+
+The R0.11 client displayed the book action-bar hint every 200 client ticks for as long as the book was held. This repeatedly overwrote other action-bar messages.
+
+The new behavior shows the hint once when the book is equipped, and once if the user remaps the shortcut while still holding it. The existing client key mapping is unchanged and the self-selection command remains server-authoritative. Re-equipping and reconnecting refresh the hint.
+
+### Regression coverage
+
+The synthetic Minecraft client harness checks:
+- the initial Ctrl+S hint;
+- no hint repetition after 400 client ticks continuously holding the book;
+- exactly one refreshed hint when the shortcut changes to Alt+R;
+- the self-select command only while the book is held;
+- a fresh hint on re-equip and reconnect.
+
+These are client simulation tests; they **do not** validate the feature in a running Minecraft client.
+
+## R0.12 remaining work in priority order
+
+1. **Gate 1 / selection UX:** Replace the existing clickable-chat category list with a category-only picker. Preserve command fallback and avoid per-attribute choices. Validate both first-target and second-target Ctrl+S flows in a real client.
+2. **Gate 0 / executable smoke:** Start a Minecraft 26.2 client and dedicated NeoForge server from a clean checkout; verify book registration, crafting, interaction cancellation and server-only loading. CI compiling a JAR is not a boot test.
+3. **Numerical portability:** Investigate safe attribute attachment for asymmetric species without falsely promising unsupported modded attributes. Reject whole categories when any member cannot be transferred. Do not skip members.
+4. **Whole-category abilities:** Implement registry-backed ownership, hooks for suppressing original species behaviors, recipient execution, durability, synchronization, and rollback. Creeper ↔ bat is the first hard acceptance scenario; never special-case a mob pair in the transaction API.
+5. **Multiplayer and persistence:** Test unload, death, logout, reconnect, restart, and multiple observers for duplicate/phantom behavior.
+
+## Build targets
+
+Java 25, NeoForge 26.2 first, 26.3 second; use the single shared production source and versioned Gradle profiles. GitHub Actions builds and core checks are mandatory per commit. Successful compilation does not imply any in-game acceptance.
