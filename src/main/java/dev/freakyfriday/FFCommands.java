@@ -21,6 +21,10 @@ public final class FFCommands {
                 SwapSessions.select(player,player);
                 return 1;
             }))
+            .then(Commands.literal("categories").executes(ctx -> {
+                SwapSessions.reopenPicker(ctx.getSource().getPlayerOrException());
+                return 1;
+            }))
             .then(Commands.literal("cancel").executes(ctx -> {
                 SwapSessions.cancel(ctx.getSource().getPlayerOrException());
                 return 1;
