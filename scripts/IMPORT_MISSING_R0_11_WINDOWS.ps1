@@ -1,9 +1,10 @@
 param(
     [Parameter(Mandatory=$true)]
     [string]$SourceZip,
-    [string]$RepoDirectory = ".\\mcstatswitchff"
+    [string]$RepoDirectory = ""
 )
 $ErrorActionPreference = "Stop"
+if (-not $RepoDirectory) { $RepoDirectory = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path }
 if (-not (Test-Path -LiteralPath $SourceZip -PathType Leaf)) {
     throw "Original R0.11 archive not found: $SourceZip"
 }
@@ -25,7 +26,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Could not fast-forward main" }
     python scripts/import-r011-missing.py $zip
     if ($LASTEXITCODE -ne 0) { throw "Historical import failed" }
-    git add -A -- AUDIT_R0_*.md MANIFEST_PROJECT_SHA256.txt PROJECT_HANDOFF_README.md docs scripts
+    git add -A -- .
     if ($LASTEXITCODE -ne 0) { throw "Git staging failed" }
     git status --short
     git diff --cached --check
