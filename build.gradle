@@ -54,3 +54,23 @@ tasks.register('showTarget') {
         println "FreakyFriday ${version} targets Minecraft ${selectedMinecraft} / NeoForge ${profile.getProperty('neo_version')}"
     }
 }
+
+// The R0.11 regression sources are self-executing main classes, not JUnit tests.
+// Gradle's ordinary Test discovery therefore has zero JUnit methods by design.
+// Execute all three assertions under `check` so a successful build is contingent
+// on passing them, rather than silently skipping the actual regression suite.
+tasks.named('test', Test) { failOnNoDiscoveredTests = false }
+def coreChecks = ['CategoryExchangeSelfTest', 'CategoryDefinitionsSelfTest', 'CategorySchemaSelfTest']
+coreChecks.each { checkName ->
+    tasks.register("run${checkName}", JavaExec) {
+        group = 'verification'
+        description = "Run ${checkName} executable assertions"
+        dependsOn tasks.named('testClasses')
+        classpath = sourceSets.test.runtimeClasspath
+        mainClass = "dev.freakyfriday.core.${checkName}"
+        enableAssertions = true
+    }
+}
+tasks.named('check') {
+    dependsOn(coreChecks.collect { tasks.named("run${it}") })
+}
