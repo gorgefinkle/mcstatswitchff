@@ -24,6 +24,7 @@ def main():
         "dev/freakyfriday/mind/MindLedger.class",
         "dev/freakyfriday/mind/NativeBrainSwap.class",
         "dev/freakyfriday/mind/GoalMindRuntime.class",
+        "dev/freakyfriday/mind/DynamicObjectGraph.class",
         "dev/freakyfriday/mind/MindSwapSessions.class",
         "dev/freakyfriday/CategoryPickerPayload.class",
         "dev/freakyfriday/CategoryPickerNetworking.class",
