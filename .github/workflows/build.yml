@@ -50,7 +50,9 @@ jobs:
           gradle-version: '9.2.1'
           cache-read-only: ${{ github.event_name == 'pull_request' }}
       - name: Compile and package version-specific mod
-        run: gradle build -PtargetMinecraft=${{ matrix.minecraft }} --no-daemon --stacktrace
+        run: bash ./gradlew build -PtargetMinecraft=${{ matrix.minecraft }} --no-daemon --stacktrace
+      - name: Verify JAR integrity and create SHA256 manifest
+        run: python3 scripts/verify-build-artifact.py --minecraft ${{ matrix.minecraft }}
       - name: Upload JARs and build reports
         if: always()
         uses: actions/upload-artifact@v4
