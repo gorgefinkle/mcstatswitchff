@@ -46,9 +46,8 @@ working GitHub files:
 powershell -ExecutionPolicy Bypass -File scripts/IMPORT_MISSING_R0_11_WINDOWS.ps1 -SourceZip "C:\\path\\FreakyFriday_R0_11_Full_Source.zip"
 ```
 
-Run the PowerShell launcher from the parent directory containing (or intended
-to contain) a `mcstatswitchff` checkout. If already inside a checkout,
-provide `-RepoDirectory "."`.
+Run the PowerShell launcher from the existing repository checkout; it
+resolves that checkout automatically from its own location.
 
 After import, the launcher runs the recovered `self_audit.py` and commits
 and pushes only if it passes. Historical contents can be verified with:
