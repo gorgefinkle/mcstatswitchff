@@ -10,6 +10,16 @@ DEST=ROOT/'build'/'stub-harness'; STUB=DEST/'stubs'; OUT=DEST/'classes'
 if DEST.exists(): shutil.rmtree(DEST)
 STUB.mkdir(parents=True,exist_ok=True); OUT.mkdir(parents=True,exist_ok=True)
 S={
+'dev/freakyfriday/mind/NativeAiSurfaceAudit.java':'''package dev.freakyfriday.mind;
+import java.util.List;import net.minecraft.world.entity.LivingEntity;
+/** Mock report only; real goal introspection is validated in NeoForge builds. */
+public final class NativeAiSurfaceAudit {
+ public record Report(List<String> summary) {}
+ public static Report inspect(LivingEntity entity){
+  return new Report(List.of("Native mind audit for "+entity.name+": synthetic stub", "ISOLATION UNVERIFIED"));
+ }
+}''',
+
 'dev/freakyfriday/mind/NativeBrainSwap.java':'''package dev.freakyfriday.mind;
 import net.minecraft.world.entity.LivingEntity;
 /** Headless stand-in ONLY. The actual native Brain is compiled by NeoForge CI. */
@@ -472,7 +482,7 @@ public static void main(String[] args){
 # The real NeoForge CI build compiles network codecs and native Screen classes.
 # They must not be passed to the legacy headless harness whose fake APIs do not
 # implement actual packet serialization, GUI rendering or client registration.
-real_api_only = {'NativeBrainSwap.java', 'GoalMindRuntime.java', 'MinecraftBodyPort.java', 'CategoryPickerPayload.java','CategoryPickerNetworking.java',
+real_api_only = {'NativeBrainSwap.java', 'GoalMindRuntime.java', 'MinecraftBodyPort.java', 'NativeAiSurfaceAudit.java', 'CategoryPickerPayload.java','CategoryPickerNetworking.java',
                  'CategoryPickerScreen.java','ClientCategoryPickerNetworking.java'}
 all_prod=[p for p in (ROOT/'src/main/java').rglob('*.java') if p.name not in real_api_only] + list((ROOT/'src/platform/minecraft-26.2/java').rglob('*.java'))
 full_cmd=['javac','-d',str(OUT)]+list(map(str,STUB.rglob('*.java')))+list(map(str,all_prod))
@@ -539,6 +549,11 @@ public class BookInteractionHarness {
   BookInteractions.onInteract(offhand);
   ok(offhand.isCanceled(),"offhand book selects before vanilla actions");
   ok(received(p,"First body:"),"offhand selection reaches server");
+  MindSwapSessions.inspect(p);
+  ok(received(p,"Native mind audit for Villager"),
+     "inspect reports the selected body without executing AI");
+  ok(received(p,"ISOLATION UNVERIFIED"),
+     "AI surface diagnostics do not pretend a sandbox is certified");
 
   long selections=p.messages.stream().filter(x->x.contains("First body:")).count();
   BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,villager));
