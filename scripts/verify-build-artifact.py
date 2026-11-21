@@ -34,6 +34,7 @@ def main():
         "dev/freakyfriday/mind/LiveBodyProbe.class",
         "dev/freakyfriday/mind/DetachedMindHostProbe.class",
         "dev/freakyfriday/mind/DetachedHostMirrorProbe.class",
+        "dev/freakyfriday/mind/ProbeTelemetry.class",
         "dev/freakyfriday/mind/MinecraftBodyPort.class",
         "dev/freakyfriday/mind/MindSwapSessions.class",
         "dev/freakyfriday/CategoryPickerPayload.class",
