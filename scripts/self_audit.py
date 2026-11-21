@@ -22,6 +22,14 @@ assert 'KeyModifier.CONTROL' in (root/'src/platform/minecraft-26.2/java/dev/frea
 assert 'ClientKeyFactory.create()' in (root/'src/main/java/dev/freakyfriday/ClientBindings.java').read_text()
 assert 'CategoryExchange.exchange(first,second,port)' in (root/'src/main/java/dev/freakyfriday/AttributeCategorySwapper.java').read_text()
 assert not (root/'src/main/java/dev/freakyfriday/core/ExchangeEngine.java').exists()
+assert (root/'src/main/java/dev/freakyfriday/mind/DynamicObjectGraph.java').exists()
+dynamic_runtime=(root/'src/main/java/dev/freakyfriday/mind/GoalMindRuntime.java').read_text()
+assert 'DynamicObjectGraph.capture(roots, Goal[].class' in dynamic_runtime
+assert 'body.targetSelector' in dynamic_runtime
+assert 'nativeProfile(' not in dynamic_runtime
+assert 'enum Profile' not in dynamic_runtime
+assert 'net.minecraft.world.entity.animal.pig.Pig' not in dynamic_runtime
+assert 'net.minecraft.world.entity.animal.cow.Cow' not in dynamic_runtime
 assert (root/'src/main/java/dev/freakyfriday/core/CategorySchema.java').exists()
 assert (root/'src/main/java/dev/freakyfriday/PortableAttributes.java').exists()
 assert (root/'src/main/java/dev/freakyfriday/BookInteractions.java').exists()
