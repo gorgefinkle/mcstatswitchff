@@ -34,7 +34,7 @@ python3 scripts/test-version-profiles.py
 ```
 
 ## Source of truth and asset policy
-The repository contains the **production source, game resources, version profiles, core tests, Java and Gradle build configuration, official Gradle wrapper, and CI scripts**. Historical auxiliary tests and documents from the original `FreakyFriday_R0_11_Full_Source.zip` are still being imported/compared; do not mistake this for a fully checksum-reconciled historical archive.
+The `main` branch contains the **production source, game resources, version profiles, extended historical regression tests, original roadmap and audits, Java and Gradle build configuration, official Gradle wrapper, and CI scripts**. The separate [`archive/r0.11-original`](../../tree/archive/r0.11-original) branch is a **70/70 Git-blob-hash-verified exact snapshot** of the original `FreakyFriday_R0_11_Full_Source.zip`. The original archive is preserved without rolling back the build fixes on `main`. GitHub Actions successfully builds both Minecraft 26.2 and 26.3; in-game acceptance remains outstanding.
 
 Large third-party JDK installers, vanilla Minecraft JARs, NeoForge universal/userdev artifacts, Gradle distribution ZIPs, and per-machine dependency caches **do not belong in Git**. The Gradle wrapper, upstream resolution, GitHub Actions caches and build artifacts eliminate transferring those archives during ordinary development.
 
