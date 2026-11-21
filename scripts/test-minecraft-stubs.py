@@ -15,6 +15,14 @@ import net.minecraft.server.level.ServerLevel;
 public class Mob extends LivingEntity {
  public Mob(String name, ServerLevel level){super(name,level);}
 }''',
+'dev/freakyfriday/mind/DetachedHostMirrorProbe.java':'''package dev.freakyfriday.mind;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Mob;
+public final class DetachedHostMirrorProbe {
+ public static String start(ServerPlayer player,Mob donor,Mob recipient) {
+  return "Started 40-tick detached host MIRROR (synthetic test only)";
+ }
+}''',
 'dev/freakyfriday/mind/DetachedMindHostProbe.java':'''package dev.freakyfriday.mind;
 import net.minecraft.world.entity.Mob;
 /** Headless stand-in. Only real NeoForge builds compile the detached EntityType factory. */
@@ -513,7 +521,7 @@ public static void main(String[] args){
 # The real NeoForge CI build compiles network codecs and native Screen classes.
 # They must not be passed to the legacy headless harness whose fake APIs do not
 # implement actual packet serialization, GUI rendering or client registration.
-real_api_only = {'NativeBrainSwap.java', 'GoalMindRuntime.java', 'MinecraftBodyPort.java', 'MinecraftHostProbe.java', 'LiveBodyProbe.java', 'DetachedMindHostProbe.java', 'NativeAiSurfaceAudit.java', 'CategoryPickerPayload.java','CategoryPickerNetworking.java',
+real_api_only = {'NativeBrainSwap.java', 'GoalMindRuntime.java', 'MinecraftBodyPort.java', 'MinecraftHostProbe.java', 'LiveBodyProbe.java', 'DetachedMindHostProbe.java', 'DetachedHostMirrorProbe.java', 'NativeAiSurfaceAudit.java', 'CategoryPickerPayload.java','CategoryPickerNetworking.java',
                  'CategoryPickerScreen.java','ClientCategoryPickerNetworking.java'}
 all_prod=[p for p in (ROOT/'src/main/java').rglob('*.java') if p.name not in real_api_only] + list((ROOT/'src/platform/minecraft-26.2/java').rglob('*.java'))
 full_cmd=['javac','-d',str(OUT)]+list(map(str,STUB.rglob('*.java')))+list(map(str,all_prod))
@@ -554,6 +562,9 @@ public class BookInteractionHarness {
   MindSwapSessions.dualInstanceProbe(p);
   ok(received(p,"Dual-instance host feasibility: nonspawned donor type"),
      "real paired book inputs reach non-ticking host diagnostic");
+  MindSwapSessions.timedDualInstanceProbe(p);
+  ok(received(p,"Started 40-tick detached host MIRROR"),
+     "paired selections route through an explicitly non-ticking 40-tick mirror lifecycle probe");
 
   ok(received(p,"R0.15 dual-instance host experiment: NO swap"),
      "unisolated native AI never claims a successful whole-mind swap");
