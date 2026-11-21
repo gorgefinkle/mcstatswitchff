@@ -15,6 +15,14 @@ import net.minecraft.server.level.ServerLevel;
 public class Mob extends LivingEntity {
  public Mob(String name, ServerLevel level){super(name,level);}
 }''',
+'dev/freakyfriday/mind/DetachedMindHostProbe.java':'''package dev.freakyfriday.mind;
+import net.minecraft.world.entity.Mob;
+/** Headless stand-in. Only real NeoForge builds compile the detached EntityType factory. */
+public final class DetachedMindHostProbe {
+ public static String inspect(Mob donor,Mob recipient) {
+  return "Dual-instance host feasibility: nonspawned donor type (synthetic only)";
+ }
+}''',
 'dev/freakyfriday/mind/LiveBodyProbe.java':'''package dev.freakyfriday.mind;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Mob;
@@ -505,7 +513,7 @@ public static void main(String[] args){
 # The real NeoForge CI build compiles network codecs and native Screen classes.
 # They must not be passed to the legacy headless harness whose fake APIs do not
 # implement actual packet serialization, GUI rendering or client registration.
-real_api_only = {'NativeBrainSwap.java', 'GoalMindRuntime.java', 'MinecraftBodyPort.java', 'MinecraftHostProbe.java', 'LiveBodyProbe.java', 'NativeAiSurfaceAudit.java', 'CategoryPickerPayload.java','CategoryPickerNetworking.java',
+real_api_only = {'NativeBrainSwap.java', 'GoalMindRuntime.java', 'MinecraftBodyPort.java', 'MinecraftHostProbe.java', 'LiveBodyProbe.java', 'DetachedMindHostProbe.java', 'NativeAiSurfaceAudit.java', 'CategoryPickerPayload.java','CategoryPickerNetworking.java',
                  'CategoryPickerScreen.java','ClientCategoryPickerNetworking.java'}
 all_prod=[p for p in (ROOT/'src/main/java').rglob('*.java') if p.name not in real_api_only] + list((ROOT/'src/platform/minecraft-26.2/java').rglob('*.java'))
 full_cmd=['javac','-d',str(OUT)]+list(map(str,STUB.rglob('*.java')))+list(map(str,all_prod))
@@ -543,6 +551,10 @@ public class BookInteractionHarness {
   var second=new PlayerInteractEvent.EntityInteract(p,cow);
   BookInteractions.onInteract(second);
   ok(second.isCanceled(),"second click consumes normal interaction");
+  MindSwapSessions.dualInstanceProbe(p);
+  ok(received(p,"Dual-instance host feasibility: nonspawned donor type"),
+     "real paired book inputs reach non-ticking host diagnostic");
+
   ok(received(p,"R0.14 hybrid native mind runner is not activated yet: NO swap"),
      "unisolated native AI never claims a successful whole-mind swap");
   ok(villager.getAttributes().getInstance(armor).getBaseValue()==8
@@ -556,6 +568,12 @@ public class BookInteractionHarness {
   BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,unportable));
   ok(received(p,"NO swap performed"),
      "unknown modded goal is not silently executed or partially transplanted");
+  MindSwapSessions.dualInstanceProbe(p);
+  ok(received(p,"Select TWO different NPC mobs") == false,
+     "pair was saved when two distinct mobs were selected");
+  ok(received(p,"Dual-instance host feasibility: nonspawned donor type"),
+     "dualprobe dispatches paired donor/recipient to detached host factory");
+
   MindSwapSessions.cancel(p);
   w.tick();
   LivingEntity anotherVillager=new LivingEntity("Villager",w);
