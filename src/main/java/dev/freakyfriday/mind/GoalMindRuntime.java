@@ -1,181 +1,221 @@
 package dev.freakyfriday.mind;
 
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
-import net.minecraft.tags.ItemTags;
+import net.minecraft.core.BlockPos;
+import net.minecraft.resources.Identifier;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
-import net.minecraft.world.entity.animal.Animal;
-import net.minecraft.world.entity.animal.pig.Pig;
-import net.minecraft.world.entity.ai.goal.BreedGoal;
-import net.minecraft.world.entity.ai.goal.FloatGoal;
-import net.minecraft.world.entity.ai.goal.FollowParentGoal;
 import net.minecraft.world.entity.ai.goal.Goal;
-import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
-import net.minecraft.world.entity.ai.goal.PanicGoal;
-import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
-import net.minecraft.world.entity.ai.goal.TemptGoal;
-import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
+import net.minecraft.world.entity.ai.goal.GoalSelector;
 import net.minecraft.world.entity.ai.goal.WrappedGoal;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Items;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 
 /**
- * Whole goal-driven mind profiles rebound to a different animal BODY.
+ * Dynamic whole-goal AI capturer. No hardcoded species names, goal subclasses,
+ * recipe tables, food lists or per-species pairing exceptions.
  *
- * The unit of transfer is one entire donor goal package. The factory must
- * reproduce EVERY native goal, including duplicate-priority entries. An
- * unrecognised goal (including mod-added goals) makes the entire transaction
- * unavailable; it must not be silently dropped.
+ * Captures EVERY goal and targeting goal at the instant of selection, including
+ * priority, concrete class and reflected object state. Each captured Goal is
+ * reconstructed with ALL of its owner-bound services redirected to the new
+ * recipient body before either native goal selector is touched.
  *
- * This first tested path is cow <-> pig. Both are Animals with compatible
- * locomotion, look, breeding and temptation primitives. Vanilla body-only
- * mechanics (milking, saddles, lightning conversion) stay with the body.
+ * The capturer fails CLOSED when a field, opaque callback or recipient-specific
+ * dependency cannot be rebound. It does not falsely promise that arbitrary
+ * opaque AI hooks, customServerAiStep or mixed Brain+Goal mobs are portable.
  *
- * This is NOT universal AI compatibility or persistent controller state.
- * Goal timers and targets are reinitialised when a package is instantiated;
- * donor goal-object instances cannot safely be moved across species because
- * they retain a reference to their original owner.
+ * No persistence across unload/restart in this experimental checkpoint.
  */
 public final class GoalMindRuntime {
     private GoalMindRuntime() {}
 
     private static final MindLedger OWNERS = new MindLedger();
 
-    /** Exact class + priority is important; the pig has TWO priority-4 tempt goals. */
-    private record GoalEntry(int priority, Goal goal) {}
-
-    private enum Profile {
-        COW, PIG
+    private record Slot(int priority, Goal goal) {}
+    private record Snapshot(List<Slot> goals, List<Slot> targets) {
+        Snapshot {
+            goals = List.copyOf(goals);
+            targets = List.copyOf(targets);
+        }
     }
 
+    /**
+     * A mob with a native inert Brain has its behavior in goal/target selectors.
+     * Active Brain mobs use the separate Brain driver only when its full graph
+     * can be transferred; never silently transfer only goals of a mixed AI.
+     */
     public static boolean supports(Mob first, Mob second) {
-        return nativeProfile(first) != null && nativeProfile(second) != null;
+        return first.getBrain().isBrainDead() && second.getBrain().isBrainDead();
     }
 
-    private static Profile nativeProfile(Mob entity) {
-        // No subclass compatibility assumption: Mooshrooms have different
-        // body behavior; they are excluded until explicitly audited.
-        if (entity.getClass() == net.minecraft.world.entity.animal.cow.Cow.class) return Profile.COW;
-        if (entity.getClass() == Pig.class) return Profile.PIG;
-        return null;
+    private static List<Slot> read(GoalSelector selector) {
+        List<Slot> entries = new ArrayList<>();
+        for (WrappedGoal wrapped : selector.getAvailableGoals())
+            entries.add(new Slot(wrapped.getPriority(), wrapped.getGoal()));
+        return List.copyOf(entries);
     }
 
-    private static List<GoalEntry> build(Profile profile, Animal recipient) {
-        List<GoalEntry> result = new ArrayList<>();
-        result.add(new GoalEntry(0, new FloatGoal(recipient)));
-        if (profile == Profile.COW) {
-            result.add(new GoalEntry(1, new PanicGoal(recipient, 2.0)));
-            result.add(new GoalEntry(2, new BreedGoal(recipient, 1.0)));
-            result.add(new GoalEntry(3, new TemptGoal(recipient, 1.25,
-                stack -> stack.is(ItemTags.COW_FOOD), false)));
-            result.add(new GoalEntry(4, new FollowParentGoal(recipient, 1.25)));
-            result.add(new GoalEntry(5, new WaterAvoidingRandomStrollGoal(recipient, 1.0)));
-            result.add(new GoalEntry(6, new LookAtPlayerGoal(recipient, Player.class, 6.0f)));
-            result.add(new GoalEntry(7, new RandomLookAroundGoal(recipient)));
-        } else {
-            result.add(new GoalEntry(1, new PanicGoal(recipient, 1.25)));
-            result.add(new GoalEntry(3, new BreedGoal(recipient, 1.0)));
-            result.add(new GoalEntry(4, new TemptGoal(recipient, 1.2,
-                stack -> stack.is(Items.CARROT_ON_A_STICK), false)));
-            result.add(new GoalEntry(4, new TemptGoal(recipient, 1.2,
-                stack -> stack.is(ItemTags.PIG_FOOD), false)));
-            result.add(new GoalEntry(5, new FollowParentGoal(recipient, 1.1)));
-            result.add(new GoalEntry(6, new WaterAvoidingRandomStrollGoal(recipient, 1.0)));
-            result.add(new GoalEntry(7, new LookAtPlayerGoal(recipient, Player.class, 6.0f)));
-            result.add(new GoalEntry(8, new RandomLookAroundGoal(recipient)));
+    private static Snapshot snapshot(Mob body) {
+        return new Snapshot(read(body.goalSelector), read(body.targetSelector));
+    }
+
+    /** Strict identity/priority readback; same classes alone are insufficient. */
+    private static boolean identical(GoalSelector selector, List<Slot> expected) {
+        var actual = selector.getAvailableGoals();
+        if (actual.size() != expected.size()) return false;
+        List<Slot> remaining = new ArrayList<>(expected);
+        for (WrappedGoal wrapped : actual) {
+            boolean found = false;
+            for (int i = 0; i < remaining.size(); i++) {
+                Slot expectedSlot = remaining.get(i);
+                if (expectedSlot.priority() == wrapped.getPriority()
+                        && expectedSlot.goal() == wrapped.getGoal()) {
+                    remaining.remove(i);
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) return false;
         }
-        return List.copyOf(result);
+        return remaining.isEmpty();
     }
 
-    private static List<GoalEntry> current(Mob body) {
-        List<GoalEntry> result = new ArrayList<>();
-        for (WrappedGoal wrapped : body.getGoalSelector().getAvailableGoals()) {
-            result.add(new GoalEntry(wrapped.getPriority(), wrapped.getGoal()));
+    private static Snapshot captureFor(Mob original, Mob recipient, Snapshot donor)
+            throws DynamicObjectGraph.Uncapturable {
+        IdentityHashMap<Object, Object> bindings = new IdentityHashMap<>();
+        bindings.put(original, recipient);
+        bindings.put(original.getNavigation(), recipient.getNavigation());
+        bindings.put(original.getMoveControl(), recipient.getMoveControl());
+        bindings.put(original.getLookControl(), recipient.getLookControl());
+        bindings.put(original.getJumpControl(), recipient.getJumpControl());
+        bindings.put(original.getSensing(), recipient.getSensing());
+        bindings.put(original.getRandom(), recipient.getRandom());
+
+        DynamicObjectGraph.Rebinding rebinder = new DynamicObjectGraph.Rebinding() {
+            @Override
+            public Object substitute(Object value) {
+                return bindings.containsKey(value) ? bindings.get(value) : value;
+            }
+
+            @Override
+            public boolean shared(Object value) {
+                // External entities are AI targets, not the source controller.
+                // Levels, immutable positions and registry-owned values are
+                // world-owned or immutable and never cloned.
+                return value instanceof Entity || value instanceof Level
+                    || value instanceof BlockPos || value instanceof Vec3
+                    || value instanceof Identifier || value instanceof TagKey<?>
+                    || value instanceof Item;
+            }
+
+            @Override
+            public boolean cloneable(Class<?> type) {
+                // All Goal subclasses (including modded goals) are discovered
+                // without a whitelist. Auxiliary AI predicates/configurations
+                // are inspected only when their internal graph is accessible.
+                return Goal.class.isAssignableFrom(type)
+                    || type.getName().startsWith("net.minecraft.world.entity.ai.targeting.");
+            }
+        };
+
+        List<Slot> goals = new ArrayList<>(donor.goals().size());
+        for (Slot entry : donor.goals()) {
+            Goal rebound = DynamicObjectGraph.capture(entry.goal(), Goal.class, rebinder);
+            goals.add(new Slot(entry.priority(), rebound));
         }
-        return result;
-    }
 
-    private static List<String> signature(List<GoalEntry> entries) {
-        List<String> result = new ArrayList<>(entries.size());
-        for (GoalEntry e : entries) {
-            result.add(e.priority + ":" + e.goal.getClass().getName());
+        List<Slot> targets = new ArrayList<>(donor.targets().size());
+        for (Slot entry : donor.targets()) {
+            Goal rebound = DynamicObjectGraph.capture(entry.goal(), Goal.class, rebinder);
+            targets.add(new Slot(entry.priority(), rebound));
         }
-        Collections.sort(result);
-        return List.copyOf(result);
+        return new Snapshot(goals, targets);
     }
 
-    private static void apply(Mob body, List<GoalEntry> incoming) {
-        body.getGoalSelector().removeAllGoals(goal -> true);
-        for (GoalEntry entry : incoming) body.getGoalSelector().addGoal(entry.priority, entry.goal);
+    private static void install(GoalSelector selector, List<Slot> entries) {
+        selector.removeAllGoals(goal -> true);
+        for (Slot slot : entries) selector.addGoal(slot.priority(), slot.goal());
+        if (!identical(selector, entries))
+            throw new IllegalStateException("Complete AI goal set did not install exactly");
     }
 
-    private static void restore(Mob body, List<GoalEntry> original) {
-        apply(body, original);
-        if (!signature(current(body)).equals(signature(original))) {
-            throw new IllegalStateException("Could not restore original goal package");
-        }
+    private static void apply(Mob body, Snapshot incoming) {
+        install(body.goalSelector, incoming.goals());
+        install(body.targetSelector, incoming.targets());
     }
 
+    /**
+     * The ONLY goal-based exchange entry point. Source discovery and both
+     * complete recipient captures are finished before any selector is changed.
+     */
     public static synchronized String exchange(Mob first, Mob second) {
+        if (first == second || !first.isAlive() || !second.isAlive()
+                || first.level() != second.level())
+            return "Two different living bodies in the same level are required.";
         if (!supports(first, second))
-            return "Cross-species goal adapter not available for this pair yet.";
-        if (!first.isAlive() || !second.isAlive() || first.level() != second.level() || first == second)
-            return "Both different bodies must be alive in the same loaded dimension.";
-        if (!(first instanceof Animal firstAnimal) || !(second instanceof Animal secondAnimal))
-            return "These bodies are not supported animal AI recipients.";
-        if (!first.targetSelector.getAvailableGoals().isEmpty()
-                || !second.targetSelector.getAvailableGoals().isEmpty())
-            return "One of these mobs has unportable targeting goals; whole mind swap rejected.";
+            return "The mob has active Brain AI beyond goal selectors; "
+                + "a complete dynamic transfer needs the Brain runtime as well.";
 
-        UUID a = first.getUUID(), b = second.getUUID();
-        Profile nativeA = nativeProfile(first), nativeB = nativeProfile(second);
-        Profile mindA = nativeA, mindB = nativeB;
+        Snapshot originalFirst = snapshot(first);
+        Snapshot originalSecond = snapshot(second);
+        if (originalFirst.goals().isEmpty() && originalFirst.targets().isEmpty())
+            return "The first mob has no goal AI to capture.";
+        if (originalSecond.goals().isEmpty() && originalSecond.targets().isEmpty())
+            return "The second mob has no goal AI to capture.";
+
+        final Snapshot firstReceiving, secondReceiving;
         try {
-            if (!OWNERS.snapshot().containsKey(a)) {
-                OWNERS.registerOriginal(a, new MindLedger.Mind(a, MindLedger.Kind.NPC, nativeA.name()));
-            }
-            if (!OWNERS.snapshot().containsKey(b)) {
-                OWNERS.registerOriginal(b, new MindLedger.Mind(b, MindLedger.Kind.NPC, nativeB.name()));
-            }
-            mindA = Profile.valueOf(OWNERS.controlling(a).nativeProfile());
-            mindB = Profile.valueOf(OWNERS.controlling(b).nativeProfile());
-        } catch (Exception error) {
-            return "Cannot establish unique mind ownership: " + error.getMessage();
+            firstReceiving = captureFor(second, first, originalSecond);
+            secondReceiving = captureFor(first, second, originalFirst);
+        } catch (DynamicObjectGraph.Uncapturable failure) {
+            return "Dynamic AI capture rejected the COMPLETE exchange: " + failure.getMessage();
         }
 
-        // Never replace just the goals we know. Match *all* currently present
-        // priorities and classes to the exact complete package we claim to own.
-        List<GoalEntry> oldA = current(first), oldB = current(second);
-        List<GoalEntry> expectedA = build(mindA, firstAnimal);
-        List<GoalEntry> expectedB = build(mindB, secondAnimal);
-        if (!signature(oldA).equals(signature(expectedA))
-                || !signature(oldB).equals(signature(expectedB)))
-            return "A body has extra, missing or modified AI goals. "
-                + "Entire mind exchange rejected rather than dropping them.";
-
-        List<GoalEntry> newA = build(mindB, firstAnimal);
-        List<GoalEntry> newB = build(mindA, secondAnimal);
+        UUID firstId = first.getUUID(), secondId = second.getUUID();
         try {
-            apply(first, newA);
-            apply(second, newB);
-            if (!signature(current(first)).equals(signature(newA))
-                    || !signature(current(second)).equals(signature(newB)))
-                throw new IllegalStateException("Recipient goal package did not install completely");
-            OWNERS.exchange(a, b, (recipient, incoming) -> {
+            if (!OWNERS.snapshot().containsKey(firstId))
+                OWNERS.registerOriginal(firstId, new MindLedger.Mind(
+                    firstId, MindLedger.Kind.NPC, first.getType().toString()));
+            if (!OWNERS.snapshot().containsKey(secondId))
+                OWNERS.registerOriginal(secondId, new MindLedger.Mind(
+                    secondId, MindLedger.Kind.NPC, second.getType().toString()));
+        } catch (Exception error) {
+            return "Cannot register unique controller ownership: " + error.getMessage();
+        }
+
+        if (!identical(first.goalSelector, originalFirst.goals())
+                || !identical(first.targetSelector, originalFirst.targets())
+                || !identical(second.goalSelector, originalSecond.goals())
+                || !identical(second.targetSelector, originalSecond.targets()))
+            return "One mob's AI changed during capture; no swap performed.";
+
+        try {
+            apply(first, firstReceiving);
+            apply(second, secondReceiving);
+            OWNERS.exchange(firstId, secondId, (body, incoming) -> {
                 if (incoming.kind() != MindLedger.Kind.NPC)
-                    throw new IllegalArgumentException("Expected entire NPC mind");
+                    throw new IllegalArgumentException("Incoming mind is not a complete NPC controller");
             });
             return null;
-        } catch (Exception error) {
-            try { restore(first, oldA); }
-            catch (Exception rollback) { error.addSuppressed(rollback); }
-            try { restore(second, oldB); }
-            catch (Exception rollback) { error.addSuppressed(rollback); }
-            if (error.getSuppressed().length > 0)
-                return "Whole-mind exchange FAILED; could not verify rollback: " + error.getMessage();
-            return "Whole-mind exchange rejected and restored: " + error.getMessage();
+        } catch (Exception failure) {
+            // Goal selectors and the mind ledger have separate ownership.
+            // The ledger rolls its own transaction back; restore BOTH native
+            // selectors if either installation or the ledger fails.
+            try { apply(first, originalFirst); }
+            catch (Exception rollback) { failure.addSuppressed(rollback); }
+            try { apply(second, originalSecond); }
+            catch (Exception rollback) { failure.addSuppressed(rollback); }
+            if (failure.getSuppressed().length != 0)
+                return "Dynamic AI exchange FAILED; rollback could not be verified: "
+                    + failure.getMessage();
+            return "Dynamic AI exchange rejected and original goals restored: "
+                + failure.getMessage();
         }
     }
 }
