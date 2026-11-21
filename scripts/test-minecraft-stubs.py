@@ -10,6 +10,14 @@ DEST=ROOT/'build'/'stub-harness'; STUB=DEST/'stubs'; OUT=DEST/'classes'
 if DEST.exists(): shutil.rmtree(DEST)
 STUB.mkdir(parents=True,exist_ok=True); OUT.mkdir(parents=True,exist_ok=True)
 S={
+'dev/freakyfriday/mind/NativeBrainSwap.java':'''package dev.freakyfriday.mind;
+import net.minecraft.world.entity.LivingEntity;
+/** Headless stand-in ONLY. The actual native Brain is compiled by NeoForge CI. */
+public final class NativeBrainSwap {
+ public static String exchange(LivingEntity a,LivingEntity b){
+  return a.name.equals(b.name) ? null : "Whole-mind rebinding between different mob species is not implemented yet";
+ }
+}''',
 'dev/freakyfriday/CategoryPickerNetworking.java':'''package dev.freakyfriday;
 import java.util.Map;
 import dev.freakyfriday.core.CategoryOffers;
@@ -139,10 +147,10 @@ public static void main(String[] args){
  eq(AttributeCategorySwapper.availableCategories(cow).get("mobility")==2,"mobility has two values");
  eq(AttributeCategorySwapper.availableCategories(cow).get("vitality")==3,"vitality includes health and absorption");
  FreakyFridayBookItem book=new FreakyFridayBookItem(new net.minecraft.world.item.Item.Properties());
- book.interactLivingEntity(new ItemStack(FreakyFriday.BOOK.get()),p,cow,InteractionHand.MAIN_HAND);
+ SwapSessions.select(p,cow); // historical numerical-engine regression, not the new book
  eq(received(p,"Choose an entire category"),"first target selects category");
  SwapSessions.choose(p,"mobility");
- book.interactLivingEntity(new ItemStack(FreakyFriday.BOOK.get()),p,bat,InteractionHand.MAIN_HAND);
+ SwapSessions.select(p,bat); // old numerical transaction remains tested in isolation
  eq(get(cow,"minecraft:movement_speed")==.35 && get(cow,"minecraft:gravity")==.02,"entire mobility to cow");
  eq(get(bat,"minecraft:movement_speed")==.13 && get(bat,"minecraft:gravity")==.09,"entire mobility to bat");
  eq(received(p,"Swapped ENTIRE"),"success says category wide");
@@ -274,7 +282,7 @@ public static void main(String[] args){
 }
 }
 ''')
-prod=[ROOT/'src/main/java/dev/freakyfriday/core/CategoryExchange.java',ROOT/'src/main/java/dev/freakyfriday/core/PermanentModifier.java',ROOT/'src/main/java/dev/freakyfriday/core/CategoryBundle.java',ROOT/'src/main/java/dev/freakyfriday/core/CategoryDefinitions.java',ROOT/'src/main/java/dev/freakyfriday/core/CategorySchema.java',ROOT/'src/main/java/dev/freakyfriday/core/CategoryOffers.java',ROOT/'src/main/java/dev/freakyfriday/AttributeModifierTransfer.java',ROOT/'src/main/java/dev/freakyfriday/AttributeCategorySwapper.java',ROOT/'src/main/java/dev/freakyfriday/SwapSessions.java',ROOT/'src/main/java/dev/freakyfriday/FreakyFridayBookItem.java']
+prod=[ROOT/'src/main/java/dev/freakyfriday/core/CategoryExchange.java',ROOT/'src/main/java/dev/freakyfriday/core/PermanentModifier.java',ROOT/'src/main/java/dev/freakyfriday/core/CategoryBundle.java',ROOT/'src/main/java/dev/freakyfriday/core/CategoryDefinitions.java',ROOT/'src/main/java/dev/freakyfriday/core/CategorySchema.java',ROOT/'src/main/java/dev/freakyfriday/core/CategoryOffers.java',ROOT/'src/main/java/dev/freakyfriday/AttributeModifierTransfer.java',ROOT/'src/main/java/dev/freakyfriday/AttributeCategorySwapper.java',ROOT/'src/main/java/dev/freakyfriday/SwapSessions.java',ROOT/'src/main/java/dev/freakyfriday/FreakyFridayBookItem.java',ROOT/'src/main/java/dev/freakyfriday/mind/MindSwapSessions.java']
 cmd=['javac','-d',str(OUT)]+list(map(str,STUB.rglob('*.java')))+list(map(str,prod))
 subprocess.run(cmd,check=True)
 subprocess.run(['java','-ea','-cp',str(OUT),'dev.freakyfriday.BridgeHarness'],check=True)
@@ -464,7 +472,7 @@ public static void main(String[] args){
 # The real NeoForge CI build compiles network codecs and native Screen classes.
 # They must not be passed to the legacy headless harness whose fake APIs do not
 # implement actual packet serialization, GUI rendering or client registration.
-real_api_only = {'CategoryPickerPayload.java','CategoryPickerNetworking.java',
+real_api_only = {'NativeBrainSwap.java', 'CategoryPickerPayload.java','CategoryPickerNetworking.java',
                  'CategoryPickerScreen.java','ClientCategoryPickerNetworking.java'}
 all_prod=[p for p in (ROOT/'src/main/java').rglob('*.java') if p.name not in real_api_only] + list((ROOT/'src/platform/minecraft-26.2/java').rglob('*.java'))
 full_cmd=['javac','-d',str(OUT)]+list(map(str,STUB.rglob('*.java')))+list(map(str,all_prod))
@@ -480,68 +488,79 @@ import net.minecraft.server.level.*;import net.minecraft.world.entity.*;
 import net.minecraft.world.InteractionResult;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.minecraft.core.registries.BuiltInRegistries;
+import dev.freakyfriday.mind.MindSwapSessions;
 public class BookInteractionHarness {
  static int checks;
  static void ok(boolean x,String what){checks++;if(!x)throw new AssertionError(what);}
+ static boolean received(ServerPlayer p,String phrase){
+  return p.messages.stream().anyMatch(s->s.contains(phrase));
+ }
  public static void main(String[] args) {
   ServerLevel w=new ServerLevel("minecraft:overworld");
   ServerPlayer p=new ServerPlayer("Player",w);p.setMainHand(FreakyFriday.BOOK.get());
   LivingEntity villager=new LivingEntity("Villager",w),cow=new LivingEntity("Cow",w);
-  var a=BuiltInRegistries.ATTRIBUTE.register("minecraft:armor");
-  var t=BuiltInRegistries.ATTRIBUTE.register("minecraft:armor_toughness");
-  for(var e:new LivingEntity[]{villager,cow}){e.getAttributes().put(a,1);e.getAttributes().put(t,2);}
-  villager.getAttributes().getInstance(a).setBaseValue(8);
-  cow.getAttributes().getInstance(a).setBaseValue(2);
+  var armor=BuiltInRegistries.ATTRIBUTE.register("minecraft:armor");
+  villager.getAttributes().put(armor,8);
+  cow.getAttributes().put(armor,2);
   var first=new PlayerInteractEvent.EntityInteract(p,villager);
   BookInteractions.onInteract(first);
   ok(first.isCanceled()&&first.getCancellationResult()==InteractionResult.SUCCESS,
-     "book cancels normal mob interaction before villager trade handler");
-  ok(p.messages.stream().anyMatch(x->x.contains("First target")),"event first selection processed server-side");
-  SwapSessions.choose(p,"defense");
+     "book consumes normal mob actions");
+  ok(received(p,"First body:"),"first body selected without category menu");
   var second=new PlayerInteractEvent.EntityInteract(p,cow);
   BookInteractions.onInteract(second);
-  ok(second.isCanceled(),"second mob click also consumes vanilla interaction");
-  ok(villager.getAttributes().getInstance(a).getBaseValue()==2,
-      "villager receives all category stats from cow");
-  ok(cow.getAttributes().getInstance(a).getBaseValue()==8,
-      "cow receives all category stats from villager");
+  ok(second.isCanceled(),"second click consumes normal interaction");
+  ok(received(p,"Whole-mind rebinding between different mob species"),
+     "unsupported pair refuses whole mind, never partial attributes");
+  ok(villager.getAttributes().getInstance(armor).getBaseValue()==8
+      && cow.getAttributes().getInstance(armor).getBaseValue()==2,
+     "whole-mind rejection preserves numerical body attributes");
+
+  // The synthetic native driver only validates session routing. It does not
+  // prove live AI transplantation: that is the separate NeoForge runtime gate.
+  LivingEntity anotherVillager=new LivingEntity("Villager",w);
+  BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,anotherVillager));
+  ok(received(p,"Exchanged complete native Brains"),
+     "two clicks can commit an admissible whole-mind pairing");
+
   p.setMainHand(new Object());
   var noBook=new PlayerInteractEvent.EntityInteract(p,villager);
   BookInteractions.onInteract(noBook);
-  ok(!noBook.isCanceled(),"normal interactions are untouched without book");
+  ok(!noBook.isCanceled(),"normal interactions unaffected without book");
   p.setOffhand(FreakyFriday.BOOK.get());
+  w.tick();
   var offhand=new PlayerInteractEvent.EntityInteract(p,villager);
   BookInteractions.onInteract(offhand);
-  ok(offhand.isCanceled(),"offhand book still selects before vanilla mainhand interactions");
-  ok(p.messages.stream().anyMatch(x->x.contains("First target")),"offhand selection reaches server");
-  // Right-click is sometimes delivered twice: event plus Item fallback, or mainhand plus offhand.
-  long selections=p.messages.stream().filter(x->x.contains("First target")).count();
+  ok(offhand.isCanceled(),"offhand book selects before vanilla actions");
+  ok(received(p,"First body:"),"offhand selection reaches server");
+
+  long selections=p.messages.stream().filter(x->x.contains("First body:")).count();
   BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,villager));
   new FreakyFridayBookItem(new net.minecraft.world.item.Item.Properties())
       .interactLivingEntity(new net.minecraft.world.item.ItemStack(FreakyFriday.BOOK.get()),p,villager,
           net.minecraft.world.InteractionHand.OFF_HAND);
-  ok(p.messages.stream().filter(x->x.contains("First target")).count()==selections,
-      "duplicate event/item callbacks in one server tick do not restart selection");
+  ok(p.messages.stream().filter(x->x.contains("First body:")).count()==selections,
+     "same-tick duplicate callbacks are deduplicated");
   w.tick();
   BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,villager));
-  ok(p.messages.stream().anyMatch(x->x.contains("Choose a category first")),
-      "a legitimate later click still reaches the active selection session");
-  // Canceling is allowed after a duplicate-click guard has been set.
-  SwapSessions.cancel(p);
+  ok(received(p,"DIFFERENT second body"),"real subsequent click reaches active session");
+  MindSwapSessions.cancel(p);
   w.tick();
   BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,villager));
-  ok(p.messages.stream().filter(x->x.contains("First target")).count()==selections+1,
-      "after the server tick advances a new selection can start");
-  SwapSessions.cancel(p);
+  ok(p.messages.stream().filter(x->x.contains("First body:")).count()==selections+1,
+     "after cancellation a new first body can be selected");
+  MindSwapSessions.cancel(p);
+
   var nonliving=new PlayerInteractEvent.EntityInteract(p,new Entity("Minecart",w));
   BookInteractions.onInteract(nonliving);
-  ok(!nonliving.isCanceled(),"nonliving entities retain their normal interaction");
+  ok(!nonliving.isCanceled(),"nonliving entities unaffected");
   var client=new net.minecraft.world.entity.player.Player("ClientReplica",w);
   client.setMainHand(FreakyFriday.BOOK.get());
   var clientOnly=new PlayerInteractEvent.EntityInteract(client,cow);
   BookInteractions.onInteract(clientOnly);
-  ok(clientOnly.isCanceled(),"client consumes input but never mutates server selection state");
-  System.out.println("PASS BookInteractionHarness: "+checks+" assertions; event-first routing, offhand priority, normal-use guards");
+  ok(clientOnly.isCanceled(),"client consumes click without server mutation");
+  System.out.println("PASS BookInteractionHarness: "+checks
+    +" assertions; two-click mind workflow, whole-swap refusal, dedup, no-book and offhand");
  }
 }
 ''')
