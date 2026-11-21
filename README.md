@@ -11,9 +11,9 @@ The new source of truth for the redesign is [docs/WHOLE_MIND_SWAP_R0_13.md](docs
 
 ### Important status distinction
 
-This branch now has a **two-click, category-free book workflow** and a first **native Brain runtime swap**. It transfers the entire `LivingEntity.brain` reference between **two mobs of the exact same type that have active Brains and no separate GoalSelector AI**. Its identity ledger and transaction rollback are tested, and both NeoForge variants compile. Unsupported pairs reject before any changes. This is an **experimental in-game test candidate**, not a universal mind-swap release.
+This branch now has a **two-click, category-free book workflow** and two AI runtimes: a native `Brain` exchange for compatible same-species Brain-driven mobs, plus a **first cross-species cow ↔ pig whole-goal AI exchange**. The cow/pig route rebuilds every recognized donor goal against the other living body, including all temptation rules and priorities. It refuses unknown or mismatched goal sets rather than skipping them. Both runtime controllers are tracked through a server-side mind ledger. This is an **experimental in-game test candidate**, not a universal mind-swap release.
 
-**Not yet supported:** cross-species Goal/Brain rebinding, goal-driven mobs, player↔player or player↔mob control, reliable save/reload/death lifecycle, multiplayer behavior validation. **Test only in a disposable world** until those gates pass. See [native Brain proof and test plan](docs/R0_13_NATIVE_BRAIN_PROOF.md).
+**Not yet supported:** arbitrary cross-species Goal/Brain rebinding, most goal-driven mobs, player↔player or player↔mob control, reliable save/reload/death lifecycle, multiplayer behavior validation. **Test only in a disposable world** until those gates pass. See [cow/pig cross-species test plan](docs/R0_13_CROSS_SPECIES_GOAL_PROOF.md) and [native Brain proof](docs/R0_13_NATIVE_BRAIN_PROOF.md).
 
 The existing R0.12 numerical-category prototype remains on [main](../../tree/main) as a known buildable reference. The historical original is preserved on [archive/r0.11-original](../../tree/archive/r0.11-original).
 
