@@ -84,3 +84,13 @@ tasks.register("runMindLedgerSelfTest", JavaExec) {
     enableAssertions = true
 }
 tasks.named('check') { dependsOn tasks.named('runMindLedgerSelfTest') }
+
+tasks.register("runDynamicObjectGraphSelfTest", JavaExec) {
+    group = 'verification'
+    description = "Prove species-independent dynamic AI graph capture and owner rebinding"
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.freakyfriday.mind.DynamicObjectGraphSelfTest'
+    enableAssertions = true
+}
+tasks.named('check') { dependsOn tasks.named('runDynamicObjectGraphSelfTest') }
