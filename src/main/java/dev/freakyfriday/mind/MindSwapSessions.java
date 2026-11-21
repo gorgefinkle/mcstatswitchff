@@ -99,7 +99,7 @@ public final class MindSwapSessions {
             return;
         }
         PENDING.remove(p.getUUID());
-        message(p, "Exchanged complete native Brains between "
+        message(p, "Exchanged complete supported AI mind controllers between "
             + first.getDisplayName().getString() + " and "
             + target.getDisplayName().getString()
             + ". Experimental: test in a disposable world; persistence is not verified.");
