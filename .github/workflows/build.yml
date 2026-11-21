@@ -1,7 +1,7 @@
 name: Freaky Friday builds
 on:
   push:
-    branches: [main]
+    branches: [main, 'feature/whole-mind-swap']
   pull_request:
   workflow_dispatch:
 
