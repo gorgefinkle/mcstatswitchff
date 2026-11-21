@@ -33,6 +33,7 @@ public final class LiveBodyProbe {
 
     private static final class Run {
         final Mob body;
+        final String trace;
         final UUID requestingPlayer;
         final UUID bodyUuid;
         final String bodyType;
@@ -51,6 +52,7 @@ public final class LiveBodyProbe {
 
         Run(Mob body, ServerPlayer player) {
             this.body = body;
+            this.trace = ProbeTelemetry.newTrace();
             this.requestingPlayer = player.getUUID();
             this.bodyUuid = body.getUUID();
             this.bodyType = body.getType().toString();
@@ -104,8 +106,13 @@ public final class LiveBodyProbe {
         if (ACTIVE.size() >= MAX_ACTIVE)
             return "Probe concurrency limit reached; no new body was modified.";
 
-        ACTIVE.put(body.getUUID(), new Run(body, player));
-        return "Starting 40-tick body-control probe for "
+        Run probe = new Run(body, player);
+        ACTIVE.put(body.getUUID(), probe);
+        ProbeTelemetry.info(probe.trace, "physical_probe_started",
+            "bodyId=%s bodyType=%s class=%s originalPos=%s originalHealth=%.2f originalMaxHealth=%.2f syntheticMindOnly=true",
+            body.getUUID(), body.getType(), body.getClass().getName(),
+            body.position(), body.getHealth(), body.getMaxHealth());
+        return "Starting 40-tick body-control probe trace=" + probe.trace + " for "
             + body.getDisplayName().getString() + ". The original AI remains active. "
             + "No donor mind is executed, no second mob is created and no swap occurs. "
             + "Result reports accepted commands AND actual displacement.";
@@ -128,6 +135,17 @@ public final class LiveBodyProbe {
             var report = active.engine.tick(new MindHostEngine.Observation(
                 mob.getUUID(), mob.level().getGameTime(), Map.of()));
             active.frames++;
+            ProbeTelemetry.info(active.trace, "physical_probe_tick",
+                "tick=%d gameTime=%d bodyId=%s realPos=%s status=%s intentCount=%d outcomeCount=%d details=%s",
+                active.frames, mob.level().getGameTime(), mob.getUUID(), mob.position(),
+                report.status(), report.intents().size(), report.outcomes().size(),
+                report.diagnostic());
+            if (report.status() == MindHostEngine.TickStatus.ACTION_FAILED
+                    || report.status() == MindHostEngine.TickStatus.CAPTURE_FAILED) {
+                ProbeTelemetry.warn(active.trace, "physical_probe_problem",
+                    "tick=%d status=%s details=%s",
+                    active.frames, report.status(), report.diagnostic());
+            }
 
             switch (report.status()) {
                 case DISPATCHED -> {
@@ -159,6 +177,10 @@ public final class LiveBodyProbe {
 
     @SubscribeEvent
     public static synchronized void onServerStopped(ServerStoppedEvent event) {
+        for (Run active : ACTIVE.values()) {
+            ProbeTelemetry.warn(active.trace, "physical_probe_server_stop",
+                "server stopped during active test; frames=%d", active.frames);
+        }
         ACTIVE.clear();
     }
 
@@ -169,13 +191,19 @@ public final class LiveBodyProbe {
         boolean bodyUnchanged = result.bodyUuid.equals(body.getUUID())
             && result.bodyType.equals(body.getType().toString())
             && Float.compare(result.maxHealthBefore, body.getMaxHealth()) == 0;
+        ProbeTelemetry.info(result.trace, "physical_probe_finished",
+            "reason=%s frames=%d bodyId=%s bodyType=%s finalPos=%s displacement=%.5f bodyIdentityMaxHealthIntact=%s healthBefore=%.2f healthAfter=%.2f executed=%d blocked=%d unavailable=%d captureFailed=%d dispatchFailed=%d duplicate=%d diagnostic=%s",
+            reason, result.frames, result.bodyUuid, result.bodyType, body.position(),
+            displacement, bodyUnchanged, result.healthBefore, body.getHealth(),
+            result.executed, result.blocked, result.unavailable, result.captureFailed,
+            result.dispatchFailed, result.duplicate, result.lastDiagnostic);
 
         if (!(body.level() instanceof ServerLevel level)) return;
         ServerPlayer player = level.getServer().getPlayerList()
             .getPlayer(result.requestingPlayer);
         if (player == null) return;
         player.sendSystemMessage(Component.literal(
-            "[Freaky Friday] Host probe: " + reason
+            "[Freaky Friday] Host probe trace=" + result.trace + ": " + reason
             + "; ticks=" + result.frames
             + "; real displacement=" + String.format(java.util.Locale.ROOT,
                 "%.3f", displacement) + " blocks"
