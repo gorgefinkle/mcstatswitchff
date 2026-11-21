@@ -12,7 +12,7 @@ for file in sorted(resources.rglob('*.json')):
 mods=tomllib.loads((resources/'META-INF/neoforge.mods.toml').read_text())
 assert mods['mods'][0]['modId']=='freakyfriday'
 assert mods['mods'][0]['version']=='${ff_mod_version}'
-assert "version = '0.15.2-alpha'" in (root/'build.gradle').read_text()
+assert "version = '0.15.3-alpha'" in (root/'build.gradle').read_text()
 assert (root/'src/platform/minecraft-26.2/java/dev/freakyfriday/compat/PlatformHooks.java').exists()
 assert (root/'src/platform/minecraft-26.3/java/dev/freakyfriday/compat/PlatformHooks.java').exists()
 assert 'PlatformHooks::addBookToCreativeTab' in (root/'src/main/java/dev/freakyfriday/FreakyFriday.java').read_text()
@@ -35,6 +35,7 @@ assert (root/'src/main/java/dev/freakyfriday/mind/LiveBodyProbe.java').exists()
 assert (root/'src/main/java/dev/freakyfriday/mind/DetachedMindHostProbe.java').exists()
 assert (root/'src/main/java/dev/freakyfriday/mind/DetachedHostMirrorProbe.java').exists()
 assert (root/'src/main/java/dev/freakyfriday/mind/ProbeTelemetry.java').exists()
+assert 'Diagnostic pair is LOCKED' in (root/'src/main/java/dev/freakyfriday/mind/MindSwapSessions.java').read_text()
 probe_source = (root/'src/main/java/dev/freakyfriday/mind/DetachedHostMirrorProbe.java').read_text()
 assert 'mirror_tick' in probe_source and 'mirror_finished' in probe_source and 'registration_violation' in probe_source
 assert 'EntityJoinLevelEvent' in probe_source and 'event.setCanceled(true)' in probe_source
