@@ -54,6 +54,34 @@ public final class MindSwapSessions {
         message(p, "Mind swap selection cancelled.");
     }
 
+    /**
+     * Passive diagnostic for arbitrary vanilla or modded mobs. No AI is
+     * ticked, no goals are mutated and no hidden entity is instantiated.
+     * A snapshot cannot certify world-effect isolation.
+     */
+    public static void inspect(ServerPlayer p) {
+        if (!hasBook(p)) {
+            message(p, "Hold the Freaky Friday book first.");
+            return;
+        }
+        Pending pending = current(p);
+        if (pending == null) {
+            message(p, "Select a living mob with the book before inspecting its AI.");
+            return;
+        }
+        Entity selected = p.level().getEntity(pending.firstBody());
+        if (!(selected instanceof LivingEntity living) || !living.isAlive()) {
+            message(p, "Selected mob is no longer loaded or alive.");
+            return;
+        }
+        try {
+            for (String line : NativeAiSurfaceAudit.inspect(living).summary())
+                message(p, line);
+        } catch (IllegalArgumentException problem) {
+            message(p, problem.getMessage());
+        }
+    }
+
     public static void selectFromInteraction(ServerPlayer p, LivingEntity target) {
         if (!hasBook(p)) return;
         Stamp stamp = new Stamp(target.getUUID(), p.level().getGameTime());
