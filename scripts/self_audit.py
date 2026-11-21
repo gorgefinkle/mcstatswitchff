@@ -12,7 +12,7 @@ for file in sorted(resources.rglob('*.json')):
 mods=tomllib.loads((resources/'META-INF/neoforge.mods.toml').read_text())
 assert mods['mods'][0]['modId']=='freakyfriday'
 assert mods['mods'][0]['version']=='${ff_mod_version}'
-assert "version = '0.13.2-alpha'" in (root/'build.gradle').read_text()
+assert "version = '0.13.3-alpha'" in (root/'build.gradle').read_text()
 assert (root/'src/platform/minecraft-26.2/java/dev/freakyfriday/compat/PlatformHooks.java').exists()
 assert (root/'src/platform/minecraft-26.3/java/dev/freakyfriday/compat/PlatformHooks.java').exists()
 assert 'PlatformHooks::addBookToCreativeTab' in (root/'src/main/java/dev/freakyfriday/FreakyFriday.java').read_text()
@@ -24,6 +24,7 @@ assert 'CategoryExchange.exchange(first,second,port)' in (root/'src/main/java/de
 assert not (root/'src/main/java/dev/freakyfriday/core/ExchangeEngine.java').exists()
 assert (root/'src/main/java/dev/freakyfriday/mind/DynamicObjectGraph.java').exists()
 assert (root/'src/main/java/dev/freakyfriday/mind/BodyActionGate.java').exists()
+assert (root/'src/main/java/dev/freakyfriday/mind/MinecraftBodyPort.java').exists()
 assert (root/'src/test/java/dev/freakyfriday/mind/BodyActionGateSelfTest.java').exists()
 dynamic_runtime=(root/'src/main/java/dev/freakyfriday/mind/GoalMindRuntime.java').read_text()
 assert 'DynamicObjectGraph.capture(roots, Goal[].class' in dynamic_runtime
