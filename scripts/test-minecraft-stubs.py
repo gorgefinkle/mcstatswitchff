@@ -15,6 +15,16 @@ import net.minecraft.server.level.ServerLevel;
 public class Mob extends LivingEntity {
  public Mob(String name, ServerLevel level){super(name,level);}
 }''',
+'dev/freakyfriday/mind/LiveBodyProbe.java':'''package dev.freakyfriday.mind;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Mob;
+/** Synthetic-only stand-in. The real 40-tick trace needs NeoForge runtime. */
+public final class LiveBodyProbe {
+ public static String start(ServerPlayer player, Mob body) {
+  return "Starting 40-tick body-control probe for " + body.name
+    + ". No donor AI was run (synthetic harness).";
+ }
+}''',
 'dev/freakyfriday/mind/MinecraftHostProbe.java':'''package dev.freakyfriday.mind;
 import net.minecraft.server.level.ServerPlayer;import net.minecraft.world.entity.Mob;
 /** Headless probe stub only, real body port tested by NeoForge. */
@@ -495,7 +505,7 @@ public static void main(String[] args){
 # The real NeoForge CI build compiles network codecs and native Screen classes.
 # They must not be passed to the legacy headless harness whose fake APIs do not
 # implement actual packet serialization, GUI rendering or client registration.
-real_api_only = {'NativeBrainSwap.java', 'GoalMindRuntime.java', 'MinecraftBodyPort.java', 'MinecraftHostProbe.java', 'NativeAiSurfaceAudit.java', 'CategoryPickerPayload.java','CategoryPickerNetworking.java',
+real_api_only = {'NativeBrainSwap.java', 'GoalMindRuntime.java', 'MinecraftBodyPort.java', 'MinecraftHostProbe.java', 'LiveBodyProbe.java', 'NativeAiSurfaceAudit.java', 'CategoryPickerPayload.java','CategoryPickerNetworking.java',
                  'CategoryPickerScreen.java','ClientCategoryPickerNetworking.java'}
 all_prod=[p for p in (ROOT/'src/main/java').rglob('*.java') if p.name not in real_api_only] + list((ROOT/'src/platform/minecraft-26.2/java').rglob('*.java'))
 full_cmd=['javac','-d',str(OUT)]+list(map(str,STUB.rglob('*.java')))+list(map(str,all_prod))
@@ -593,6 +603,9 @@ public class BookInteractionHarness {
   MindSwapSessions.hostProbe(p);
   ok(received(p,"Host action probe (SYNTHETIC; not native mind swap)"),
      "book-selected native Mob probe reaches host without swapping minds");
+  MindSwapSessions.timedHostProbe(p);
+  ok(received(p,"Starting 40-tick body-control probe"),
+     "selected Mob can start bounded, non-donor action trace");
   MindSwapSessions.cancel(p);
 
   var nonliving=new PlayerInteractEvent.EntityInteract(p,new Entity("Minecart",w));
