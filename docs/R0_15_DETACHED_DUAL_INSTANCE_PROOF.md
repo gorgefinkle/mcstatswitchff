@@ -58,6 +58,31 @@ the recipient in this version.
    interaction remains normal and server logs show no unexpected event.
 6. Never interpret success from this one-off check as native AI isolation.
 
+## R0.15.1: A retained detached host across 40 real ticks
+
+Added an explicit `/freakyfriday dualprobe40` command after choosing donor
+and recipient with the book. Unlike the one-off `dualprobe`, it keeps the
+donor-class, non-world-registered entity **strongly referenced for 40
+actual recipient entity ticks**. The original donor and recipient are still
+the only world-registered physical entities.
+
+Each recipient's `EntityTickEvent.Post` callback checks whether the
+host UUID appeared in the actual ServerLevel and mirrors the host's
+position to the unchanged physical recipient. It records real physical
+ticks, mirror counts, alignment failures, registration violations,
+recipient UUID/type/max-health preservation, and physical displacement.
+Sessions end after 40 ticks, source/target unload, death, error or server
+stop; concurrency is capped.
+
+**The host's own Goal/Brain/Mob tick is never called.** The visible body
+continues its normal AI. This proves only the detached instance
+lifecycle/position mirror, not the ability to run arbitrary donor
+intelligence safely.
+
+Third-party entity constructors and `setPos` overrides may still mutate
+the real world, even on an unspawned entity. Use ONLY disposable worlds.
+A world-registration violation should be treated as a serious failure.
+
 ## Future gates — required for full mod compatibility
 
 - Keep a detached host alive across observed ticks without registering it,
