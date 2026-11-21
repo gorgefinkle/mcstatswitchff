@@ -254,7 +254,7 @@ public static void main(String[] args){
  ServerPlayer q=new ServerPlayer("Player2",world);q.setMainHand(FreakyFriday.BOOK.get());put(q,"minecraft:max_health",20);put(q,"minecraft:movement_speed",.6);put(q,"minecraft:gravity",.04);
  p.setMainHand(FreakyFriday.BOOK.get());SwapSessions.select(p,cow);SwapSessions.select(q,bat);
  SwapSessions.choose(p,"mobility");SwapSessions.choose(q,"vitality");
- eq(received(p,"Selected ENTIRE Mobility") && received(q,"Selected ENTIRE Vitality"),"independent player sessions");
+ eq(received(p,"Selected ENTIRE Movement & Body") && received(q,"Selected ENTIRE Vitality"),"independent player sessions");
  SwapSessions.cancel(p);SwapSessions.cancel(q);SwapSessions.clearOnLogout(p.getUUID());
  // No stat/ability fake for phase3 signature category.
  eq(!AttributeCategorySwapper.availableCategories(cow).containsKey("signature"),"incomplete signature category hidden");
