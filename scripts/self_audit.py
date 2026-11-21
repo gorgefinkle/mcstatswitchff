@@ -26,6 +26,8 @@ assert (root/'src/main/java/dev/freakyfriday/mind/DynamicObjectGraph.java').exis
 assert (root/'src/main/java/dev/freakyfriday/mind/BodyActionGate.java').exists()
 assert (root/'src/main/java/dev/freakyfriday/mind/MinecraftBodyPort.java').exists()
 assert (root/'src/main/java/dev/freakyfriday/mind/MindHostEngine.java').exists()
+assert (root/'src/main/java/dev/freakyfriday/mind/BodyCapabilityRegistry.java').exists()
+assert (root/'src/test/java/dev/freakyfriday/mind/BodyCapabilityRegistrySelfTest.java').exists()
 assert (root/'src/main/java/dev/freakyfriday/mind/NativeAiSurfaceAudit.java').exists()
 assert (root/'src/test/java/dev/freakyfriday/mind/MindHostEngineSelfTest.java').exists()
 assert (root/'src/test/java/dev/freakyfriday/mind/BodyActionGateSelfTest.java').exists()
