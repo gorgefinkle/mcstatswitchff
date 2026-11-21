@@ -60,6 +60,11 @@ public final class NativeBrainSwap {
     public static synchronized String exchange(LivingEntity a, LivingEntity b) {
         if (!(a instanceof Mob first) || !(b instanceof Mob second))
             return "Player control exchange is not implemented yet; choose two NPC mobs.";
+        // Complete, recipient-bound goal packages are used where available.
+        // Do not copy Goal references: those are bound to their original mob.
+        // This is an entire native AI recipe per species, not a per-goal UI.
+        if (GoalMindRuntime.supports(first, second))
+            return GoalMindRuntime.exchange(first, second);
         String unavailable = eligibility(first, second);
         if (unavailable != null) return unavailable;
 
