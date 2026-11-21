@@ -15,7 +15,7 @@ import net.minecraft.world.entity.LivingEntity;
 /** Headless stand-in ONLY. The actual native Brain is compiled by NeoForge CI. */
 public final class NativeBrainSwap {
  public static String exchange(LivingEntity a,LivingEntity b){
-  return a.name.equals(b.name) ? null : "Whole-mind rebinding between different mob species is not implemented yet";
+  return (a.name.equals("OpaqueGoal") || b.name.equals("OpaqueGoal"))\n      ? "Dynamic AI capture rejected the COMPLETE exchange: unsupported goal" : null;
  }
 }''',
 'dev/freakyfriday/CategoryPickerNetworking.java':'''package dev.freakyfriday;
@@ -510,18 +510,24 @@ public class BookInteractionHarness {
   var second=new PlayerInteractEvent.EntityInteract(p,cow);
   BookInteractions.onInteract(second);
   ok(second.isCanceled(),"second click consumes normal interaction");
-  ok(received(p,"Whole-mind rebinding between different mob species"),
-     "unsupported pair refuses whole mind, never partial attributes");
+  ok(received(p,"Exchanged complete supported AI mind controllers"),
+     "cross-species first/second inputs reach dynamic swap without categories");
   ok(villager.getAttributes().getInstance(armor).getBaseValue()==8
       && cow.getAttributes().getInstance(armor).getBaseValue()==2,
-     "whole-mind rejection preserves numerical body attributes");
+     "body stats are not silently exchanged alongside minds");
 
-  // The synthetic native driver only validates session routing. It does not
-  // prove live AI transplantation: that is the separate NeoForge runtime gate.
+  // The synthetic driver only tests book/session decisions. Real Goal capture
+  // is tested by DynamicObjectGraphSelfTest and actual NeoForge compilation.
+  w.tick();
+  LivingEntity unportable=new LivingEntity("OpaqueGoal",w);
+  BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,villager));
+  BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,unportable));
+  ok(received(p,"Dynamic AI capture rejected the COMPLETE exchange"),
+     "opaque AI rejects the entire transaction without pretending success");
   LivingEntity anotherVillager=new LivingEntity("Villager",w);
   BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,anotherVillager));
   ok(received(p,"Exchanged complete supported AI mind controllers"),
-     "two clicks can commit an admissible whole-mind pairing");
+     "after rejection, second-target replacement still works");
 
   p.setMainHand(new Object());
   var noBook=new PlayerInteractEvent.EntityInteract(p,villager);
