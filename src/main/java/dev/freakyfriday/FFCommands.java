@@ -44,6 +44,10 @@ public final class FFCommands {
             .then(Commands.literal("dualprobe").executes(ctx -> {
                 MindSwapSessions.dualInstanceProbe(ctx.getSource().getPlayerOrException());
                 return 1;
+            }))
+            .then(Commands.literal("dualprobe40").executes(ctx -> {
+                MindSwapSessions.timedDualInstanceProbe(ctx.getSource().getPlayerOrException());
+                return 1;
             })));
     }
 }
