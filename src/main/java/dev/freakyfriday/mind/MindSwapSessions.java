@@ -220,7 +220,7 @@ public final class MindSwapSessions {
             PENDING.put(p.getUUID(), new Pending(target.getUUID(),
                 p.level().dimension().identifier().toString(), System.nanoTime()));
             message(p, "First body: " + target.getDisplayName().getString()
-                + ". Choose the SECOND body to swap complete minds. No categories.");
+                + ". Choose the SECOND body for dual-instance host testing. No mind swap yet.");
             return;
         }
         Entity original = p.level().getEntity(pending.firstBody());
