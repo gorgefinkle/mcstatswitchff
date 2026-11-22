@@ -3,6 +3,7 @@ package dev.freakyfriday;
 import java.util.Locale;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.neoforged.api.distmarker.Dist;
@@ -61,7 +62,8 @@ public final class ClientOccupiedBodyUI {
     }
 
     /**
-     * Survival inventory renders the account's LocalPlayer portrait by
+     * Survival and Creative's survival-equipment inventory tab render the
+     * account's LocalPlayer portrait by
      * default, even while its camera and movement are swapped to a Mob.
      * Overlay ONLY the preview rectangle after vanilla's inventory content
      * is extracted, then render the real occupied entity's model there.
@@ -69,11 +71,22 @@ public final class ClientOccupiedBodyUI {
      */
     @SubscribeEvent
     public static void onInventory(ScreenEvent.Render.Foreground event) {
-        if (!(event.getScreen() instanceof InventoryScreen inventory)) return;
+        // Survival InventoryScreen and Creative's survival-equipment tab
+        // use the same vanilla preview rectangle. Without this second
+        // branch, a creative-mode tester still sees the original player.
+        int left, top;
+        if (event.getScreen() instanceof InventoryScreen inventory) {
+            left=inventory.getLeftPos();
+            top=inventory.getTopPos();
+        } else if (event.getScreen() instanceof CreativeModeInventoryScreen creative
+                && creative.isInventoryOpen()) {
+            left=creative.getLeftPos();
+            top=creative.getTopPos();
+        } else return;
         LivingEntity body=occupied();
         if (body==null) return;
-        int x=inventory.getLeftPos()+26;
-        int y=inventory.getTopPos()+8;
+        int x=left+26;
+        int y=top+8;
         var graphics=event.getGuiGraphics();
         // Opaque backing prevents the original Player render from showing
         // through the substituted model in the same preview viewport.
