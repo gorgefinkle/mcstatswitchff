@@ -35,8 +35,8 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
  * layer is still needed to restrict arbitrary modded Java filesystem/network
  * effects: a separate JVM alone is not a comprehensive security sandbox.
  *
- * The first bounded observation captures naturally produced target/navigation
- * movement. It does NOT capture all native powers, inventory changes, attacks,
+ * The first bounded observation captures naturally produced native navigation
+ * movement from either hostile or passive donors. It does NOT capture all native powers, inventory changes, attacks,
  * projectiles, or modded side effects. Unknown/unsupported behavior fails
  * closed instead of being replaced with scripted per-mob rules.
  */
@@ -193,25 +193,19 @@ public final class NativeAiWorkerServer {
         if (donor.getTarget()==stimulus) state.targetTicks++;
         if (donor.getNavigation().isInProgress()) state.navigationTicks++;
 
-        if (state.targetTicks>=2 && state.navigationTicks>=2) {
+        // Both hostile pursuit and passive random wandering are observed
+        // through the very same native navigation seam. No entity-type
+        // conditional or species recipe decides the action.
+        var movement=NativeMindObservation.observe(
+            state.startX,donor.getY(),state.startZ,
+            donor.getX(),donor.getY(),donor.getZ(),
+            state.navigationTicks>=2);
+        if (movement!=null) {
             try {
-                // Native donor's real observed ATTACK TARGET is one action
-                // observation. Worker coordinates are first-stage fixture
-                // coordinates, not a general transformed world snapshot.
-                Map<String,String> pos=Map.of(
-                    "x",Double.toString(stimulus.getX()),
-                    "y",Double.toString(stimulus.getY()+0.5),
-                    "z",Double.toString(stimulus.getZ()));
-                var frame=new CapturedIntentBridge.Frame(
+                var frame=NativeMindObservation.frame(
                     state.request.recipientBody(),
                     state.request.sourceMind(),
-                    state.request.recipientTick(),
-                    List.of(
-                        new BodyActionGate.Intent(MinecraftBodyPort.LOOK_AT,pos),
-                        new BodyActionGate.Intent(MinecraftBodyPort.MOVE_TO,
-                            Map.of("x",pos.get("x"),"y",pos.get("y"),
-                                "z",pos.get("z"),"speed","0.65"))
-                    ));
+                    state.request.recipientTick(),movement);
                 byte[] signed=CapturedIntentWireCodec.encode(
                     new CapturedIntentWireCodec.Envelope(
                         state.request.session(),frame),state.request.secret());
@@ -224,23 +218,24 @@ public final class NativeAiWorkerServer {
                     Files.move(tmp,OUTPUT,StandardCopyOption.REPLACE_EXISTING);
                 }
                 state.produced=true;
-                System.out.println("FF-NATIVE-WORKER NATIVE_TARGET_OBSERVED"
+                System.out.println("FF-NATIVE-WORKER NATIVE_NAVIGATION_OBSERVED"
                     +" donor="+state.request.donor()
                     +" nativeTargetTicks="+state.targetTicks
                     +" nativeNavigationTicks="+state.navigationTicks
-                    +" actualDonorX="+donor.getX()
-                    +" actualDonorZ="+donor.getZ()
+                    +" observedNativeTravel="+movement.observedDistance()
+                    +" nativeOffsetX="+movement.dx()
+                    +" nativeOffsetZ="+movement.dz()
                     +" originalWorldIsWorker=true");
                 System.out.println("FF-NATIVE-WORKER FRAME_WRITTEN PASS"
                     +" signedBytes="+signed.length
-                    +" nativeDonorAiActuallyTicked=true"
-                    +" actionCapture=target_and_navigation_only");
+                    +" donorNativeAiActuallyTicked=true"
+                    +" actionCapture=native_relative_navigation_only");
             } catch (Exception failure) {
                 state.produced=true;
                 System.err.println("FF-NATIVE-WORKER FRAME_FAILURE "
                     +failure.getClass().getName()+": "+failure.getMessage());
             }
-        } else if (state.age>=200) {
+        } else if (state.age>=400) {
             state.produced=true;
             System.err.println("FF-NATIVE-WORKER NO_NATIVE_DECISION"
                 +" targetTicks="+state.targetTicks
