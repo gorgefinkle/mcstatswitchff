@@ -20,6 +20,7 @@ public final class FreakyFriday {
         modBus.addListener(PlatformHooks::addBookToCreativeTab);
         NeoForge.EVENT_BUS.register(FFCommands.class);
         NeoForge.EVENT_BUS.register(FFServerSmoke.class);
+        NeoForge.EVENT_BUS.register(dev.freakyfriday.mind.NativeAiWorkerServer.class);
         NeoForge.EVENT_BUS.register(BookInteractions.class);
         NeoForge.EVENT_BUS.register(dev.freakyfriday.mind.LiveBodyProbe.class);
         NeoForge.EVENT_BUS.register(dev.freakyfriday.mind.DetachedHostMirrorProbe.class);
