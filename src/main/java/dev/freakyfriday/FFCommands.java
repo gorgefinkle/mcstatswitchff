@@ -1,6 +1,7 @@
 package dev.freakyfriday;
 
 import dev.freakyfriday.mind.MindSwapSessions;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import net.minecraft.commands.Commands;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
@@ -54,6 +55,18 @@ public final class FFCommands {
             .then(Commands.literal("dualprobe40").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)).executes(ctx -> {
                 MindSwapSessions.timedDualInstanceProbe(ctx.getSource().getPlayerOrException());
                 return 1;
-            })));
+            }))
+            // One-command diagnostics: no book, spawning, manual target
+            // selection or donor AI execution. Operator and disposable world only.
+            .then(Commands.literal("test").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
+                .then(Commands.literal("suite").executes(ctx ->
+                    FFDiagnosticAutoTest.runSuite(ctx.getSource().getPlayerOrException())))
+                .then(Commands.literal("pair")
+                    .then(Commands.argument("donor", StringArgumentType.word())
+                        .then(Commands.argument("recipient", StringArgumentType.word())
+                            .executes(ctx -> FFDiagnosticAutoTest.runPair(
+                                ctx.getSource().getPlayerOrException(),
+                                StringArgumentType.getString(ctx, "donor"),
+                                StringArgumentType.getString(ctx, "recipient"))))))));
     }
 }
