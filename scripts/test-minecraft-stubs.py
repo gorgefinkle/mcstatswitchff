@@ -407,6 +407,12 @@ public final class PlayerMobGameTests {
    net.neoforged.neoforge.registries.DeferredRegister.createItems("stub-player-mob-tests");
 }
 ''',
+'dev/freakyfriday/mind/PlayerPlayerGameTests.java':'''package dev.freakyfriday.mind;
+public final class PlayerPlayerGameTests {
+ public static final net.neoforged.neoforge.registries.DeferredRegister.Items FUNCTIONS =
+   net.neoforged.neoforge.registries.DeferredRegister.createItems("stub-player-player-tests");
+}
+''',
 # These components exercise real Brigadier/NeoForge command events and
 # two-player GameTest APIs, rather than the old synthetic Minecraft stubs.
 'dev/freakyfriday/mind/PlayerCommandBodyRouting.java':'''package dev.freakyfriday.mind;
@@ -621,7 +627,7 @@ public static void main(String[] args){
 # They must not be passed to the legacy headless harness whose fake APIs do not
 # implement actual packet serialization, GUI rendering or client registration.
 real_api_only = {'NativeBrainSwap.java', 'GoalMindRuntime.java', 'MinecraftBodyPort.java', 'MinecraftHostProbe.java', 'LiveBodyProbe.java', 'DetachedMindHostProbe.java', 'ProbeBodySnapshot.java', 'ProbeTelemetry.java', 'DetachedHostMirrorProbe.java', 'DetachedProbeGameTests.java', 'NativeAiSurfaceAudit.java', 'CategoryPickerPayload.java','CategoryPickerNetworking.java',
-                 'CategoryPickerScreen.java','ClientCategoryPickerNetworking.java', 'FFDiagnosticAutoTest.java', 'FFServerSmoke.java', 'NativeAiWorkerServer.java', 'PlayerCommandBodyRouting.java', 'PlayerCommandRouteGameTests.java', 'UnseenAddonCommandFixture.java', 'PlayerMobGameTests.java', 'PlayerMobPossession.java', 'PossessionNetwork.java', 'PossessionInputPayload.java', 'PossessionViewPayload.java', 'ClientPossession.java'}
+                 'CategoryPickerScreen.java','ClientCategoryPickerNetworking.java', 'FFDiagnosticAutoTest.java', 'FFServerSmoke.java', 'NativeAiWorkerServer.java', 'PlayerCommandBodyRouting.java', 'PlayerCommandRouteGameTests.java', 'UnseenAddonCommandFixture.java', 'PlayerMobGameTests.java', 'PlayerPlayerGameTests.java', 'PlayerPlayerExchange.java', 'PlayerMobPossession.java', 'PossessionNetwork.java', 'PossessionInputPayload.java', 'PossessionViewPayload.java', 'ClientPossession.java'}
 all_prod=[p for p in (ROOT/'src/main/java').rglob('*.java') if p.name not in real_api_only] + list((ROOT/'src/platform/minecraft-26.2/java').rglob('*.java'))
 full_cmd=['javac','-d',str(OUT)]+list(map(str,STUB.rglob('*.java')))+list(map(str,all_prod))
 subprocess.run(full_cmd,check=True)
