@@ -520,9 +520,13 @@ public final class PlayerMobGameTests {
         ServerPlayer player=helper.makeMockServerPlayerInLevel();
         Mob zombie=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
         helper.assertTrue(zombie!=null,"Cannot spawn Zombie");
-        for(int x=1;x<=8;x++)for(int z=1;z<=8;z++)
+        for(int x=1;x<=8;x++)for(int z=1;z<=8;z++) {
             level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,0,z)),
                 net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+            // No daytime Zombie burning during the spawn-invulnerability wait.
+            level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,4,z)),
+                net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+        }
         BlockPos pos=helper.absolutePos(new BlockPos(3,1,3));
         player.setPos(pos.getX()+0.5,pos.getY(),pos.getZ()+0.5);
         zombie.setPos(pos.getX()+1.5,pos.getY(),pos.getZ()+0.5);
@@ -539,7 +543,10 @@ public final class PlayerMobGameTests {
         helper.assertTrue(issue==null,"Zombie possession rejected: "+issue);
         float initial=player.getHealth();
         PlayerMobPossession.input(player,new PlayerMobPossession.Input(0,0,false,90,0,1));
-        helper.runAfterDelay(3,()->{
+        // A new ServerPlayer may ignore ordinary hostile damage during the
+        // initial spawn-protection window. Attacking at tick 3 tests that
+        // protection, not possession. Wait for ordinary survival damage.
+        helper.runAfterDelay(75,()->{
             net.minecraft.world.entity.Entity target=
                 PossessionCombat.findValidMeleeTarget(level,zombie,player.getId(),player);
             helper.assertTrue(target==player,
