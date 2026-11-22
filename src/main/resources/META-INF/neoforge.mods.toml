@@ -4,7 +4,7 @@ modId="freakyfriday"
 version="${ff_mod_version}"
 displayName="Freaky Friday"
 authors="Freaky Friday Project"
-description='''Experimental player/mob possession. P07B adds occupied-body health HUD and both survival/creative inventory previews, normal damage/death of possessed mobs. Connected-client visuals and whole mind swapping are not yet proven.'''
+description='''Experimental player/mob possession. P07C adds occupied-body health HUD and both survival/creative inventory previews, normal damage/death of possessed mobs. Connected-client visuals and whole mind swapping are not yet proven.'''
 [[dependencies.freakyfriday]]
 modId="neoforge"
 type="required"
