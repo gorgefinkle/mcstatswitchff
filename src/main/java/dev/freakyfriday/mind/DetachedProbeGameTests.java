@@ -645,8 +645,8 @@ public final class DetachedProbeGameTests {
             "external_native_worker", () -> DetachedProbeGameTests::testExternalNativeWorker);
 
     private static void testExternalNativeWorker(GameTestHelper helper) {
-        java.nio.file.Path requestPath = java.nio.file.Path.of("ff-worker-request.properties");
-        java.nio.file.Path packetPath = java.nio.file.Path.of("ff-worker-frame.bin");
+        java.nio.file.Path requestPath=java.nio.file.Path.of("ff-worker-request.properties");
+        java.nio.file.Path packetPath=java.nio.file.Path.of("ff-worker-frame.bin");
         if (!java.nio.file.Files.exists(requestPath)
                 && !java.nio.file.Files.exists(packetPath)) {
             System.out.println("FF-NATIVE-WORKER E2E_SKIPPED_NO_EXTERNAL_FIXTURE");
@@ -656,109 +656,146 @@ public final class DetachedProbeGameTests {
         helper.assertTrue(java.nio.file.Files.isRegularFile(requestPath)
                 && java.nio.file.Files.isRegularFile(packetPath),
             "A partially present worker fixture must never be accepted");
-
         ServerLevel level=helper.getLevel();
-        Mob cow=null, zombie=null;
+        Mob receiverBody=null, originalDonorBody=null;
         try {
-            java.util.Properties request = new java.util.Properties();
-            try (var stream=java.nio.file.Files.newInputStream(requestPath)) {
-                request.load(stream);
-            }
-            helper.assertTrue("minecraft:zombie".equals(request.getProperty("donor"))
-                    && "minecraft:villager".equals(request.getProperty("stimulus")),
-                "Expected native Zombie chasing Villager in external worker fixture");
+            java.util.Properties request=new java.util.Properties();
+            try(var in=java.nio.file.Files.newInputStream(requestPath)){request.load(in);}
+            String donorType=request.getProperty("donor");
+            String recipientType=request.getProperty("recipient");
+            helper.assertTrue(donorType!=null && recipientType!=null,
+                "A native worker must identify both donor and recipient mob types");
             java.util.UUID session=java.util.UUID.fromString(request.getProperty("session"));
-            java.util.UUID recipientBody=java.util.UUID.fromString(
-                request.getProperty("recipientBody"));
-            java.util.UUID sourceMind=java.util.UUID.fromString(
-                request.getProperty("sourceMind"));
+            java.util.UUID recipientId=java.util.UUID.fromString(request.getProperty("recipientBody"));
+            java.util.UUID donorMind=java.util.UUID.fromString(request.getProperty("sourceMind"));
             long tick=Long.parseLong(request.getProperty("recipientTick"));
-            byte[] secret=java.util.HexFormat.of().parseHex(
-                System.getenv("FF_WORKER_KEY_HEX"));
+            byte[] secret=java.util.HexFormat.of().parseHex(System.getenv("FF_WORKER_KEY_HEX"));
             helper.assertTrue(secret.length==CapturedIntentWireCodec.KEY_BYTES,
-                "Missing external-worker HMAC verification key");
+                "Missing real-worker HMAC verification key");
 
-            cow=EntityTypes.COW.create(level,EntitySpawnReason.COMMAND);
-            zombie=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
-            helper.assertTrue(cow!=null && zombie!=null,
-                "The receiver must create real physical Cow and Zombie mobs");
-            BlockPos p=helper.absolutePos(new BlockPos(1,1,1));
-            cow.setPos(p.getX()+0.5,p.getY(),p.getZ()+0.5);
-            zombie.setPos(p.getX()+2.5,p.getY(),p.getZ()+0.5);
-            cow.setUUID(recipientBody); // Only before adding to the world.
-            cow.setNoAi(true);
-            zombie.setNoAi(true);
-            cow.setNoGravity(true);
-            zombie.setNoGravity(true);
-            helper.assertTrue(level.addFreshEntity(cow) && level.addFreshEntity(zombie),
-                "Real-world Cow/Zombie receiver actors must be registered");
-            helper.assertTrue(level.getEntity(recipientBody)==cow,
-                "Data-frame recipient UUID must identify the ACTUAL Cow entity");
-            float cowHealth=cow.getHealth(), zombieHealth=zombie.getHealth();
-            java.util.UUID cowMind=java.util.UUID.randomUUID();
-            var receiver=new CapturedIntentBridge();
-            receiver.register(new MinecraftBodyPort(cow),
-                new MindLedger.Mind(cowMind,MindLedger.Kind.NPC,"minecraft:cow"));
-            receiver.register(new MinecraftBodyPort(zombie),
-                new MindLedger.Mind(sourceMind,MindLedger.Kind.NPC,"minecraft:zombie"));
-            receiver.exchange(recipientBody,zombie.getUUID());
+            // The receiver is driven by registration IDs, not a whitelist of
+            // permitted donor/recipient species, Java classes or goal types.
+            net.minecraft.resources.Identifier rId=
+                net.minecraft.resources.Identifier.tryParse(recipientType);
+            net.minecraft.resources.Identifier dId=
+                net.minecraft.resources.Identifier.tryParse(donorType);
+            helper.assertTrue(rId!=null && dId!=null
+                    && net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.containsKey(rId)
+                    && net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.containsKey(dId),
+                "Native donor or recipient entity type not registered");
+            var factoryR=net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getValue(rId);
+            var factoryD=net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getValue(dId);
+            var entityR=factoryR.create(level,EntitySpawnReason.COMMAND);
+            var entityD=factoryD.create(level,EntitySpawnReason.COMMAND);
+            helper.assertTrue(entityR instanceof Mob && entityD instanceof Mob,
+                "Native donor and recipient must be genuine Mob entities");
+            receiverBody=(Mob)entityR;
+            originalDonorBody=(Mob)entityD;
+            var start=helper.absolutePos(new BlockPos(6,1,6));
+            for(int x=1;x<=12;x++)for(int z=1;z<=12;z++) {
+                level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,0,z)),
+                    net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+                level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,6,z)),
+                    net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+            }
+            receiverBody.setPos(start.getX()+0.5,start.getY(),start.getZ()+0.5);
+            originalDonorBody.setPos(start.getX()+4.5,start.getY(),start.getZ()+4.5);
+            receiverBody.setUUID(recipientId);
+            // Disable only the recipient's own goals in this disposable test
+            // fixture, while keeping its ACTUAL native navigation/controller
+            // running to obey the donor's observed relative movement.
+            receiverBody.goalSelector.removeAllGoals(goal->true);
+            receiverBody.targetSelector.removeAllGoals(goal->true);
+            receiverBody.setNoAi(false);
+            originalDonorBody.setNoAi(true);
+            receiverBody.setNoGravity(true);
+            originalDonorBody.setNoGravity(true);
+            helper.assertTrue(level.addFreshEntity(receiverBody)
+                    && level.addFreshEntity(originalDonorBody),
+                "Genuine receiver Mob entities not registered");
+            helper.assertTrue(level.getEntity(recipientId)==receiverBody,
+                "Signed frame must refer to the actual physical recipient");
+            float healthBefore=receiverBody.getHealth();
+            float donorHealthBefore=originalDonorBody.getHealth();
+            java.util.UUID originalMind=java.util.UUID.randomUUID();
+            var bridge=new CapturedIntentBridge();
+            bridge.register(new MinecraftBodyPort(receiverBody),
+                new MindLedger.Mind(originalMind,MindLedger.Kind.NPC,recipientType));
+            bridge.register(new MinecraftBodyPort(originalDonorBody),
+                new MindLedger.Mind(donorMind,MindLedger.Kind.NPC,donorType));
+            bridge.exchange(recipientId,originalDonorBody.getUUID());
 
             byte[] packet=java.nio.file.Files.readAllBytes(packetPath);
             helper.assertTrue(packet.length>0
-                && packet.length<=CapturedIntentWireCodec.MAX_WIRE_BYTES,
-                "Worker packet is empty or exceeds bound");
+                    && packet.length<=CapturedIntentWireCodec.MAX_WIRE_BYTES,
+                "Worker packet invalid");
             var decoded=CapturedIntentWireCodec.decode(packet,secret,session,tick);
-            helper.assertTrue(decoded.frame().bodyId().equals(recipientBody)
-                    && decoded.frame().mindId().equals(sourceMind)
+            helper.assertTrue(decoded.frame().bodyId().equals(recipientId)
+                    && decoded.frame().mindId().equals(donorMind)
                     && decoded.frame().actions().size()==2
                     && decoded.frame().actions().get(0).actionId()
-                        .equals(MinecraftBodyPort.LOOK_AT)
+                        .equals(MinecraftBodyPort.LOOK_OFFSET)
                     && decoded.frame().actions().get(1).actionId()
-                        .equals(MinecraftBodyPort.MOVE_TO),
-                "External native worker emitted unexpected or misaddressed actions");
+                        .equals(MinecraftBodyPort.MOVE_OFFSET),
+                "Native worker did not emit portable recipient-relative actions");
+            var pos=decoded.frame().actions().get(1).arguments();
+            double dx=Double.parseDouble(pos.get("dx"));
+            double dz=Double.parseDouble(pos.get("dz"));
+            helper.assertTrue(Math.hypot(dx,dz)>3.0
+                    && Math.hypot(dx,dz)<4.0,
+                "Donor native motion missing: offset="+dx+","+dz);
 
             byte[] corrupt=packet.clone();
             corrupt[20]^=1;
-            boolean rejected=false;
-            try {
-                receiver.deliverAuthenticated(corrupt,secret,session,tick);
-            } catch (IllegalArgumentException expected) {
-                rejected=true;
-            }
-            helper.assertTrue(rejected,
-                "Receiver admitted tampered real-worker packet");
-            var executed=receiver.deliverAuthenticated(packet,secret,session,tick);
-            helper.assertTrue(executed.status()==CapturedIntentBridge.Status.DISPATCHED
-                && executed.outcomes().size()==2
-                && executed.outcomes().get(0).status()
-                    == BodyActionGate.Status.EXECUTED,
-                "Real Cow failed to execute signed native-target observation look intent");
-            helper.assertTrue(executed.outcomes().get(1).status()
-                    != BodyActionGate.Status.UNAVAILABLE,
-                "Real Cow unexpectedly lacks native move_to capability");
-            helper.assertTrue(receiver.deliverAuthenticated(packet,secret,session,tick)
+            boolean tamperRejected=false;
+            try{bridge.deliverAuthenticated(corrupt,secret,session,tick);}
+            catch(IllegalArgumentException expected){tamperRejected=true;}
+            helper.assertTrue(tamperRejected,"Receiver admitted tampered native worker frame");
+            var result=bridge.deliverAuthenticated(packet,secret,session,tick);
+            helper.assertTrue(result.status()==CapturedIntentBridge.Status.DISPATCHED
+                    && result.outcomes().size()==2
+                    && result.outcomes().get(0).status()==BodyActionGate.Status.EXECUTED
+                    && result.outcomes().get(1).status()==BodyActionGate.Status.EXECUTED,
+                "Body-native relative movement failed: "+result.outcomes());
+            helper.assertTrue(bridge.deliverAuthenticated(packet,secret,session,tick)
                     .status()==CapturedIntentBridge.Status.DUPLICATE_OR_STALE_TICK,
-                "Real-worker frame replay not rejected");
-            helper.assertTrue(cow.getUUID().equals(recipientBody)
-                && level.getEntity(recipientBody)==cow
-                && Float.compare(cow.getHealth(),cowHealth)==0
-                && Float.compare(zombie.getHealth(),zombieHealth)==0,
-                "Real worker frame changed the physical body identity/health");
-            System.out.println("FF-NATIVE-WORKER TWO_JVM_E2E PASS"
-                +" donor=minecraft:zombie stimulus=minecraft:villager"
-                +" recipient=minecraft:cow"
-                +" nativeAIExecutedInSeparateNeoForgeProcess=true"
-                +" authenticatedIntentAccepted=true"
-                +" signedFrameReplayRejected=true"
-                +" realBodyLookExecuted=true"
-                +" sourceWorldNotShared=true"
-                +" completeNativeMindTransfer=false");
-            helper.succeed();
-        } catch (Exception error) {
-            throw new AssertionError("External native AI worker receiver failure",error);
-        } finally {
-            if (cow!=null) cow.discard();
-            if (zombie!=null) zombie.discard();
+                "Native signed frame replay was not rejected");
+            helper.assertTrue(receiverBody.getUUID().equals(recipientId)
+                    && Float.compare(receiverBody.getHealth(),healthBefore)==0
+                    && Float.compare(originalDonorBody.getHealth(),donorHealthBefore)==0,
+                "Body type, physical identity or health changed during mind assignment");
+            final Mob recipient=receiverBody, donor=originalDonorBody;
+            final double originalX=recipient.getX(), originalZ=recipient.getZ();
+            final String donorName=donorType, recipientName=recipientType;
+            helper.runAfterDelay(45,()->{
+                try {
+                    double moved=Math.hypot(recipient.getX()-originalX,
+                        recipient.getZ()-originalZ);
+                    helper.assertTrue(moved>0.20,
+                        "REAL recipient did not physically follow native donor navigation"
+                        +" donor="+donorName+" recipient="+recipientName
+                        +" distance="+moved+" nav="+recipient.getNavigation().isInProgress());
+                    helper.assertTrue(recipient.getUUID().equals(recipientId)
+                            && Float.compare(recipient.getHealth(),healthBefore)==0
+                            && Float.compare(donor.getHealth(),donorHealthBefore)==0,
+                        "Native host dispatched movement by replacing/altering physical bodies");
+                    System.out.println("FF-NATIVE-WORKER TWO_JVM_E2E PASS"
+                        +" donor="+donorName+" recipient="+recipientName
+                        +" nativeAIExecutedInSeparateNeoForgeProcess=true"
+                        +" authenticatedRelativeMovement=true"
+                        +" realRecipientMoved="+moved
+                        +" signedFrameReplayRejected=true"
+                        +" completeNativeMindTransfer=false");
+                    helper.succeed();
+                } finally {
+                    recipient.discard();
+                    donor.discard();
+                }
+            });
+        } catch(Exception failure) {
+            if(receiverBody!=null)receiverBody.discard();
+            if(originalDonorBody!=null)originalDonorBody.discard();
+            throw new AssertionError("External native AI worker receiver failure",failure);
         }
     }
 
