@@ -213,3 +213,35 @@ registration is confirmed. The pass criteria require a normal-speed drop
 **and genuine reduction in the Zombie's health**, while Chicken still glides
 and Ocelot preserves its native fall-damage immunity. No permanent
 no-gravity setting is installed on any gameplay entity.
+
+
+## P08 predicted-body-control development checkpoint (NOT CI-certified)
+
+The P07B remote-entity camera input loop had severe latency and sent original
+player actions while possessing a mob. P08 is a source-level **candidate**:
+- Locally predict occupied entity locomotion immediately, then replay only
+  unacknowledged movement samples after receiving the authoritative server
+  position and input sequence.
+- Keep the original player's orientation anchored; do not let mouse look
+  animate its head while a remote body is being controlled.
+- Cancel vanilla player-origin attack, item-use and pick-block actions while
+  possessing. Send an authenticated attack **intent**, validate target/range/
+  facing/line of sight/cooldown against the occupied body's real position, and
+  let the occupied body perform its native melee attack. Native ranged/unique
+  mob abilities are NOT implemented.
+- Expire pending book selections after 8 seconds and clear them on return.
+- GameTests require a REAL Zombie-body attack against the original player
+  and require an explicit fresh second body selection. These are not evidence
+  of connected-client latency; a live client must be tested for that.
+
+**Known missing critical feature:** Zombie <-> Chicken *native AI* exchange
+is NOT a working feature. The current portable Goal/Brain transfer rejects
+it because these controllers contain owner-bound species-specific code. A
+manual-only GameTest now records this as an explicit unmet acceptance gate.
+Do not confuse a successful selection/UI message or numeric exchange with a
+genuine reciprocal behavior swap. A properly isolated native-mind host with
+full behavior outputs is needed; do not use species-by-species fake goal rules.
+
+This release source is NOT a verified JAR: GitHub Actions has a billing gate
+that prevents all runner allocation and the local environment lacks Java 25
+and NeoForge dependencies. Never rebrand older P07B JARs as P08.
