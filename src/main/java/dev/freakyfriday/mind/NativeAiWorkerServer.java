@@ -133,10 +133,12 @@ public final class NativeAiWorkerServer {
             BlockPos anchor=new BlockPos(0, 120, 0);
             for(int x=-12;x<=12;x++) for(int z=-12;z<=12;z++) {
                 level.setBlockAndUpdate(new BlockPos(x,120,z),Blocks.STONE.defaultBlockState());
+                // Roof guards daylight-sensitive native mobs without touching
+                // the removed 26.x ServerLevel.setDayTime API.
+                level.setBlockAndUpdate(new BlockPos(x,126,z),Blocks.STONE.defaultBlockState());
                 for(int y=121;y<=125;y++)
                     level.setBlockAndUpdate(new BlockPos(x,y,z),Blocks.AIR.defaultBlockState());
             }
-            level.setDayTime(18000);
             Mob donor=construct(level,request.donor());
             Mob stimulus=construct(level,request.stimulus());
             donor.setPos(0.5,121,0.5);
