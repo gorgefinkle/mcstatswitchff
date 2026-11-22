@@ -23,9 +23,11 @@ public final class UnseenAddonCommandFixture {
                               String executorTextName, Object permissions,
                               Object feedbackSource) {}
     private static volatile Observation last;
+    private static int executions;
 
     public static Observation last() { return last; }
-    public static void clear() { last = null; }
+    public static int executions() { return executions; }
+    public static void clear() { last = null; executions = 0; }
 
     @SubscribeEvent
     public static void register(RegisterCommandsEvent event) {
@@ -34,6 +36,7 @@ public final class UnseenAddonCommandFixture {
             .then(Commands.literal("self").executes(ctx -> {
                 var src=ctx.getSource();
                 ServerPlayer entity=src.getPlayerOrException();
+                executions++;
                 last=new Observation(entity.getUUID(),entity.getUUID(),
                     src.getTextName(),src.permissions(),src.source);
                 return 1;
@@ -44,7 +47,8 @@ public final class UnseenAddonCommandFixture {
                         var src=ctx.getSource();
                         ServerPlayer entity=src.getPlayerOrException();
                         ServerPlayer target=EntityArgument.getPlayer(ctx,"target");
-                        last=new Observation(entity.getUUID(),target.getUUID(),
+                        executions++;
+                last=new Observation(entity.getUUID(),target.getUUID(),
                             src.getTextName(),src.permissions(),src.source);
                         return 1;
                     })))
@@ -56,7 +60,8 @@ public final class UnseenAddonCommandFixture {
                         String name=StringArgumentType.getString(ctx,"target");
                         ServerPlayer target=src.getServer().getPlayerList()
                             .getPlayerByName(name);
-                        last=new Observation(entity.getUUID(),
+                        executions++;
+                last=new Observation(entity.getUUID(),
                             target==null?null:target.getUUID(),src.getTextName(),
                             src.permissions(),src.source);
                         return target==null?0:1;
