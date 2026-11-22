@@ -63,6 +63,7 @@ public final class NativeAiWorkerServer {
         final double startX, startZ;
         int age, targetTicks, navigationTicks;
         boolean produced;
+        boolean genericStimulusApplied;
 
         State(ServerLevel level, Request request, Mob donor, Mob stimulus,
               BlockPos anchor) {
@@ -192,6 +193,24 @@ public final class NativeAiWorkerServer {
         // We never inject a Goal, call its tick manually, or force navigation.
         if (donor.getTarget()==stimulus) state.targetTicks++;
         if (donor.getNavigation().isInProgress()) state.navigationTicks++;
+
+        // For a native mind that has not yet received any meaningful reason
+        // to act, apply the SAME ordinary environmental damage stimulus to
+        // ANY registered Mob. This does not install a Goal, fake panic, or
+        // choose behavior by species; the donor's real AI either responds
+        // or the test must fail. Damage occurs ONLY in the disposable world.
+        // Do not apply to fragile mobs whose current health would be lethal.
+        if(state.age>=80 && state.navigationTicks==0
+                && !state.genericStimulusApplied && donor.getHealth()>1.0f){
+            state.genericStimulusApplied=true;
+            float amount=Math.min(1.0f,donor.getHealth()*0.20f);
+            boolean applied=donor.hurtServer(state.level,
+                donor.damageSources().generic(),amount);
+            System.out.println("FF-NATIVE-WORKER GENERIC_ENVIRONMENT_STIMULUS"
+                +" donor="+state.request.donor()
+                +" damageApplied="+applied+" damage="+amount
+                +" originalRecipientUntouched=true");
+        }
 
         // Both hostile pursuit and passive random wandering are observed
         // through the very same native navigation seam. No entity-type
