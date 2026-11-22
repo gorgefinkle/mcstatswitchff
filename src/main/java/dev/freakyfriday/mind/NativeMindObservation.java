@@ -55,16 +55,29 @@ public final class NativeMindObservation {
     /** Never embed disposable worker coordinates in receiver-body movement. */
     public static CapturedIntentBridge.Frame frame(UUID recipientBody,UUID donorMind,
                                                      long serverTick,NativeNavigation movement) {
+        return frame(recipientBody,donorMind,serverTick,movement,null);
+    }
+
+    /**
+     * Append an observed native attack only when the donor actually reached
+     * Minecraft's damage pipeline. The target UUID is a cross-world identity
+     * supplied by the authenticated snapshot mapping, never a guessed nearby
+     * entity or a species-specific target rule.
+     */
+    public static CapturedIntentBridge.Frame frame(UUID recipientBody,UUID donorMind,
+            long serverTick,NativeNavigation movement,UUID attackedTarget) {
         var offset=Map.of(
             "dx",Double.toString(movement.dx()),
             "dy",Double.toString(movement.dy()),
             "dz",Double.toString(movement.dz()));
-        return new CapturedIntentBridge.Frame(recipientBody,donorMind,serverTick,
-            List.of(
-                new BodyActionGate.Intent(BodyActionGate.LOOK_OFFSET,offset),
-                new BodyActionGate.Intent(BodyActionGate.MOVE_OFFSET,
-                    Map.of("dx",offset.get("dx"),"dy",offset.get("dy"),
-                           "dz",offset.get("dz"),"speed","0.65"))
-            ));
+        var actions=new java.util.ArrayList<BodyActionGate.Intent>();
+        actions.add(new BodyActionGate.Intent(BodyActionGate.LOOK_OFFSET,offset));
+        actions.add(new BodyActionGate.Intent(BodyActionGate.MOVE_OFFSET,
+            Map.of("dx",offset.get("dx"),"dy",offset.get("dy"),
+                   "dz",offset.get("dz"),"speed","0.65")));
+        if(attackedTarget!=null)
+            actions.add(new BodyActionGate.Intent(MinecraftBodyPort.ATTACK_ENTITY,
+                Map.of("targetId",attackedTarget.toString())));
+        return new CapturedIntentBridge.Frame(recipientBody,donorMind,serverTick,actions);
     }
 }
