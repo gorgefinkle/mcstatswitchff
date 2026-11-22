@@ -60,6 +60,7 @@ public final class ClientPossession {
             // anchor repeatedly. Do not reset input sequence on refresh.
             if (newBody!=bodyId) resetPrediction();
             bodyId=newBody;
+            if(newBody>=0) ClientSelectionHud.clear();
             if(data.active()){
                 anchorX=data.anchorX();
                 anchorY=data.anchorY();
