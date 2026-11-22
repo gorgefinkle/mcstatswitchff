@@ -8,6 +8,12 @@ on:
 permissions:
   contents: read
 
+# A source edit on a draft PR supersedes its older CI run. Avoid
+# burning private-repository Actions allowance on obsolete nine-job runs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   core:
     name: Pure Java core and version profile checks
