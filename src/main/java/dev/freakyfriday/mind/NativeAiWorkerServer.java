@@ -149,9 +149,9 @@ public final class NativeAiWorkerServer {
             stimulus.setNoAi(true); // Stationary target; donor uses its OWN vanilla AI.
             if (!level.addFreshEntity(donor) || !level.addFreshEntity(stimulus))
                 throw new IllegalStateException("Worker failed to spawn native NPCs");
-            if (level.getEntity(donor.getUUID())!=donor
-                    || level.getEntity(stimulus.getUUID())!=stimulus)
-                throw new IllegalStateException("Worker actors not world-registered");
+            // addFreshEntity schedules registration during server startup.
+            // Entity lookup can legitimately return null until subsequent
+            // full server ticks, so verify after startup, not in this event.
             active=new State(level,request,donor,stimulus,anchor);
             started=true;
             System.out.println("FF-NATIVE-WORKER READY donor="+request.donor()
@@ -171,6 +171,18 @@ public final class NativeAiWorkerServer {
         State state=active;
         state.age++;
         Mob donor=state.donor, stimulus=state.stimulus;
+        if (state.age < 8) return;
+        if (state.level.getEntity(donor.getUUID())!=donor
+                || state.level.getEntity(stimulus.getUUID())!=stimulus) {
+            if (state.age>=30) {
+                System.err.println("FF-NATIVE-WORKER WORLD_REGISTRATION_FAILED"
+                    +" age="+state.age
+                    +" donorFound="+(state.level.getEntity(donor.getUUID())==donor)
+                    +" stimulusFound="+(state.level.getEntity(stimulus.getUUID())==stimulus));
+                state.produced=true;
+            }
+            return;
+        }
         if (!donor.isAlive() || !stimulus.isAlive()) {
             System.err.println("FF-NATIVE-WORKER MOB_DIED before AI capture");
             state.produced=true;
