@@ -4,7 +4,7 @@ modId="freakyfriday"
 version="${ff_mod_version}"
 displayName="Freaky Friday"
 authors="Freaky Friday Project"
-description='''Experimental dual-instance mind host prototype. Test unspawned donor-class AI hosts while physical mob bodies remain unchanged. No full mind swap yet.'''
+description='''Experimental Player-to-Mob possession: real Mob movement via player input and cancel/restore. Reciprocal NPC AI and complete mind swapping are not yet implemented.'''
 [[dependencies.freakyfriday]]
 modId="neoforge"
 type="required"
