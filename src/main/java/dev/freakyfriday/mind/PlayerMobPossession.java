@@ -184,7 +184,6 @@ public final class PlayerMobPossession {
             body.setXRot(in.pitch());
             body.setYHeadRot(in.yaw());
             body.setDeltaMovement(new Vec3(dx,dy,dz));
-            body.hasImpulse=true;
         }
     }
 }
