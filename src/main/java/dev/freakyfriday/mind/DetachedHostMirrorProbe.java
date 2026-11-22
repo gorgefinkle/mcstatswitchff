@@ -239,7 +239,7 @@ public final class DetachedHostMirrorProbe {
         serverTicks++;
         for (Session s : java.util.List.copyOf(SESSIONS.values())) {
             if (s.finished || s.level.getServer() != event.getServer()) continue;
-            if (serverTicks - s.lastProgressServerTick >= MAX_IDLE_SERVER_TICKS) {
+            if (ProbeTimeoutGuard.expired(serverTicks, s.lastProgressServerTick, MAX_IDLE_SERVER_TICKS)) {
                 ProbeTelemetry.warn(s.trace, "mirror_watchdog_timeout",
                     "no recipient tick in %d server ticks; observedTicks=%d, hostId=%s",
                     serverTicks - s.lastProgressServerTick, s.ticks, s.hostId);
