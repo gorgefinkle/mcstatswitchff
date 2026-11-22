@@ -6,8 +6,8 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.neoforge.network.event.RegisterClientPayloadHandlersEvent;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.client.network.event.RegisterClientPayloadHandlersEvent;
+import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 
 /**
  * Player camera and WASD/jump input follow the actual server-owned Mob.
@@ -56,10 +56,10 @@ public final class ClientPossession {
         // view to the Mob body in the client while server accepts bounded yaw.
         body.setYRot(mc.player.getYRot());
         body.setXRot(mc.player.getXRot());
-        if(mc.screen!=null) return; // no gameplay input while typing/in menus
+        if(mc.gui.screen()!=null) return; // no gameplay input while typing/in menus
         float forward=(mc.options.keyUp.isDown()?1:0)-(mc.options.keyDown.isDown()?1:0);
         float strafe=(mc.options.keyLeft.isDown()?1:0)-(mc.options.keyRight.isDown()?1:0);
-        PacketDistributor.sendToServer(new PossessionInputPayload(
+        ClientPacketDistributor.sendToServer(new PossessionInputPayload(
             forward,strafe,mc.options.keyJump.isDown(),
             mc.player.getYRot(),mc.player.getXRot(),++sequence));
     }
