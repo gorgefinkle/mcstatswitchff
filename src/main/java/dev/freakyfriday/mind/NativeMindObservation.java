@@ -13,9 +13,9 @@ import java.util.UUID;
  * RELATIVE to a different physical body. It does not synthesize any donor
  * goal, target class or species-specific decision recipe.
  *
- * This is deliberately only the navigation/looking part of a future complete
- * native-action capture engine. Damage, projectiles, blocks, inventory,
- * effects and arbitrary modded side effects still require interception.
+ * This is a bounded navigation/look plus optional direct-melee observation.
+ * Other damage, projectiles, blocks, inventory, effects and arbitrary modded
+ * side effects still require generic interception.
  */
 public final class NativeMindObservation {
     private NativeMindObservation() {}
