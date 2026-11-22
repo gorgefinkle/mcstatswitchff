@@ -180,7 +180,7 @@ public final class LiveBodyProbe {
         for (Run run : java.util.List.copyOf(ACTIVE.values())) {
             if (!(run.body.level() instanceof ServerLevel level)
                     || level.getServer() != event.getServer()) continue;
-            if (serverTicks - run.lastProgressServerTick >= MAX_IDLE_SERVER_TICKS) {
+            if (ProbeTimeoutGuard.expired(serverTicks, run.lastProgressServerTick, MAX_IDLE_SERVER_TICKS)) {
                 ProbeTelemetry.warn(run.trace, "physical_probe_watchdog_timeout",
                     "No recipient tick for %d server ticks; frames=%d",
                     serverTicks - run.lastProgressServerTick, run.frames);
