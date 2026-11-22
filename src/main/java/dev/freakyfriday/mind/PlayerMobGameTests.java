@@ -55,8 +55,17 @@ public final class PlayerMobGameTests {
         double startZ=chicken.getZ();
         var ownerId=player.getUUID();
         try {
-            MindSwapSessions.select(player,chicken);
-            MindSwapSessions.select(player,player);
+            // Same entrypoint as a real book right-click, then the actual
+            // Brigadier command that Ctrl+S sends from the player's client.
+            MindSwapSessions.selectFromInteraction(player,chicken);
+            var commandSource=level.getServer().createCommandSourceStack().withEntity(player);
+            try {
+                helper.assertTrue(level.getServer().getCommands().getDispatcher().execute(
+                    "freakyfriday self",commandSource)==1,
+                    "Ctrl+S /freakyfriday self command rejected by real Brigadier");
+            } catch (com.mojang.brigadier.exceptions.CommandSyntaxException e) {
+                throw new AssertionError("Real self selection command failed",e);
+            }
             helper.assertTrue(PlayerMobPossession.hasSession(ownerId)
                     && id.equals(PlayerMobPossession.possessedBody(ownerId)),
                 "Book pair did NOT activate genuine server-side Chicken control");
@@ -89,7 +98,13 @@ public final class PlayerMobGameTests {
                     "Possession changed physical Chicken identity or health");
                 helper.assertTrue(PlayerMobPossession.hasSession(ownerId),
                     "Possession session dropped during actual movement");
-                MindSwapSessions.cancel(player);
+                try {
+                    helper.assertTrue(level.getServer().getCommands().getDispatcher().execute(
+                        "freakyfriday cancel",commandSource)==1,
+                        "Real return-to-body /cancel command rejected by Brigadier");
+                } catch (com.mojang.brigadier.exceptions.CommandSyntaxException e) {
+                    throw new AssertionError("Real possession cancel command failed",e);
+                }
                 helper.assertTrue(!PlayerMobPossession.hasSession(ownerId),
                     "Cancel failed to end playable possession");
                 helper.assertTrue(!chicken.isNoAi(),
