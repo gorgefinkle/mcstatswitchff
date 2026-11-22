@@ -2,7 +2,7 @@
 """Source checkpoint audit. Fails on any detectable local test/structure error."""
 import json, re, subprocess, sys, pathlib, tomllib
 root=pathlib.Path(__file__).resolve().parent.parent
-for cmd in (['sh',str(root/'scripts/test-core.sh')],[sys.executable,str(root/'scripts/test-minecraft-stubs.py')]):
+for cmd in (['sh',str(root/'scripts/test-core.sh')],[sys.executable,str(root/'scripts/test-minecraft-stubs.py')],[sys.executable,str(root/'scripts/test-repackage-extracted-source.py')]):
     print('+',' '.join(cmd),flush=True)
     subprocess.run(cmd,cwd=root,check=True)
 resources=root/'src/main/resources'
