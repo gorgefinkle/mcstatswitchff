@@ -347,6 +347,14 @@ subprocess.run(['java','-ea','-cp',str(OUT),'dev.freakyfriday.BridgeHarness'],ch
 # This catches missing internal references and most Java source errors, but API signatures
 # are synthetic and must NOT be represented as a real NeoForge compile.
 FULL={
+# Real GameTest APIs belong to the actual Minecraft server build and are not
+# implemented by this legacy synthetic API harness.
+'dev/freakyfriday/mind/DetachedProbeGameTests.java':'''package dev.freakyfriday.mind;
+public final class DetachedProbeGameTests {
+ public static final net.neoforged.neoforge.registries.DeferredRegister.Items FUNCTIONS =
+   net.neoforged.neoforge.registries.DeferredRegister.createItems("stub-test-functions");
+}
+''',
 'net/minecraft/world/entity/EntityType.java':'''package net.minecraft.world.entity;
 public final class EntityType<T extends LivingEntity>{public final String name;public EntityType(String name){this.name=name;}}
 ''',
@@ -533,7 +541,7 @@ public static void main(String[] args){
 # The real NeoForge CI build compiles network codecs and native Screen classes.
 # They must not be passed to the legacy headless harness whose fake APIs do not
 # implement actual packet serialization, GUI rendering or client registration.
-real_api_only = {'NativeBrainSwap.java', 'GoalMindRuntime.java', 'MinecraftBodyPort.java', 'MinecraftHostProbe.java', 'LiveBodyProbe.java', 'DetachedMindHostProbe.java', 'ProbeBodySnapshot.java', 'ProbeTelemetry.java', 'DetachedHostMirrorProbe.java', 'NativeAiSurfaceAudit.java', 'CategoryPickerPayload.java','CategoryPickerNetworking.java',
+real_api_only = {'NativeBrainSwap.java', 'GoalMindRuntime.java', 'MinecraftBodyPort.java', 'MinecraftHostProbe.java', 'LiveBodyProbe.java', 'DetachedMindHostProbe.java', 'ProbeBodySnapshot.java', 'ProbeTelemetry.java', 'DetachedHostMirrorProbe.java', 'DetachedProbeGameTests.java', 'NativeAiSurfaceAudit.java', 'CategoryPickerPayload.java','CategoryPickerNetworking.java',
                  'CategoryPickerScreen.java','ClientCategoryPickerNetworking.java'}
 all_prod=[p for p in (ROOT/'src/main/java').rglob('*.java') if p.name not in real_api_only] + list((ROOT/'src/platform/minecraft-26.2/java').rglob('*.java'))
 full_cmd=['javac','-d',str(OUT)]+list(map(str,STUB.rglob('*.java')))+list(map(str,all_prod))
