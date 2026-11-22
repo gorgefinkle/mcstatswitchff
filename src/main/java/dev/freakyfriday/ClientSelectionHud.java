@@ -54,7 +54,12 @@ public final class ClientSelectionHud {
         Minecraft mc=Minecraft.getInstance();
         if(remainingTicks<=0 || mc.player==null || mc.gui.screen()!=null)return;
         var g=event.getGuiGraphics();
-        String text=String.format(Locale.ROOT,"First: %s  %.1fs",firstBody,remainingTicks/20.0);
+        String timer=String.format(Locale.ROOT,"  %.1fs",remainingTicks/20.0);
+        String shortName=firstBody;
+        while(shortName.length()>1 && mc.font.width("First: "+shortName+timer)>168)
+            shortName=shortName.substring(0,shortName.length()-1);
+        if(!shortName.equals(firstBody))shortName+="…";
+        String text="First: "+shortName+timer;
         int x=g.guiWidth()/2-91;
         int y=g.guiHeight()-66; // Above vanilla heart/health rows, not the hotbar.
         int width=Math.min(182,Math.max(100,mc.font.width(text)+10));
