@@ -158,3 +158,13 @@ tasks.register("runCapturedIntentBridgeSelfTest", JavaExec) {
     enableAssertions = true
 }
 tasks.named('check') { dependsOn tasks.named('runCapturedIntentBridgeSelfTest') }
+
+tasks.register("runCapturedIntentWireCodecSelfTest", JavaExec) {
+    group = 'verification'
+    description = 'Test bounded authenticated data-only AI worker protocol'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.freakyfriday.mind.CapturedIntentWireCodecSelfTest'
+    enableAssertions = true
+}
+tasks.named('check') { dependsOn tasks.named('runCapturedIntentWireCodecSelfTest') }
