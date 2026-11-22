@@ -12,7 +12,7 @@ import subprocess
 import zipfile
 
 ROOT = Path(__file__).resolve().parent.parent
-TAG = "R0_15_7_CameraChickenDeathP06"
+TAG = "R0_15_8_OccupiedHealthPreviewP07"
 SOURCE_PREFIXES = ("src/", "scripts/", "versions/", "gradle/", "docs/")
 SOURCE_FILES = {
     "build.gradle", "settings.gradle", "gradle.properties",
@@ -44,6 +44,7 @@ def main():
         "src/main/java/dev/freakyfriday/mind/NativeAiWorkerServer.java",
         "src/main/java/dev/freakyfriday/mind/PlayerMobPossession.java",
         "src/main/java/dev/freakyfriday/ClientPossession.java",
+        "src/main/java/dev/freakyfriday/ClientOccupiedBodyUI.java",
         "src/main/java/dev/freakyfriday/mind/PlayerMobGameTests.java",
         "src/main/java/dev/freakyfriday/mind/PlayerPlayerExchange.java",
         "src/main/java/dev/freakyfriday/mind/PlayerPlayerGameTests.java",
