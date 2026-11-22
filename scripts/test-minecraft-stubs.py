@@ -93,6 +93,12 @@ public final class CategoryPickerNetworking {
     player.sendSystemMessage(Component.literal("Category GUI for " + name));
   }
 }''',
+'net/minecraft/commands/arguments/IdentifierArgument.java':'''package net.minecraft.commands.arguments;
+import net.minecraft.resources.Identifier;
+public final class IdentifierArgument {
+ public static Object id(){return new Object();}
+ public static Identifier getId(Object context, String name){return Identifier.parse("minecraft:cow");}
+}''',
 'net/minecraft/resources/Identifier.java':'''package net.minecraft.resources;
 public record Identifier(String id) { public static Identifier parse(String id){if(id==null||!id.contains(":"))throw new IllegalArgumentException("bad id");return new Identifier(id);} public static Identifier withDefaultNamespace(String path){return new Identifier("minecraft:"+path);} public static Identifier tryParse(String id){return parse(id);} public String toString(){return id;} }''',
 'net/minecraft/core/Holder.java':'''package net.minecraft.core;
