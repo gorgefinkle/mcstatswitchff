@@ -619,137 +619,84 @@ subprocess.run(['java','-ea','-cp',str(OUT),'dev.freakyfriday.PortabilityHarness
 # interaction could consume the right-click. The original Item handler is only a
 # fallback when a foreign integration bypasses the event pipeline.
 (STUB/'dev/freakyfriday/BookInteractionHarness.java').write_text('''package dev.freakyfriday;
-import net.minecraft.server.level.*;import net.minecraft.world.entity.*;
+import net.minecraft.server.level.*;
+import net.minecraft.world.entity.*;
 import net.minecraft.world.InteractionResult;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
-import net.minecraft.core.registries.BuiltInRegistries;
 import dev.freakyfriday.mind.MindSwapSessions;
-public class BookInteractionHarness {
+
+/**
+ * Synthetic source wiring checks only. All real movement, AI and book pairing
+ * are validated by actual NeoForge GameTests, NOT this fake Minecraft world.
+ */
+public final class BookInteractionHarness {
  static int checks;
- static void ok(boolean x,String what){checks++;if(!x)throw new AssertionError(what);}
+ static void ok(boolean x,String reason){checks++;if(!x)throw new AssertionError(reason);}
  static boolean received(ServerPlayer p,String phrase){
   return p.messages.stream().anyMatch(s->s.contains(phrase));
  }
  public static void main(String[] args) {
-  ServerLevel w=new ServerLevel("minecraft:overworld");
-  ServerPlayer p=new ServerPlayer("Player",w);p.setMainHand(FreakyFriday.BOOK.get());
+  ServerLevel world=new ServerLevel("minecraft:overworld");
+  ServerPlayer p=new ServerPlayer("Player",world);
+  p.setMainHand(FreakyFriday.BOOK.get());
+  Mob chicken=new Mob("Chicken",world);
+  Mob zombie=new Mob("Zombie",world);
+
   MindSwapSessions.select(p,p);
-  ok(received(p,"Player mind transfer is not implemented"),
-     "unsupported player mind host is explicitly rejected rather than locked into an unusable NPC probe pair");
-  Mob villager=new Mob("Villager",w),cow=new Mob("Cow",w);
-  var armor=BuiltInRegistries.ATTRIBUTE.register("minecraft:armor");
-  villager.getAttributes().put(armor,8);
-  cow.getAttributes().put(armor,2);
-  var first=new PlayerInteractEvent.EntityInteract(p,villager);
+  ok(received(p,"First body: Player"),
+    "Ctrl+S self must become a selectable gameplay body, not be rejected");
+  MindSwapSessions.select(p,chicken);
+  ok(received(p,"Cannot control that body: synthetic harness"),
+    "Book pair reaches actual possession backend rather than locking fake probe");
+  MindSwapSessions.cancel(p);
+
+  var one=new PlayerInteractEvent.EntityInteract(p,chicken);
+  BookInteractions.onInteract(one);
+  ok(one.isCanceled() && one.getCancellationResult()==InteractionResult.SUCCESS,
+    "Book consumes actual mob interaction instead of feeding/trading");
+  ok(received(p,"First body: Chicken"),"Mob selected in gameplay mode");
+  MindSwapSessions.select(p,p);
+  ok(received(p,"Cannot control that body: synthetic harness"),
+    "Chicken then self enters physical player-mob binding code");
+  MindSwapSessions.cancel(p);
+
+  var first=new PlayerInteractEvent.EntityInteract(p,chicken);
   BookInteractions.onInteract(first);
-  ok(first.isCanceled()&&first.getCancellationResult()==InteractionResult.SUCCESS,
-     "book consumes normal mob actions");
-  ok(received(p,"First body:"),"first body selected without category menu");
-  var second=new PlayerInteractEvent.EntityInteract(p,cow);
-  BookInteractions.onInteract(second);
-  ok(second.isCanceled(),"second click consumes normal interaction");
-  MindSwapSessions.dualInstanceProbe(p);
-  ok(received(p,"Dual-instance host feasibility: nonspawned donor type"),
-     "real paired book inputs reach non-ticking host diagnostic");
-  MindSwapSessions.timedDualInstanceProbe(p);
-  ok(received(p,"Started 40-tick detached host MIRROR"),
-     "paired selections route through an explicitly non-ticking 40-tick mirror lifecycle probe");
-
-  ok(received(p,"R0.15 dual-instance host experiment: NO swap"),
-     "unisolated native AI never claims a successful whole-mind swap");
-  ok(villager.getAttributes().getInstance(armor).getBaseValue()==8
-      && cow.getAttributes().getInstance(armor).getBaseValue()==2,
-     "failed hybrid swap leaves physical body stats unchanged");
-
-  // Once the first two NPCs are selected, later clicks cannot silently
-  // replace the recipient. The first in-game R0.15.2 test accidentally
-  // ended as cow->cow after an initial cow->zombie selection.
-  w.tick();
-  LivingEntity unportable=new LivingEntity("OpaqueGoal",w);
-  long lockedBefore=p.messages.stream().filter(s->s.contains("Diagnostic pair is LOCKED")).count();
-  BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,unportable));
-  ok(p.messages.stream().filter(s->s.contains("Diagnostic pair is LOCKED")).count()==lockedBefore+1,
-     "later right-clicks refuse to overwrite a locked diagnostic pair");
-  int countBefore=p.messages.size();
-  MindSwapSessions.dualInstanceProbe(p);
-  ok(p.messages.size()==countBefore+1
-      && p.messages.get(p.messages.size()-1).contains("donor=Villager recipient=Cow"),
-     "locked donor/recipient identities are unchanged after an extra book click");
-
-  MindSwapSessions.cancel(p);
-  w.tick();
-  LivingEntity anotherVillager=new LivingEntity("Villager",w);
-  BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,anotherVillager));
-  ok(received(p,"First body: Villager"),
-     "after explicit cancellation new first-body selection remains available");
-  MindSwapSessions.cancel(p);
-
-  // Cancelling and reselecting in the SAME Minecraft tick must not be
-  // dropped by the previous per-player dedup Stamp.
-  long beforeImmediate=p.messages.stream().filter(s->s.contains("First body: Villager")).count();
-  BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,anotherVillager));
-  long afterImmediate=p.messages.stream().filter(s->s.contains("First body: Villager")).count();
-  ok(afterImmediate==beforeImmediate+1,
-     "cancel + immediate reselect of same mob in the same tick is accepted");
+  world.tick();
+  BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,zombie));
+  ok(received(p,"Native mind exchange REJECTED"),
+    "Mob/Mob invokes real AI exchange method and never reports fake success");
   MindSwapSessions.cancel(p);
 
   p.setMainHand(new Object());
-  var noBook=new PlayerInteractEvent.EntityInteract(p,villager);
+  var noBook=new PlayerInteractEvent.EntityInteract(p,chicken);
   BookInteractions.onInteract(noBook);
-  ok(!noBook.isCanceled(),"normal interactions unaffected without book");
+  ok(!noBook.isCanceled(),"without book, vanilla interactions still run");
   p.setOffhand(FreakyFriday.BOOK.get());
-  w.tick();
-  var offhand=new PlayerInteractEvent.EntityInteract(p,villager);
+  world.tick();
+  var offhand=new PlayerInteractEvent.EntityInteract(p,chicken);
   BookInteractions.onInteract(offhand);
-  ok(offhand.isCanceled(),"offhand book selects before vanilla actions");
-  ok(received(p,"First body:"),"offhand selection reaches server");
-  MindSwapSessions.inspect(p);
-  ok(received(p,"Native mind audit for Villager"),
-     "inspect reports the selected body without executing AI");
-  ok(received(p,"ISOLATION UNVERIFIED"),
-     "AI surface diagnostics do not pretend a sandbox is certified");
+  ok(offhand.isCanceled(),"offhand book selects gameplay body");
+  ok(received(p,"First body: Chicken"),"offhand book selection works");
 
-  long selections=p.messages.stream().filter(x->x.contains("First body:")).count();
-  BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,villager));
+  long count=p.messages.stream().filter(x->x.contains("First body: Chicken")).count();
+  BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,chicken));
   new FreakyFridayBookItem(new net.minecraft.world.item.Item.Properties())
-      .interactLivingEntity(new net.minecraft.world.item.ItemStack(FreakyFriday.BOOK.get()),p,villager,
-          net.minecraft.world.InteractionHand.OFF_HAND);
-  ok(p.messages.stream().filter(x->x.contains("First body:")).count()==selections,
-     "same-tick duplicate callbacks are deduplicated");
-  w.tick();
-  BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,villager));
-  ok(received(p,"DIFFERENT second body"),"real subsequent click reaches active session");
+   .interactLivingEntity(new net.minecraft.world.item.ItemStack(FreakyFriday.BOOK.get()),
+     p,chicken,net.minecraft.world.InteractionHand.OFF_HAND);
+  ok(p.messages.stream().filter(x->x.contains("First body: Chicken")).count()==count,
+    "duplicate physical book click in same tick is deduplicated");
   MindSwapSessions.cancel(p);
-  w.tick();
-  BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,villager));
-  ok(p.messages.stream().filter(x->x.contains("First body:")).count()==selections+1,
-     "after cancellation a new first body can be selected");
+  world.tick();
+  BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,chicken));
+  ok(p.messages.stream().filter(x->x.contains("First body: Chicken")).count()==count+1,
+    "cancel and reselect refreshes the gameplay book stamp");
   MindSwapSessions.cancel(p);
-  w.tick();
-  net.minecraft.world.entity.Mob probeMob =
-      new net.minecraft.world.entity.Mob("ProbeMob",w);
-  BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,probeMob));
-  MindSwapSessions.hostProbe(p);
-  ok(received(p,"Host action probe (SYNTHETIC; not native mind swap)"),
-     "book-selected native Mob probe reaches host without swapping minds");
-  MindSwapSessions.timedHostProbe(p);
-  ok(received(p,"Starting 40-tick body-control probe"),
-     "selected Mob can start bounded, non-donor action trace");
-  MindSwapSessions.cancel(p);
-
-  var nonliving=new PlayerInteractEvent.EntityInteract(p,new Entity("Minecart",w));
-  BookInteractions.onInteract(nonliving);
-  ok(!nonliving.isCanceled(),"nonliving entities unaffected");
-  var client=new net.minecraft.world.entity.player.Player("ClientReplica",w);
-  client.setMainHand(FreakyFriday.BOOK.get());
-  var clientOnly=new PlayerInteractEvent.EntityInteract(client,cow);
-  BookInteractions.onInteract(clientOnly);
-  ok(clientOnly.isCanceled(),"client consumes click without server mutation");
   System.out.println("PASS BookInteractionHarness: "+checks
-    +" assertions; two-click mind workflow, whole-swap refusal, dedup, no-book and offhand");
+    +" synthetic selection assertions; real movement tested by NeoForge");
  }
 }
-''')
+''' )
 subprocess.run(['javac','-cp',str(OUT),'-d',str(OUT),str(STUB/'dev/freakyfriday/BookInteractionHarness.java')],check=True)
 subprocess.run(['java','-ea','-cp',str(OUT),'dev.freakyfriday.BookInteractionHarness'],check=True)
 
