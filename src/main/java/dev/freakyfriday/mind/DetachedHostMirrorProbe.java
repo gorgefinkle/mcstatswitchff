@@ -64,6 +64,11 @@ public final class DetachedHostMirrorProbe {
         }
     }
 
+    /** Read-only status for automated command regression; no mutable session leaked. */
+    public static synchronized boolean hasActiveProbe(UUID bodyId) {
+        return SESSIONS.containsKey(bodyId);
+    }
+
     public static synchronized String start(ServerPlayer player, Mob donor, Mob recipient) {
         String trace = ProbeTelemetry.newTrace();
         if (donor.level() != player.level() || recipient.level() != player.level()

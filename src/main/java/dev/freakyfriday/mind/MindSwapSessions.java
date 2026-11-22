@@ -51,6 +51,13 @@ public final class MindSwapSessions {
         return pending;
     }
 
+    /** Read-only command regression signal; no pair identities are exposed to clients. */
+    public static boolean diagnosticPairMatches(UUID playerId, UUID donor, UUID recipient) {
+        Pair pair = PAIRS.get(playerId);
+        return pair != null && pair.donorBody().equals(donor)
+            && pair.recipientBody().equals(recipient);
+    }
+
     public static void clearOnLogout(UUID playerId) {
         PENDING.remove(playerId);
         LAST_INTERACTION.remove(playerId);

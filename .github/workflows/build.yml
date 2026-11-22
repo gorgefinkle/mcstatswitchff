@@ -74,6 +74,9 @@ jobs:
           grep -Fq 'FF-COMMANDTEST suite PASS' gametest.log
           grep -Fq 'FF-COMMANDTEST cancel PASS' gametest.log
           grep -Fq 'FF-COMMANDTEST all PASS' gametest.log
+          grep -Fq 'FF-COMMANDTEST full_workflow PASS' gametest.log
+          grep -Fq 'FF-COMMANDTEST mirror40_completion PASS' gametest.log
+          grep -Fq 'FF-COMMANDTEST cancel_reselect PASS' gametest.log
       - name: Upload GameTest output
         if: always()
         uses: actions/upload-artifact@v4

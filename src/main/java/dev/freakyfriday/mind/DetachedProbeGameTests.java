@@ -7,6 +7,9 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.ItemStack;
+import dev.freakyfriday.FreakyFriday;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EntityTypes;
@@ -162,6 +165,103 @@ public final class DetachedProbeGameTests {
         } finally {
             dev.freakyfriday.mind.MindSwapSessions.clearOnLogout(mock.getUUID());
         }
+    }
+
+    /** Real command lifecycle through Brigadier, live mobs and 40 physical ticks. */
+    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>>
+        FULL_COMMAND_WORKFLOW = FUNCTIONS.register(
+            "full_command_workflow", () -> DetachedProbeGameTests::testFullCommandWorkflow);
+
+    @SuppressWarnings("removal")
+    private static void testFullCommandWorkflow(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(FreakyFriday.BOOK.get()));
+
+        Mob donor = EntityTypes.COW.create(level, EntitySpawnReason.COMMAND);
+        Mob recipient = EntityTypes.ZOMBIE.create(level, EntitySpawnReason.COMMAND);
+        helper.assertTrue(donor != null && recipient != null,
+            "Command workflow requires real Cow and Zombie mobs");
+        BlockPos p = helper.absolutePos(new BlockPos(1, 1, 1));
+        donor.setPos(p.getX()+0.5, p.getY(), p.getZ()+0.5);
+        recipient.setPos(p.getX()+3.5, p.getY(), p.getZ()+0.5);
+        donor.setNoAi(true);
+        recipient.setNoAi(true);
+        donor.setInvulnerable(true);
+        recipient.setInvulnerable(true);
+        donor.setNoGravity(true);
+        recipient.setNoGravity(true);
+        helper.assertTrue(level.addFreshEntity(donor) && level.addFreshEntity(recipient),
+            "Command workflow requires registered physical actors");
+
+        var source = level.getServer().createCommandSourceStack().withEntity(player);
+        var dispatcher = level.getServer().getCommands().getDispatcher();
+        try {
+            // Exactly the same selection procedure called from BookInteractions;
+            // no mouse clicks or manual mob summons required.
+            MindSwapSessions.selectFromInteraction(player, donor);
+            helper.assertTrue(dispatcher.execute("freakyfriday inspect", source) == 1,
+                "Real inspect command was rejected");
+            helper.assertTrue(dispatcher.execute("freakyfriday hostprobe", source) == 1,
+                "Real hostprobe command was rejected");
+            helper.assertTrue(dispatcher.execute("freakyfriday hostprobe40", source) == 1,
+                "Real hostprobe40 command was rejected");
+
+            MindSwapSessions.selectFromInteraction(player, recipient);
+            helper.assertTrue(MindSwapSessions.diagnosticPairMatches(player.getUUID(),
+                    donor.getUUID(), recipient.getUUID()),
+                "Book event selections did not lock Cow -> Zombie");
+            MindSwapSessions.selectFromInteraction(player, donor);
+            helper.assertTrue(MindSwapSessions.diagnosticPairMatches(player.getUUID(),
+                    donor.getUUID(), recipient.getUUID()),
+                "Third book interaction silently replaced the locked pair");
+            helper.assertTrue(dispatcher.execute("freakyfriday dualprobe", source) == 1,
+                "Real dualprobe command was rejected");
+            helper.assertTrue(dispatcher.execute("freakyfriday dualprobe40", source) == 1,
+                "Real dualprobe40 command was rejected");
+            helper.assertTrue(DetachedHostMirrorProbe.hasActiveProbe(recipient.getUUID()),
+                "dualprobe40 command did not create an active 40-tick host session");
+            helper.assertTrue(dispatcher.execute("freakyfriday self", source) == 1,
+                "Real self command route failed");
+            helper.assertTrue(MindSwapSessions.diagnosticPairMatches(player.getUUID(),
+                    donor.getUUID(), recipient.getUUID()),
+                "Unsupported player selection changed the locked NPC pair");
+        } catch (com.mojang.brigadier.exceptions.CommandSyntaxException error) {
+            throw new AssertionError("Real command workflow rejected by Brigadier", error);
+        }
+        System.out.println("FF-COMMANDTEST book_selection_lock PASS");
+        System.out.println("FF-COMMANDTEST inspect_hostprobe_hostprobe40 PASS");
+        System.out.println("FF-COMMANDTEST dualprobe_dualprobe40 PASS");
+        // Do not claim completion merely because the command accepted the
+        // request. The recipient must actually tick 40 times and be removed.
+        helper.runAfterDelay(65, () -> {
+            try {
+                helper.assertTrue(!DetachedHostMirrorProbe.hasActiveProbe(recipient.getUUID()),
+                    "40-tick detached-host command did not terminate");
+                helper.assertTrue(MindSwapSessions.diagnosticPairMatches(player.getUUID(),
+                        donor.getUUID(), recipient.getUUID()),
+                    "Selected diagnostic pair changed during physical ticking");
+                helper.assertTrue(dispatcher.execute("freakyfriday cancel", source) == 1,
+                    "Real cancel command was rejected");
+                helper.assertTrue(!MindSwapSessions.diagnosticPairMatches(player.getUUID(),
+                        donor.getUUID(), recipient.getUUID()),
+                    "Cancel left the locked diagnostic pair active");
+                MindSwapSessions.selectFromInteraction(player, donor);
+                helper.assertTrue(!MindSwapSessions.diagnosticPairMatches(player.getUUID(),
+                        donor.getUUID(), recipient.getUUID()),
+                    "Cancel + same-tick reselect incorrectly recreated a locked pair");
+                System.out.println("FF-COMMANDTEST mirror40_completion PASS");
+                System.out.println("FF-COMMANDTEST cancel_reselect PASS");
+                System.out.println("FF-COMMANDTEST full_workflow PASS");
+                helper.succeed();
+            } catch (com.mojang.brigadier.exceptions.CommandSyntaxException error) {
+                throw new AssertionError("Cancel command failed", error);
+            } finally {
+                MindSwapSessions.clearOnLogout(player.getUUID());
+                donor.discard();
+                recipient.discard();
+            }
+        });
     }
 
     private static void testCrossSpecies(GameTestHelper helper) {
