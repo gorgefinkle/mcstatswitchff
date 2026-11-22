@@ -38,6 +38,8 @@ def run_until_markers(command, log_path, markers, env, timeout=420):
     error_terms = ("FF-NATIVE-WORKER START_FAILURE",
                    "FF-NATIVE-WORKER FRAME_FAILURE",
                    "FF-NATIVE-WORKER NO_NATIVE_DECISION",
+                   "FF-NATIVE-WORKER NO_NATIVE_ATTACK",
+                   "FF-NATIVE-WORKER NATIVE_CAPTURE_INCOMPLETE",
                    "FF-NATIVE-WORKER MOB_DIED",
                    "FF-NATIVE-WORKER WORLD_REGISTRATION_FAILED")
     process = subprocess.Popen(
@@ -117,14 +119,14 @@ def main():
         folder.mkdir(parents=True, exist_ok=True)
 
     # Both roles use exactly the same native-host and body-port code.
-    for donor,recipient,stimulus in (
-        ("minecraft:zombie","minecraft:chicken","minecraft:villager"),
-        ("minecraft:chicken","minecraft:zombie","minecraft:villager"),
+    for donor,recipient,stimulus,require_attack in (
+        ("minecraft:zombie","minecraft:chicken","minecraft:villager",True),
+        ("minecraft:chicken","minecraft:zombie","minecraft:villager",False),
     ):
-        run_case(opts,donor,recipient,stimulus)
+        run_case(opts,donor,recipient,stimulus,require_attack)
     return 0
 
-def run_case(opts, donor, recipient, stimulus):
+def run_case(opts, donor, recipient, stimulus, require_attack):
     """Do not change capture/execution rules for different mob types."""
     # Each experiment uses a fresh disposable native world. Without this,
     # previously spawned mobs can alter native targeting/wandering when the
@@ -136,6 +138,7 @@ def run_case(opts, donor, recipient, stimulus):
     session = uuid.uuid4()
     body = uuid.uuid4()
     mind = uuid.uuid4()
+    stimulus_id = uuid.uuid4()
     tick = 1700
     props = (
         "session=" + str(session) + "\n"
@@ -145,6 +148,8 @@ def run_case(opts, donor, recipient, stimulus):
         "donor=" + donor + "\n"
         "recipient=" + recipient + "\n"
         "stimulus=" + stimulus + "\n"
+        "stimulusId=" + str(stimulus_id) + "\n"
+        "requireAttack=" + str(require_attack).lower() + "\n"
     )
     WORKER_CONFIG.write_text(props, encoding="utf-8")
     (WORKER_DIR / "eula.txt").write_text("eula=true\n",encoding="utf-8")
@@ -166,12 +171,17 @@ def run_case(opts, donor, recipient, stimulus):
         if WORKER_OUTPUT.exists():
             WORKER_OUTPUT.unlink()
         print("FF-NATIVE-WORKER starting distinct disposable NeoForge producer")
+        worker_markers = [
+            "FF-NATIVE-WORKER READY",
+            "FF-NATIVE-WORKER NATIVE_NAVIGATION_OBSERVED",
+            "FF-NATIVE-WORKER FRAME_WRITTEN PASS",
+        ]
+        if require_attack:
+            worker_markers.append("FF-NATIVE-WORKER NATIVE_ATTACK_OBSERVED")
         run_until_markers(
             cmd_base + ["runAiWorker"] + arguments,
             ROOT / "native-worker-server.log",
-            ("FF-NATIVE-WORKER READY",
-             "FF-NATIVE-WORKER NATIVE_NAVIGATION_OBSERVED",
-             "FF-NATIVE-WORKER FRAME_WRITTEN PASS"),
+            tuple(worker_markers),
             env,
         )
         if not WORKER_OUTPUT.is_file():
@@ -193,6 +203,7 @@ def run_case(opts, donor, recipient, stimulus):
         print("FF-NATIVE-WORKER TWO_PROCESS_CI PASS"
             " minecraft=" + opts.minecraft +
             " donor="+donor+" recipient="+recipient+
+            " nativeAttackCaptured="+str(require_attack).lower()+
             " nativeDonorActuallyMoved=true"
             " signedRelativeActionsMovedRealRecipient=true"
             " samePhysicalWorld=false noArbitraryModIsolationClaim=true")
