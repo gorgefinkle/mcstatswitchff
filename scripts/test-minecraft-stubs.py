@@ -17,6 +17,14 @@ public final class PossessionNetwork {
  public static void register(Object ignored){}
 }
 ''',
+'dev/freakyfriday/mind/SelectionHudSync.java':'''package dev.freakyfriday.mind;
+import net.minecraft.server.level.ServerPlayer;
+/** Only NeoForge verifies the actual client-bound selection packets. */
+public final class SelectionHudSync {
+ public static void show(ServerPlayer p,String name,int remaining){}
+ public static void clear(ServerPlayer p){}
+}
+''',
 'dev/freakyfriday/mind/PlayerMobPossession.java':'''package dev.freakyfriday.mind;
 import java.util.UUID;
 import net.minecraft.server.level.ServerPlayer;
@@ -627,7 +635,7 @@ public static void main(String[] args){
 # They must not be passed to the legacy headless harness whose fake APIs do not
 # implement actual packet serialization, GUI rendering or client registration.
 real_api_only = {'NativeBrainSwap.java', 'GoalMindRuntime.java', 'MinecraftBodyPort.java', 'MinecraftHostProbe.java', 'LiveBodyProbe.java', 'DetachedMindHostProbe.java', 'ProbeBodySnapshot.java', 'ProbeTelemetry.java', 'DetachedHostMirrorProbe.java', 'DetachedProbeGameTests.java', 'NativeAiSurfaceAudit.java', 'CategoryPickerPayload.java','CategoryPickerNetworking.java',
-                 'CategoryPickerScreen.java','ClientCategoryPickerNetworking.java', 'FFDiagnosticAutoTest.java', 'FFServerSmoke.java', 'NativeAiWorkerServer.java', 'PlayerCommandBodyRouting.java', 'PlayerCommandRouteGameTests.java', 'UnseenAddonCommandFixture.java', 'PlayerMobGameTests.java', 'PlayerPlayerGameTests.java', 'PlayerPlayerExchange.java', 'PlayerMobPossession.java', 'PossessionNetwork.java', 'PossessionInputPayload.java', 'PossessionViewPayload.java', 'PossessionStatePayload.java', 'PossessionAttackPayload.java', 'PossessionMotion.java', 'PossessionCombat.java', 'ClientPossession.java', 'ClientOccupiedBodyUI.java'}
+                 'CategoryPickerScreen.java','ClientCategoryPickerNetworking.java', 'FFDiagnosticAutoTest.java', 'FFServerSmoke.java', 'NativeAiWorkerServer.java', 'PlayerCommandBodyRouting.java', 'PlayerCommandRouteGameTests.java', 'UnseenAddonCommandFixture.java', 'PlayerMobGameTests.java', 'PlayerPlayerGameTests.java', 'PlayerPlayerExchange.java', 'PlayerMobPossession.java', 'PossessionNetwork.java', 'PossessionInputPayload.java', 'PossessionViewPayload.java', 'PossessionStatePayload.java', 'PossessionAttackPayload.java', 'PossessionMotion.java', 'PossessionCombat.java', 'ClientPossession.java', 'ClientOccupiedBodyUI.java', 'ClientSelectionHud.java', 'SelectionHudPayload.java', 'SelectionHudSync.java'}
 all_prod=[p for p in (ROOT/'src/main/java').rglob('*.java') if p.name not in real_api_only] + list((ROOT/'src/platform/minecraft-26.2/java').rglob('*.java'))
 full_cmd=['javac','-d',str(OUT)]+list(map(str,STUB.rglob('*.java')))+list(map(str,all_prod))
 subprocess.run(full_cmd,check=True)
