@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
-: "${JAVA_HOME:?Set JAVA_HOME to a Java 25 JDK directory}"
-"$JAVA_HOME/bin/java" -version
-if [[ -n "${GRADLE_HOME:-}" && -x "$GRADLE_HOME/bin/gradle" ]]; then
-  exec "$GRADLE_HOME/bin/gradle" --no-daemon clean build -PtargetMinecraft=26.2
-fi
-exec ./gradlew --no-daemon clean build -PtargetMinecraft=26.2
+MC="${1:-26.2}"
+case "$MC" in 26.2|26.3) ;; *) echo "Usage: scripts/BUILD_LINUX.sh [26.2|26.3]" >&2; exit 2;; esac
+python3 scripts/build_doctor.py --mc "$MC"
+python3 scripts/package-full.py --minecraft "$MC"
+echo "Build and full ZIP ready in build/packages"
