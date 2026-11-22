@@ -10,6 +10,9 @@ DEST=ROOT/'build'/'stub-harness'; STUB=DEST/'stubs'; OUT=DEST/'classes'
 if DEST.exists(): shutil.rmtree(DEST)
 STUB.mkdir(parents=True,exist_ok=True); OUT.mkdir(parents=True,exist_ok=True)
 S={
+'dev/freakyfriday/FFServerSmoke.java':'''package dev.freakyfriday;
+public final class FFServerSmoke {}
+''',
 'dev/freakyfriday/FFDiagnosticAutoTest.java':'''package dev.freakyfriday;
 import net.minecraft.server.level.ServerPlayer;
 public final class FFDiagnosticAutoTest {
@@ -555,7 +558,7 @@ public static void main(String[] args){
 # They must not be passed to the legacy headless harness whose fake APIs do not
 # implement actual packet serialization, GUI rendering or client registration.
 real_api_only = {'NativeBrainSwap.java', 'GoalMindRuntime.java', 'MinecraftBodyPort.java', 'MinecraftHostProbe.java', 'LiveBodyProbe.java', 'DetachedMindHostProbe.java', 'ProbeBodySnapshot.java', 'ProbeTelemetry.java', 'DetachedHostMirrorProbe.java', 'DetachedProbeGameTests.java', 'NativeAiSurfaceAudit.java', 'CategoryPickerPayload.java','CategoryPickerNetworking.java',
-                 'CategoryPickerScreen.java','ClientCategoryPickerNetworking.java', 'FFDiagnosticAutoTest.java'}
+                 'CategoryPickerScreen.java','ClientCategoryPickerNetworking.java', 'FFDiagnosticAutoTest.java', 'FFServerSmoke.java'}
 all_prod=[p for p in (ROOT/'src/main/java').rglob('*.java') if p.name not in real_api_only] + list((ROOT/'src/platform/minecraft-26.2/java').rglob('*.java'))
 full_cmd=['javac','-d',str(OUT)]+list(map(str,STUB.rglob('*.java')))+list(map(str,all_prod))
 subprocess.run(full_cmd,check=True)
