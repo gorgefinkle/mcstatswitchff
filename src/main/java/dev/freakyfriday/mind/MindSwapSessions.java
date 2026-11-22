@@ -288,7 +288,7 @@ public final class MindSwapSessions {
             }
             PENDING.remove(p.getUUID());
             PAIRS.remove(p.getUUID());
-            message(p,"You and "+other.getName().getString()
+            message(p,"You and "+other.getDisplayName().getString()
                 +" exchanged physical control immediately. Either may /freakyfriday cancel.");
             return;
         }
