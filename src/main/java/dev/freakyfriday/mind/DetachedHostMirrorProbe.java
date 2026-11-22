@@ -12,6 +12,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.EntityLeaveLevelEvent;
 import net.neoforged.neoforge.event.tick.EntityTickEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 
 /**
@@ -24,7 +25,9 @@ public final class DetachedHostMirrorProbe {
     private DetachedHostMirrorProbe() {}
 
     private static final int MAX_SESSIONS = 4, MAX_TICKS = 40;
+    private static final long MAX_IDLE_SERVER_TICKS = 120;
     private static final Map<UUID, Session> SESSIONS = new HashMap<>();
+    private static long serverTicks;
 
     private static final class Session {
         final Mob donor, recipient, host;
@@ -35,6 +38,7 @@ public final class DetachedHostMirrorProbe {
         final Vec3 firstPosition;
         final int initialDonorGoals, initialHostGoals, initialRecipientGoals;
         int ticks, mirrored, alignmentFailures, registrationViolations;
+        long lastProgressServerTick;
         boolean finished;
         String lastError = "";
 
@@ -53,6 +57,7 @@ public final class DetachedHostMirrorProbe {
             this.initialMaxHealth = recipient.getMaxHealth();
             this.initialDonorHealth = donor.getHealth();
             this.firstPosition = recipient.position();
+            this.lastProgressServerTick = serverTicks;
             this.initialDonorGoals = donor.goalSelector.getAvailableGoals().size();
             this.initialHostGoals = host.goalSelector.getAvailableGoals().size();
             this.initialRecipientGoals = recipient.goalSelector.getAvailableGoals().size();
@@ -77,6 +82,10 @@ public final class DetachedHostMirrorProbe {
             return "Detached-host mirror probe concurrency limit reached.";
         }
 
+        // Snapshot BEFORE the constructor and BEFORE setPos. The earlier
+        // probe only snapshotted after these potentially unsafe calls.
+        ProbeBodySnapshot donorBefore = ProbeBodySnapshot.take(donor);
+        ProbeBodySnapshot recipientBefore = ProbeBodySnapshot.take(recipient);
         DetachedMindHostProbe.Creation created =
             DetachedMindHostProbe.construct(donor, recipient, trace);
         if (created.host() == null) {
@@ -97,6 +106,16 @@ public final class DetachedHostMirrorProbe {
                 "Host positioning failed before the test began; no host tick");
             return "Host alignment failed (" + trace + "): "
                 + problem.getClass().getSimpleName() + ". Full stack in latest.log.";
+        }
+
+        String donorChanges = donorBefore.changes(donor);
+        String recipientChanges = recipientBefore.changes(recipient);
+        if (!donorChanges.isEmpty() || !recipientChanges.isEmpty()) {
+            ProbeTelemetry.warn(trace, "mirror_preflight_body_mutation",
+                "donorChanges=[%s] recipientChanges=[%s] Unsafe host construction/positioning; aborting",
+                donorChanges, recipientChanges);
+            return "Detached-host factory/position changed an existing body (" + trace
+                + "); see mirror_preflight_body_mutation in latest.log.";
         }
 
         if (((ServerLevel) recipient.level()).getEntity(host.getUUID()) != null) {
@@ -155,6 +174,7 @@ public final class DetachedHostMirrorProbe {
             boolean afterRegistered = s.level.getEntity(s.hostId) != null;
 
             s.ticks++;
+            s.lastProgressServerTick = serverTicks;
             ProbeTelemetry.info(s.trace, "mirror_tick",
                 "tick=%d gameTime=%d donorAlive=%s bodyAlive=%s bodyId=%s hostId=%s recipientPos=%s hostPosBefore=%s hostPosAfter=%s errorSqBefore=%.8f errorSqAfter=%.8f repositioned=%s hostRegistered=%s bodyHealth=%.2f bodyMaxHealth=%.2f recipientGoals=%d donorGoals=%d hostGoals=%d",
                 s.ticks, s.level.getGameTime(), s.donor.isAlive(), s.recipient.isAlive(),
@@ -195,6 +215,27 @@ public final class DetachedHostMirrorProbe {
         }
     }
 
+    /**
+     * A physical entity can stop receiving ticks without a prompt
+     * EntityLeaveLevelEvent (mods may freeze ticks, or a loaded chunk may
+     * stop simulating). Expire probes by SERVER ticks, independently of the
+     * recipient's EntityTickEvent.Post. Never keep live worlds pinned
+     * indefinitely waiting for the remaining 40 body ticks.
+     */
+    @SubscribeEvent
+    public static synchronized void onServerTick(ServerTickEvent.Post event) {
+        serverTicks++;
+        for (Session s : java.util.List.copyOf(SESSIONS.values())) {
+            if (s.finished || s.level.getServer() != event.getServer()) continue;
+            if (serverTicks - s.lastProgressServerTick >= MAX_IDLE_SERVER_TICKS) {
+                ProbeTelemetry.warn(s.trace, "mirror_watchdog_timeout",
+                    "no recipient tick in %d server ticks; observedTicks=%d, hostId=%s",
+                    serverTicks - s.lastProgressServerTick, s.ticks, s.hostId);
+                finish(s, "Mirror probe timed out: recipient stopped ticking");
+            }
+        }
+    }
+
     @SubscribeEvent
     public static synchronized void onLeave(EntityLeaveLevelEvent event) {
         for (Session s : java.util.List.copyOf(SESSIONS.values())) {
@@ -216,6 +257,7 @@ public final class DetachedHostMirrorProbe {
             finish(s, "Server stopped during test");
         }
         SESSIONS.clear();
+        serverTicks = 0L;
     }
 
     private static void finish(Session s, String reason) {
