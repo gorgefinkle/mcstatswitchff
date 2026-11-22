@@ -13,9 +13,11 @@ import net.minecraft.world.entity.LivingEntity;
  * One book, two bodies, no category choice. Everything is resolved on the
  * server; the client never provides a target UUID in a command.
  *
- * R0.15.3 records a LOCKED diagnostic pair only. This experimental
- * branch does not execute donor-native AI or commit a real mind swap.
- * The book is still one select-first/select-second interaction sequence.
+ * The book uses one select-first/select-second interaction sequence.
+ * Player + Mob enters the PLAYABLE possession runtime (one-way control,
+ * not a complete mind transplant). Mob + Mob only reports actual results
+ * from the native Goal/Brain runtime; unsupported species fail visibly.
+ * Diagnostic-only pair selection is retained solely for old developer tests.
  */
 public final class MindSwapSessions {
     private MindSwapSessions() {}
@@ -62,6 +64,7 @@ public final class MindSwapSessions {
         PENDING.remove(playerId);
         LAST_INTERACTION.remove(playerId);
         PAIRS.remove(playerId);
+        PlayerMobPossession.clearOnLogout(playerId);
     }
 
     public static void cancel(ServerPlayer p) {
@@ -70,7 +73,10 @@ public final class MindSwapSessions {
         // Without clearing this stamp a cancel + immediate reselect of
         // the same mob on the same game tick is silently discarded.
         LAST_INTERACTION.remove(p.getUUID());
-        message(p, "Mind swap selection cancelled.");
+        boolean returned=PlayerMobPossession.end(p);
+        message(p, returned
+            ? "Returned to your player body; mob AI restored."
+            : "Mind swap selection cancelled.");
     }
 
     /** No static selection state may leak into a newly launched server. */
@@ -78,6 +84,7 @@ public final class MindSwapSessions {
         PENDING.clear();
         PAIRS.clear();
         LAST_INTERACTION.clear();
+        PlayerMobPossession.clearOnServerStop();
     }
 
     /**
@@ -221,8 +228,93 @@ public final class MindSwapSessions {
         select(p, target);
     }
 
-    /** Both right clicks and Ctrl+S (self) use the exact same path. */
+    /**
+     * Actual book workflow, not diagnostic pair locking. A Player/Mob
+     * pairing begins server-authoritative possession. NPC/NPC attempts a
+     * real native goal/brain exchange and reports rejection honestly.
+     */
     public static void select(ServerPlayer p, LivingEntity target) {
+        if (!hasBook(p)) {
+            message(p,"Hold the Freaky Friday book first.");
+            return;
+        }
+        if (!target.isAlive() || target.isRemoved()) {
+            message(p,"The selected body is no longer alive or active.");
+            return;
+        }
+        if (p.level()!=target.level()) {
+            message(p,"Both bodies must be in the same dimension.");
+            return;
+        }
+        if (PlayerMobPossession.hasSession(p.getUUID())) {
+            message(p,"You are already controlling a mob. Use /freakyfriday cancel to return.");
+            return;
+        }
+        Pending pending=current(p);
+        if (pending==null) {
+            PENDING.put(p.getUUID(),new Pending(
+                target.getUUID(),p.level().dimension().identifier().toString(),
+                System.nanoTime()));
+            message(p,"First body: "+target.getDisplayName().getString()
+                +". Choose the second body.");
+            return;
+        }
+        Entity entity=p.level().getEntity(pending.firstBody());
+        if (!(entity instanceof LivingEntity first) || !first.isAlive()) {
+            PENDING.remove(p.getUUID());
+            message(p,"First body is no longer available; select again.");
+            return;
+        }
+        if (first==target) {
+            message(p,"Choose a different second body.");
+            return;
+        }
+        if (first instanceof ServerPlayer firstPlayer && firstPlayer!=p
+                || target instanceof ServerPlayer secondPlayer && secondPlayer!=p) {
+            message(p,"Two-account player mind swapping is not playable yet.");
+            return;
+        }
+
+        if ((first==p && target instanceof net.minecraft.world.entity.Mob)
+                || (target==p && first instanceof net.minecraft.world.entity.Mob)) {
+            net.minecraft.world.entity.Mob mob=(net.minecraft.world.entity.Mob)(
+                first==p?target:first);
+            String problem=PlayerMobPossession.begin(p,mob);
+            if (problem!=null) {
+                message(p,"Cannot control that body: "+problem);
+                return;
+            }
+            PENDING.remove(p.getUUID());
+            PAIRS.remove(p.getUUID());
+            message(p,"Controlling "+mob.getDisplayName().getString()
+                +" (WASD/jump). /freakyfriday cancel returns you. "
+                +"The NPC mind is not yet driving your original body.");
+            return;
+        }
+
+        if (first instanceof net.minecraft.world.entity.Mob mobA
+                && target instanceof net.minecraft.world.entity.Mob mobB) {
+            String error=NativeBrainSwap.exchange(mobA,mobB);
+            PENDING.remove(p.getUUID());
+            if (error!=null) {
+                message(p,"Native mind exchange REJECTED: "+error);
+            } else {
+                message(p,"Native goal/Brain controllers exchanged between "
+                    +mobA.getDisplayName().getString()+" and "
+                    +mobB.getDisplayName().getString()
+                    +". Watch their ACTUAL behavior; cross-species abilities are not certified.");
+            }
+            return;
+        }
+        message(p,"These body types cannot be safely paired yet.");
+    }
+
+    /**
+     * LEGACY developer-only diagnostic selection. Not invoked by the book.
+     * Old test fixtures still exercise the detached-host lifecycle separately
+     * from playable user controls.
+     */
+    public static void selectDiagnosticForTest(ServerPlayer p, LivingEntity target) {
         if (!hasBook(p)) {
             message(p, "Hold the Freaky Friday book first.");
             return;
