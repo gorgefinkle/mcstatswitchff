@@ -18,11 +18,21 @@ execution. On an already-authorized committed mind swap, it:
 3. Projects that body as the command entity, position, rotation and level,
    without replacing the connected player's CommandSource, privileges or
    callback/feedback receiver.
-4. Reparses the complete unchanged command with Minecraft's global
-   dispatcher, so nested commands, selectors and unseen third-party
-   commands use the new context.
+4. Cancels the original invocation and re-dispatches the **unchanged**
+   command with Minecraft's normal `performPrefixedCommand` pipeline,
+   because setting replacement parse results alone did not affect the
+   final execution source on tested NeoForge 26.2. The projected source
+   retains the authentic sender; the nested command cannot be rerouted
+   again by the authenticated connection guard.
 5. Invalidates both sides on logout or server stop and refuses to
    execute commands under missing/stale body routes.
+6. Verifies that the unfamiliar addon command is executed exactly once.
+
+Caveat: NeoForge command-event listeners may observe both the original
+canceled event and the re-dispatched event. This can matter for unusual
+plugins that perform side effects inside their `CommandEvent` listener.
+Those are not automatically safe or verified by ordinary Brigadier-command
+tests; a pre-parse command-source hook would avoid double event delivery.
 
 No individual vanilla or addon command is intercepted or rewritten.
 
