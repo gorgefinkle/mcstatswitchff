@@ -14,9 +14,13 @@ public final class PossessionNetwork {
             (packet, context)-> {
                 if (!(context.player() instanceof ServerPlayer connected)) return;
                 try {
-                    PlayerMobPossession.input(connected,new PlayerMobPossession.Input(
+                    var input=new PlayerMobPossession.Input(
                         packet.forward(),packet.strafe(),packet.jump(),
-                        packet.yaw(),packet.pitch(),packet.sequence()));
+                        packet.yaw(),packet.pitch(),packet.sequence());
+                    if (dev.freakyfriday.mind.PlayerPlayerExchange.active(
+                            connected.getUUID()))
+                        dev.freakyfriday.mind.PlayerPlayerExchange.input(connected,input);
+                    else PlayerMobPossession.input(connected,input);
                 } catch (IllegalArgumentException rejected) {
                     // Bad client movement is dropped before touching the physical Mob.
                 }
