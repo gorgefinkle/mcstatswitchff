@@ -261,7 +261,15 @@ public final class NativeAiWorkerServer {
             state.produced=true;
             System.err.println("FF-NATIVE-WORKER NO_NATIVE_DECISION"
                 +" targetTicks="+state.targetTicks
-                +" navigationTicks="+state.navigationTicks);
+                +" navigationTicks="+state.navigationTicks
+                +" mobTickCount="+donor.tickCount
+                +" noAi="+donor.isNoAi()
+                +" onGround="+donor.onGround()
+                +" nativeGoals="+donor.goalSelector.getAvailableGoals().size()
+                +" displacement="+Math.hypot(donor.getX()-state.startX,
+                    donor.getZ()-state.startZ)
+                +" hasPath="+(donor.getNavigation().getPath()!=null)
+                +" workerChunkLoaded="+state.level.hasChunkAt(donor.blockPosition()));
         }
     }
 
