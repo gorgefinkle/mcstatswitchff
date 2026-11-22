@@ -126,6 +126,12 @@ def main():
 
 def run_case(opts, donor, recipient, stimulus):
     """Do not change capture/execution rules for different mob types."""
+    # Each experiment uses a fresh disposable native world. Without this,
+    # previously spawned mobs can alter native targeting/wandering when the
+    # second species is tested.
+    worker_world=WORKER_DIR / "ff-native-ai-ci-worker"
+    if worker_world.exists():
+        shutil.rmtree(worker_world)
     key_hex = secrets.token_hex(32)
     session = uuid.uuid4()
     body = uuid.uuid4()
