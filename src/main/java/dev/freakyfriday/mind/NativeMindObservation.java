@@ -61,8 +61,8 @@ public final class NativeMindObservation {
             "dz",Double.toString(movement.dz()));
         return new CapturedIntentBridge.Frame(recipientBody,donorMind,serverTick,
             List.of(
-                new BodyActionGate.Intent(MinecraftBodyPort.LOOK_OFFSET,offset),
-                new BodyActionGate.Intent(MinecraftBodyPort.MOVE_OFFSET,
+                new BodyActionGate.Intent(BodyActionGate.LOOK_OFFSET,offset),
+                new BodyActionGate.Intent(BodyActionGate.MOVE_OFFSET,
                     Map.of("dx",offset.get("dx"),"dy",offset.get("dy"),
                            "dz",offset.get("dz"),"speed","0.65"))
             ));
