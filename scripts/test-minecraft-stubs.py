@@ -437,8 +437,14 @@ public final class UnseenAddonCommandFixture {}
 ''',
 # The native AI worker executes actual NeoForge world/goal APIs. Only the
 # real NeoForge build/worker integration may compile/test this implementation.
+'net/neoforged/neoforge/common/world/chunk/RegisterTicketControllersEvent.java':'''package net.neoforged.neoforge.common.world.chunk;
+public final class RegisterTicketControllersEvent {}
+''',
 'dev/freakyfriday/mind/NativeAiWorkerServer.java':'''package dev.freakyfriday.mind;
-public final class NativeAiWorkerServer {}
+public final class NativeAiWorkerServer {
+ public static void registerChunkTickets(
+  net.neoforged.neoforge.common.world.chunk.RegisterTicketControllersEvent event){}
+}
 ''',
 # Real GameTest APIs belong to the actual Minecraft server build and are not
 # implemented by this legacy synthetic API harness.
