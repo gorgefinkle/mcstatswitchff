@@ -133,7 +133,7 @@ public final class FFDiagnosticAutoTest {
     }
 
     public static int runPair(ServerPlayer player, String donor, String recipient) {
-        Result result = checkPair(player.serverLevel(), donor, recipient);
+        Result result = checkPair((ServerLevel) player.level(), donor, recipient);
         player.sendSystemMessage(Component.literal("[Freaky Friday] Quicktest "
             + donor + " -> " + recipient + ": " + result.detail()
             + " (DISPOSABLE WORLDS ONLY: factory effects are not sandboxed.)"));
@@ -141,7 +141,7 @@ public final class FFDiagnosticAutoTest {
     }
 
     public static int runSuite(ServerPlayer player) {
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = (ServerLevel) player.level();
         int passed = 0;
         for (Case pair : VANILLA_CASES) {
             Result result = checkPair(level, pair.donor(), pair.recipient());
