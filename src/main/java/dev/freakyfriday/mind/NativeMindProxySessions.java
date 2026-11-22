@@ -6,7 +6,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.LivingEntity;
@@ -128,7 +127,6 @@ public final class NativeMindProxySessions {
         proxy.setNoAi(false);
         proxy.setNoGravity(true);
         proxy.noPhysics=true;
-        proxy.setInvulnerable(true);
         proxy.setInvisible(true);
         proxy.setSilent(true);
         proxy.setPersistenceRequired();
@@ -205,6 +203,11 @@ public final class NativeMindProxySessions {
 
     @SubscribeEvent
     public static void onNativeMelee(LivingIncomingDamageEvent event) {
+        if(event.getEntity() instanceof Mob damagedProxy
+                && PROXY_TO_BODY.containsKey(damagedProxy)) {
+            event.setCanceled(true);
+            return;
+        }
         Entity attacker=event.getSource().getEntity();
         if(!(attacker instanceof Mob proxy))return;
         Host host=PROXY_TO_BODY.get(proxy);
@@ -216,7 +219,7 @@ public final class NativeMindProxySessions {
                 || target.level()!=host.body.level()
                 || host.body.distanceToSqr(target)>16.0)return;
         if(host.body.getAttribute(Attributes.ATTACK_DAMAGE)==null) {
-            host.body.swing(InteractionHand.MAIN_HAND,true);
+            host.dev.freakyfriday.compat.PlatformHooks.nativeSwing(body);
         } else if(host.body.level() instanceof ServerLevel level) {
             host.body.doHurtTarget(level,target);
         }
