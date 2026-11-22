@@ -30,6 +30,12 @@ neoForge {
     runs {
         client { client() }
         server { server(); programArgument '--nogui' }
+        aiWorker {
+            type = 'server'
+            gameDirectory = project.file('run-ai-worker')
+            systemProperty 'freakyfriday.aiWorker', 'true'
+            programArgument '--nogui'
+        }
         gameTestServer {
             type = 'gameTestServer'
             systemProperty 'neoforge.enabledGameTestNamespaces', 'freakyfriday'
