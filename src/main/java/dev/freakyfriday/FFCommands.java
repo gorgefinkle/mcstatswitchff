@@ -1,7 +1,7 @@
 package dev.freakyfriday;
 
 import dev.freakyfriday.mind.MindSwapSessions;
-import com.mojang.brigadier.arguments.StringArgumentType;
+import net.minecraft.commands.arguments.IdentifierArgument;
 import net.minecraft.commands.Commands;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
@@ -62,11 +62,11 @@ public final class FFCommands {
                 .then(Commands.literal("suite").executes(ctx ->
                     FFDiagnosticAutoTest.runSuite(ctx.getSource().getPlayerOrException())))
                 .then(Commands.literal("pair")
-                    .then(Commands.argument("donor", StringArgumentType.word())
-                        .then(Commands.argument("recipient", StringArgumentType.word())
+                    .then(Commands.argument("donor", IdentifierArgument.id())
+                        .then(Commands.argument("recipient", IdentifierArgument.id())
                             .executes(ctx -> FFDiagnosticAutoTest.runPair(
                                 ctx.getSource().getPlayerOrException(),
-                                StringArgumentType.getString(ctx, "donor"),
-                                StringArgumentType.getString(ctx, "recipient"))))))));
+                                IdentifierArgument.getId(ctx, "donor").toString(),
+                                IdentifierArgument.getId(ctx, "recipient").toString())))))));
     }
 }
