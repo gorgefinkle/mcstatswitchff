@@ -199,7 +199,9 @@ public final class DetachedProbeGameTests {
         Mob body = EntityTypes.COW.create(level, EntitySpawnReason.COMMAND);
         helper.assertTrue(donor != null && body != null,
             "Real world motion requires actual Chicken and Cow entities");
-        donor.setPos(p.getX() - 1.5, p.getY(), p.getZ() + 0.5);
+        // Keep the donor INSIDE the GameTest arena. Positioning it at
+        // x=-0.5 outside the structure killed the real Chicken after ~30 ticks.
+        donor.setPos(p.getX() + 0.5, p.getY(), p.getZ() + 3.5);
         body.setPos(p.getX() + 0.5, p.getY(), p.getZ() + 0.5);
         donor.setNoAi(true);
         body.setNoAi(true);
