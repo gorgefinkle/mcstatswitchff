@@ -183,6 +183,20 @@ public final class DetachedMindHostProbe {
         } catch (Exception | LinkageError error) {
             ProbeTelemetry.error(trace, "one_shot_exception", error,
                 "Host inspection / setPos failed; AI not ticked");
+            // Do not hide mutation that occurred *before* a throwing
+            // position override. Compare against pre-position snapshots.
+            try {
+                String donorChanges = donorBeforePosition.changes(donor);
+                String recipientChanges = recipientBeforePosition.changes(recipient);
+                if (!donorChanges.isEmpty() || !recipientChanges.isEmpty()) {
+                    ProbeTelemetry.warn(trace, "one_shot_exception_body_mutation",
+                        "donorChanges=[%s] recipientChanges=[%s] position failed after body mutation",
+                        donorChanges, recipientChanges);
+                }
+            } catch (Exception | LinkageError diagnosticFailure) {
+                ProbeTelemetry.error(trace, "one_shot_exception_snapshot_failure",
+                    diagnosticFailure, "Failed to audit originals after one-shot setPos error");
+            }
             return "Detached host inspection failed (" + trace + "): "
                 + error.getClass().getSimpleName()
                 + ". Full stack trace in latest.log; no host AI tick.";
