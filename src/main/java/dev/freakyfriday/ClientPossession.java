@@ -17,6 +17,7 @@ import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 public final class ClientPossession {
     private ClientPossession(){}
     private static int bodyId=-1;
+    private static double anchorX,anchorY,anchorZ;
     private static long sequence;
     private static int ticks;
 
@@ -26,6 +27,11 @@ public final class ClientPossession {
             bodyId=data.active()?data.entityId():-1;
             sequence=0;
             ticks=0;
+            if(data.active()){
+                anchorX=data.anchorX();
+                anchorY=data.anchorY();
+                anchorZ=data.anchorZ();
+            }
             if(bodyId<0){
                 Minecraft mc=Minecraft.getInstance();
                 if(mc.player!=null)mc.setCameraEntity(mc.player);
@@ -42,6 +48,12 @@ public final class ClientPossession {
             return;
         }
         if(bodyId<0) return;
+        // Keep the local authenticated player at the same original-body
+        // location the server protects, rather than letting keyboard input
+        // carry the hidden LocalPlayer away from its body while the camera
+        // follows the possessed mob.
+        mc.player.setPos(anchorX,anchorY,anchorZ);
+        mc.player.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
         Entity body=mc.level.getEntity(bodyId);
         if(body==null || body.isRemoved()) {
             // Body may not yet be tracked on the first network tick.
