@@ -131,6 +131,9 @@ public final class NativeAiWorkerServer {
             // A disposable fully loaded, clear-sight stone test arena.
             // No original donor or recipient from the LIVE world exists here.
             BlockPos anchor=new BlockPos(0, 120, 0);
+            // A playerless worker has no simulation-distance tickets.
+            // Force the single arena chunk so the REAL native AI ticks.
+            level.setChunkForced(0,0,true);
             for(int x=-12;x<=12;x++) for(int z=-12;z<=12;z++) {
                 level.setBlockAndUpdate(new BlockPos(x,120,z),Blocks.STONE.defaultBlockState());
                 // Roof guards daylight-sensitive native mobs without touching
