@@ -142,7 +142,7 @@ public final class PlayerMobPossession {
         body.setYRot(session.input.yaw());
         body.setXRot(session.input.pitch());
         net.minecraft.world.entity.Entity victim=
-            PossessionCombat.findValidMeleeTarget(level,body,candidateId);
+            PossessionCombat.findValidMeleeTarget(level,body,candidateId,sender);
         if(victim==null)return;
         session.lastAttackTick=now;
         body.doHurtTarget(level,victim);
