@@ -27,6 +27,10 @@ public final class PlayerPlayerGameTests {
         PLAYER_EXCHANGE = FUNCTIONS.register(
             "reciprocal_player_control",()->PlayerPlayerGameTests::verify);
 
+    public static final DeferredHolder<Consumer<GameTestHelper>,Consumer<GameTestHelper>>
+        BODY_DEATH_EJECTS_BOTH=FUNCTIONS.register(
+            "player_death_ejects_both",()->PlayerPlayerGameTests::verifyDeathEjectsBoth);
+
     private static void verify(GameTestHelper helper) {
         var level=helper.getLevel();
         ServerPlayer fred=helper.makeMockServerPlayerInLevel();
@@ -104,4 +108,48 @@ public final class PlayerPlayerGameTests {
             throw failure;
         }
     }
+
+    /**
+     * Killing either occupied original ServerPlayer body must immediately
+     * dissolve BOTH reciprocal routes. Survivor regains their own physical
+     * body rather than remaining inside somebody's dying/respawning player.
+     */
+    private static void verifyDeathEjectsBoth(GameTestHelper helper) {
+        var level=helper.getLevel();
+        ServerPlayer fred=helper.makeMockServerPlayerInLevel();
+        ServerPlayer sally=helper.makeMockServerPlayerInLevel();
+        helper.assertTrue(fred!=null && sally!=null && fred!=sally
+                && !fred.getUUID().equals(sally.getUUID()),
+            "Death-ejection needs two distinct real player bodies");
+        for (int x=1;x<=8;x++)for (int z=1;z<=5;z++)
+            level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,0,z)),
+                Blocks.STONE.defaultBlockState());
+        BlockPos a=helper.absolutePos(new BlockPos(2,1,2));
+        BlockPos b=helper.absolutePos(new BlockPos(5,1,2));
+        fred.setPos(a.getX()+0.5,a.getY(),a.getZ()+0.5);
+        sally.setPos(b.getX()+0.5,b.getY(),b.getZ()+0.5);
+        UUID first=fred.getUUID(),second=sally.getUUID();
+        String error=PlayerPlayerExchange.begin(fred,sally);
+        helper.assertTrue(error==null,"Death-ejection swap rejected: "+error);
+        helper.assertTrue(PlayerPlayerExchange.active(first)
+                && PlayerPlayerExchange.active(second),
+            "Reciprocal controllers were not both active before death");
+        // A real player's LivingEntity.isAlive() becomes false from zero
+        // health. The server tick fallback must clear both even if another
+        // mod intercepted the normal LivingDeathEvent.
+        helper.runAfterDelay(3,()->fred.setHealth(0.0f));
+        helper.runAfterDelay(6,()->{
+            helper.assertTrue(!fred.isAlive(),"Test player body's death not registered");
+            helper.assertTrue(sally.isAlive(),"Other physical player incorrectly died");
+            helper.assertTrue(!PlayerPlayerExchange.active(first)
+                    && !PlayerPlayerExchange.active(second)
+                    && !PlayerCommandBodyRouting.hasRoute(first)
+                    && !PlayerCommandBodyRouting.hasRoute(second),
+                "Death of one occupied player failed to eject BOTH controllers");
+            System.out.println("FF-GAMEPLAY player_death_ejects_both PASS"
+                +" deadBody="+first+" survivorBody="+second);
+            helper.succeed();
+        });
+    }
+
 }
