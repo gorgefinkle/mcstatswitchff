@@ -62,7 +62,10 @@ public final class PlayerCommandRouteGameTests {
             helper.assertTrue(moved != null
                     && moved.executorBody().equals(sally.getUUID())
                     && moved.targetBody().equals(sally.getUUID()),
-                "Unfamiliar command did not use Sally body for Fred's command");
+                "Unfamiliar command did not use Sally body for Fred's command"
+                    +" observed="+moved
+                    +" expected="+sally.getUUID()
+                    +" from="+fred.getUUID());
             helper.assertTrue(moved.feedbackSource() == origin.source
                     && moved.permissions().equals(origin.permissions()),
                 "Connected Fred's feedback source or permissions were changed");
