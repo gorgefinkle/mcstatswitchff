@@ -19,8 +19,8 @@ import net.minecraft.world.entity.monster.Creeper;
 public final class MinecraftBodyPort implements BodyActionGate.BodyPort {
     public static final String MOVE_TO = "freakyfriday:move_to";
     /** Worker-world-independent native movement relative to THIS body. */
-    public static final String MOVE_OFFSET = "freakyfriday:move_offset";
-    public static final String LOOK_OFFSET = "freakyfriday:look_offset";
+    public static final String MOVE_OFFSET = BodyActionGate.MOVE_OFFSET;
+    public static final String LOOK_OFFSET = BodyActionGate.LOOK_OFFSET;
     public static final String LOOK_AT = "freakyfriday:look_at";
     public static final String JUMP = "freakyfriday:jump";
     public static final String DETONATE = "freakyfriday:detonate";
