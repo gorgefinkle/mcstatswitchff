@@ -60,10 +60,6 @@ public final class PlayerMobGameTests {
 
     private static void verifyPlayerControlsChicken(GameTestHelper helper) {
         var level=helper.getLevel();
-        UUID ticketOwner=UUID.randomUUID();
-        int[] ticketBounds=arenaChunkBounds(helper,1,9,1,6);
-        setArenaChunks(level,ticketOwner,ticketBounds,true);
-        helper.runAfterDelay(120,()->setArenaChunks(level,ticketOwner,ticketBounds,false));
         ServerPlayer player=helper.makeMockServerPlayerInLevel();
         player.setItemInHand(InteractionHand.MAIN_HAND,
             new ItemStack(FreakyFriday.BOOK.get()));
@@ -287,6 +283,10 @@ public final class PlayerMobGameTests {
 
     private static void verifyFallProfiles(GameTestHelper helper) {
         var level=helper.getLevel();
+        UUID ticketOwner=UUID.randomUUID();
+        int[] ticketBounds=arenaChunkBounds(helper,1,9,1,6);
+        setArenaChunks(level,ticketOwner,ticketBounds,true);
+        helper.runAfterDelay(120,()->setArenaChunks(level,ticketOwner,ticketBounds,false));
         ServerPlayer player=helper.makeMockServerPlayerInLevel();
         // Keep the GameTest's real physics arena in player simulation range.
         // Otherwise a COMMAND-spawned Zombie can disappear before tick 57
