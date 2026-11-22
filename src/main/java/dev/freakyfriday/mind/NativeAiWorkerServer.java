@@ -204,8 +204,11 @@ public final class NativeAiWorkerServer {
                 && !state.genericStimulusApplied && donor.getHealth()>1.0f){
             state.genericStimulusApplied=true;
             float amount=Math.min(1.0f,donor.getHealth()*0.20f);
+            // An attacker-associated hit triggers ordinary native defensive
+            // AI (for example flee/panic) through Minecraft's own target and
+            // hurt-memory path. It does not synthesize donor-specific actions.
             boolean applied=donor.hurtServer(state.level,
-                donor.damageSources().generic(),amount);
+                donor.damageSources().mobAttack(stimulus),amount);
             System.out.println("FF-NATIVE-WORKER GENERIC_ENVIRONMENT_STIMULUS"
                 +" donor="+state.request.donor()
                 +" damageApplied="+applied+" damage="+amount
