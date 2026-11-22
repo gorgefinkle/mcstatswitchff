@@ -180,3 +180,36 @@ This is not a completed general-purpose native-movement or cross-species
 mind-swapping engine. In particular, a chicken's AI still does not drive a
 vacated player body, and full player item, combat and GUI forwarding need
 connected-client verification.
+
+
+## P07 occupied-body health and inventory portrait candidate
+
+The vanilla HUD/inventory continue to reference the authenticated player's
+own body after P05/P06 camera possession. P07 renders a separate occupied-body
+health indicator using the actual client-tracked LivingEntity health and
+maximum health, and draws the currently occupied entity's model over the
+vanilla player portrait in the survival inventory and the Creative\nmode survival-equipment inventory tab. It does NOT transfer player
+identity, inventory, or health onto an arbitrary mob.
+
+An Ocelot is vanilla immune to *fall damage*, but can take damage and die
+from ordinary attacks. The required real-world `ocelot_damage_and_death`
+GameTest first inflicts nonlethal generic Minecraft damage, verifies its
+actual health decreases while possession remains, then inflicts lethal
+damage and verifies the player returns intact.
+
+GUI and client rendering cannot be visually verified by headless server
+GameTests. Both target versions must compile against the real NeoForge GUI
+API. Inventory preview support covers the normal survival InventoryScreen;
+different creative/modded screen layouts may require separate adapters.
+
+
+### P07C validation correction
+
+The P07B Minecraft 26.3 required fall GameTest sampled a newly spawned
+Zombie before it had entered the world's normal entity tick flow. It falsely
+reported chicken glide after 0.08 blocks. The P07C test registers Zombie,
+stages it in no-gravity, then starts its real fall on a later tick after
+registration is confirmed. The pass criteria require a normal-speed drop
+**and genuine reduction in the Zombie's health**, while Chicken still glides
+and Ocelot preserves its native fall-damage immunity. No permanent
+no-gravity setting is installed on any gameplay entity.

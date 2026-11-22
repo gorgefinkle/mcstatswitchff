@@ -4,7 +4,7 @@ modId="freakyfriday"
 version="${ff_mod_version}"
 displayName="Freaky Friday"
 authors="Freaky Friday Project"
-description='''Experimental player and mob body possession. P06 restores chicken descent and revises client mouse-camera routing, with death returning controllers. Connected-client camera and complete native mind swapping remain unverified.'''
+description='''Experimental player/mob possession. P07C adds occupied-body health HUD and both survival/creative inventory previews, normal damage/death of possessed mobs. Connected-client visuals and whole mind swapping are not yet proven.'''
 [[dependencies.freakyfriday]]
 modId="neoforge"
 type="required"

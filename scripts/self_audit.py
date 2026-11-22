@@ -2,7 +2,7 @@
 """Source checkpoint audit. Fails on any detectable local test/structure error."""
 import json, re, subprocess, sys, pathlib, tomllib
 root=pathlib.Path(__file__).resolve().parent.parent
-for cmd in (['sh',str(root/'scripts/test-core.sh')],[sys.executable,str(root/'scripts/test-minecraft-stubs.py')]):
+for cmd in (['sh',str(root/'scripts/test-core.sh')],[sys.executable,str(root/'scripts/test-minecraft-stubs.py')],[sys.executable,str(root/'scripts/test-repackage-extracted-source.py')]):
     print('+',' '.join(cmd),flush=True)
     subprocess.run(cmd,cwd=root,check=True)
 resources=root/'src/main/resources'
@@ -12,7 +12,7 @@ for file in sorted(resources.rglob('*.json')):
 mods=tomllib.loads((resources/'META-INF/neoforge.mods.toml').read_text())
 assert mods['mods'][0]['modId']=='freakyfriday'
 assert mods['mods'][0]['version']=='${ff_mod_version}'
-assert "version = '0.15.7-alpha'" in (root/'build.gradle').read_text()
+assert "version = '0.15.10-alpha'" in (root/'build.gradle').read_text()
 assert (root/'src/platform/minecraft-26.2/java/dev/freakyfriday/compat/PlatformHooks.java').exists()
 assert (root/'src/platform/minecraft-26.3/java/dev/freakyfriday/compat/PlatformHooks.java').exists()
 assert 'PlatformHooks::addBookToCreativeTab' in (root/'src/main/java/dev/freakyfriday/FreakyFriday.java').read_text()

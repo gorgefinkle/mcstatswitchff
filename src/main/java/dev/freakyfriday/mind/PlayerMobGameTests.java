@@ -43,6 +43,10 @@ public final class PlayerMobGameTests {
         MOB_DEATH_RETURN=FUNCTIONS.register(
             "mob_death_returns_player",()->PlayerMobGameTests::verifyMobDeathReturn);
 
+    public static final DeferredHolder<Consumer<GameTestHelper>,Consumer<GameTestHelper>>
+        OCCUPIED_OCELOT_DAMAGE=FUNCTIONS.register(
+            "ocelot_damage_and_death",()->PlayerMobGameTests::verifyOccupiedOcelotDamage);
+
     private static void verifyPlayerControlsChicken(GameTestHelper helper) {
         var level=helper.getLevel();
         ServerPlayer player=helper.makeMockServerPlayerInLevel();
@@ -246,19 +250,26 @@ public final class PlayerMobGameTests {
 
         Mob chicken=EntityTypes.CHICKEN.create(level,EntitySpawnReason.COMMAND);
         Mob ocelot=EntityTypes.OCELOT.create(level,EntitySpawnReason.COMMAND);
-        Mob zombie=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
-        helper.assertTrue(chicken!=null && ocelot!=null && zombie!=null,
-            "Three real vanilla physical entity factories required");
-        Mob[] bodies={chicken,ocelot,zombie};
+        helper.assertTrue(chicken!=null && ocelot!=null,
+            "Native chicken/ocelot factories required");
+        // Delay Zombie creation until its actual test window: a no-AI
+        // entity still experiences gravity and would fall to its death
+        // before reaching the test at tick 42.
+        Mob[] bodies={chicken,ocelot};
+        Mob[] zombieBody={null};
         for (int i=0;i<bodies.length;i++) {
             BlockPos origin=helper.absolutePos(new BlockPos(2+2*i,12,2));
             bodies[i].setPos(origin.getX()+0.5,origin.getY(),origin.getZ()+0.5);
-            bodies[i].setNoAi(true); // Inactive comparison mobs cannot fall early
+            bodies[i].setNoAi(true); // Freeze ordinary wandering
+            // NoAI does not disable gravity; hold comparison body up until
+            // it actually becomes possessed to measure a fresh fall.
+            if(i>0)bodies[i].setNoGravity(true);
             helper.assertTrue(level.addFreshEntity(bodies[i]),
                 "Native fall test could not register entity "+i);
         }
         double startY=chicken.getY();
-        float ocelotHealth=ocelot.getHealth(),zombieHealth=zombie.getHealth();
+        float ocelotHealth=ocelot.getHealth();
+        float[] zombieHealth={0.0f};
         String error=PlayerMobPossession.begin(player,chicken);
         helper.assertTrue(error==null,"Chicken fall session rejected: "+error);
         final double[] chickenDrop={0.0};
@@ -267,6 +278,8 @@ public final class PlayerMobGameTests {
             helper.assertTrue(chickenDrop[0]>0.2 && chickenDrop[0]<2.75,
                 "Possessed chicken did not flap slowly: distance="+chickenDrop[0]);
             helper.assertTrue(PlayerMobPossession.end(player),"Cannot end chicken session");
+            ocelot.setNoGravity(false);
+            ocelot.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
             String next=PlayerMobPossession.begin(player,ocelot);
             helper.assertTrue(next==null,"Ocelot fall session rejected: "+next);
         });
@@ -282,26 +295,64 @@ public final class PlayerMobGameTests {
             helper.assertTrue(Float.compare(ocelot.getHealth(),ocelotHealth)==0,
                 "Vanilla fall-immune ocelot took damage in possessed body");
             helper.assertTrue(PlayerMobPossession.end(player),"Cannot end ocelot session");
+            Mob zombie=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
+            helper.assertTrue(zombie!=null,"Native zombie factory failed");
+            BlockPos zombieOrigin=helper.absolutePos(new BlockPos(6,12,2));
+            zombie.setPos(zombieOrigin.getX()+0.5,zombieOrigin.getY(),
+                zombieOrigin.getZ()+0.5);
+            // Let the world manager actually register the body before the
+            // physical possession/fall starts. NoGravity is a test-only
+            // staging guard and is switched off before the session begins.
+            zombie.setNoGravity(true);
+            zombie.setNoAi(true);
+            helper.assertTrue(level.addFreshEntity(zombie),"Zombie did not register");
+            zombieHealth[0]=zombie.getHealth();
+            zombieBody[0]=zombie;
+        });
+        helper.runAfterDelay(57,()->{
+            Mob zombie=zombieBody[0];
+            helper.assertTrue(zombie!=null && level.getEntity(zombie.getUUID())==zombie,
+                "Zombie is not registered in real world before possession");
+            BlockPos zombieOrigin=helper.absolutePos(new BlockPos(6,12,2));
+            zombie.setPos(zombieOrigin.getX()+0.5,zombieOrigin.getY(),
+                zombieOrigin.getZ()+0.5);
+            zombie.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
+            zombie.setNoGravity(false);
             String next=PlayerMobPossession.begin(player,zombie);
             helper.assertTrue(next==null,"Zombie fall session rejected: "+next);
         });
-        helper.runAfterDelay(55,()->{
+        helper.runAfterDelay(87,()->{
+            Mob zombie=zombieBody[0];
+            helper.assertTrue(zombie!=null,"Zombie not constructed for fall test");
             double drop=startY-zombie.getY();
             helper.assertTrue(drop>chickenDrop[0]+1.2,
                 "Zombie acquired chicken glide: chicken="+chickenDrop[0]
                     +" zombie="+drop);
         });
-        helper.runAfterDelay(75,()->{
-            helper.assertTrue(zombie.onGround(),"Zombie did not land under normal gravity");
-            helper.assertTrue(zombie.getHealth()<zombieHealth,
-                "Zombie failed to take vanilla fall damage; health="
-                    +zombie.getHealth()+" initial="+zombieHealth);
-            helper.assertTrue(PlayerMobPossession.end(player),"Cannot end zombie session");
+        helper.runAfterDelay(115,()->{
+            Mob zombie=zombieBody[0];
+            helper.assertTrue(zombie!=null,"Missing zombie when checking landing");
+            // Entity.move may clear onGround after a zero-Y horizontal
+            // update, and the Zombie may already have *died* on impact.
+            // The behavior we actually require is that its physical health
+            // decreased from genuine native fall damage, unlike Ocelot.
+            helper.assertTrue(zombie.getHealth()<zombieHealth[0],
+                "Zombie did not take vanilla fall damage; finalHealth="
+                    +zombie.getHealth()+" initial="+zombieHealth[0]
+                    +" onGround="+zombie.onGround()+" y="+zombie.getY());
+            if (PlayerMobPossession.hasSession(player.getUUID())) {
+                helper.assertTrue(PlayerMobPossession.end(player),
+                    "Cannot end surviving zombie session");
+            } else {
+                helper.assertTrue(!zombie.isAlive() && player.isAlive(),
+                    "Fall-dead zombie must have automatically returned controller");
+            }
             System.out.println("FF-GAMEPLAY native_fall_profiles PASS"
                 +" chickenSlowDrop="+chickenDrop[0]
                 +" ocelotImmune=true zombieDamaged=true"
                 +" noCrossBodyGlide=true");
             for (Mob mob:bodies)mob.discard();
+            zombie.discard();
             helper.succeed();
         });
     }
@@ -332,6 +383,65 @@ public final class PlayerMobGameTests {
             System.out.println("FF-GAMEPLAY occupied_mob_death_returns_player PASS");
             helper.succeed();
             occupied.discard();
+        });
+    }
+
+
+    /**
+     * A fall-immune Ocelot still has a native damageable health pool.
+     * This GameTest uses real Minecraft DamageSource and LivingEntity's
+     * hurtServer pathway, not a synthetic setHealth-only kill.
+     * The authenticated original player body must survive the mob's death.
+     */
+    private static void verifyOccupiedOcelotDamage(GameTestHelper helper) {
+        var level=helper.getLevel();
+        ServerPlayer player=helper.makeMockServerPlayerInLevel();
+        Mob ocelot=EntityTypes.OCELOT.create(level,EntitySpawnReason.COMMAND);
+        helper.assertTrue(ocelot!=null,"Ocelot factory failed");
+        BlockPos floor=helper.absolutePos(new BlockPos(2,0,2));
+        level.setBlockAndUpdate(floor,
+            net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+        ocelot.setPos(floor.getX()+0.5,floor.getY()+1,floor.getZ()+0.5);
+        helper.assertTrue(level.addFreshEntity(ocelot),"Ocelot was not registered");
+        UUID owner=player.getUUID(),body=ocelot.getUUID();
+        float playerHealth=player.getHealth(),original=ocelot.getHealth();
+        helper.assertTrue(original>2.0f,
+            "Physical ocelot must have real vanilla health, not fake 0 HP");
+        String error=PlayerMobPossession.begin(player,ocelot);
+        helper.assertTrue(error==null,"Ocelot possession failed: "+error);
+        helper.runAfterDelay(3,()->{
+            boolean damaged=ocelot.hurtServer(level,
+                ocelot.damageSources().generic(),2.0f);
+            helper.assertTrue(damaged && ocelot.getHealth()<original
+                && ocelot.getHealth()>0.0f,
+                "Possessed Ocelot ignored ordinary damage: old="+original
+                    +" new="+ocelot.getHealth());
+            helper.assertTrue(body.equals(PlayerMobPossession.possessedBody(owner))
+                    && !PlayerPlayerExchange.active(owner),
+                "Damage incorrectly ended living mob possession");
+            System.out.println("FF-GAMEPLAY occupied_ocelot_attack_health PASS"
+                +" original="+original+" damaged="+ocelot.getHealth());
+        });
+        // Past vanilla damage invulnerability frames; a second source can
+        // legitimately kill the actual occupied Ocelot and end possession.
+        helper.runAfterDelay(18,()->{
+            helper.assertTrue(ocelot.hurtServer(level,
+                ocelot.damageSources().generic(),100.0f),
+                "Fatal vanilla Ocelot damage was unexpectedly ignored");
+        });
+        helper.runAfterDelay(22,()->{
+            helper.assertTrue(!ocelot.isAlive(),
+                "Damaged Ocelot was still alive after a fatal vanilla hit");
+            helper.assertTrue(!PlayerMobPossession.hasSession(owner)
+                    && PlayerMobPossession.possessedBody(owner)==null,
+                "Fatal body damage did not release possession");
+            helper.assertTrue(player.isAlive()
+                    && Float.compare(playerHealth,player.getHealth())==0,
+                "Original authenticated player's own body inherited Ocelot damage");
+            System.out.println("FF-GAMEPLAY occupied_ocelot_attack_death_returns PASS"
+                +" originalPlayerAlive=true");
+            helper.succeed();
+            ocelot.discard();
         });
     }
 

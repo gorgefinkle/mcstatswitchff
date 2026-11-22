@@ -21,6 +21,8 @@ public final class ClientPossession {
     private static double anchorX,anchorY,anchorZ;
     private static long sequence;
     private static int ticks;
+    /** Client-only, server-selected body ID for occupied-body HUD and GUI. */
+    public static int occupiedEntityId() { return bodyId; }
 
     @SubscribeEvent
     public static void registerPayload(RegisterClientPayloadHandlersEvent event) {

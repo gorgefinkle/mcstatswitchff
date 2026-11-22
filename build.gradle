@@ -17,7 +17,7 @@ if (profile.getProperty('minecraft_version') != selectedMinecraft) {
 }
 
 group = 'dev.freakyfriday'
-version = '0.15.7-alpha'
+version = '0.15.10-alpha'
 base { archivesName = "freakyfriday-mc${selectedMinecraft}-neoforge" }
 java.toolchain.languageVersion = JavaLanguageVersion.of(25)
 
