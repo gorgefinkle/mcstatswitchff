@@ -555,7 +555,25 @@ public final class DetachedProbeGameTests {
                             "z", Double.toString(zombie.getZ()))),
                     new BodyActionGate.Intent(MinecraftBodyPort.DETONATE)
                 ));
-            var result = receiver.deliver(frame);
+            // Reproduce the external-worker DATA BOUNDARY using the actual
+            // signed binary codec. No donor Goal/Brain enters this JVM.
+            byte[] secret = CapturedIntentWireCodec.generateKey();
+            java.util.UUID sessionId = java.util.UUID.randomUUID();
+            byte[] signed = CapturedIntentWireCodec.encode(
+                new CapturedIntentWireCodec.Envelope(sessionId, frame), secret);
+            byte[] forged = signed.clone();
+            forged[20] ^= 1;
+            boolean tamperingRejected = false;
+            try {
+                receiver.deliverAuthenticated(forged, secret, sessionId, now);
+            } catch (IllegalArgumentException expected) {
+                tamperingRejected = true;
+            }
+            helper.assertTrue(tamperingRejected,
+                "Real-server receiver accepted an unauthorized wire mutation");
+            System.out.println("FF-ISOLATION authenticated_wire_tamper_rejected PASS");
+            var result = receiver.deliverAuthenticated(
+                signed, secret, sessionId, now);
             helper.assertTrue(result.status() == CapturedIntentBridge.Status.DISPATCHED
                     && result.outcomes().size() == 2,
                 "Real physical Cow rejected a valid swapped, data-only action frame");
@@ -565,7 +583,8 @@ public final class DetachedProbeGameTests {
             helper.assertTrue(result.outcomes().get(1).status()
                     == BodyActionGate.Status.UNAVAILABLE,
                 "Cow body inherited unavailable explosive anatomy");
-            helper.assertTrue(receiver.deliver(frame).status()
+            helper.assertTrue(receiver.deliverAuthenticated(
+                signed, secret, sessionId, now).status()
                     == CapturedIntentBridge.Status.DUPLICATE_OR_STALE_TICK,
                 "Replay frame was not blocked after a successful physical dispatch");
 
@@ -601,7 +620,8 @@ public final class DetachedProbeGameTests {
                 + " recipientNativeLook=true unavailableAnatomyBlocked=true"
                 + " wrongMindRejected=true replayRejected=true"
                 + " bothBodyIdentitiesPreserved=true"
-                + " nativeDonorAiTicked=false noArbitraryDecisionCallback=true");
+                + " nativeDonorAiTicked=false noArbitraryDecisionCallback=true"
+                + " authenticatedWire=true tamperedFrameRejected=true");
             helper.succeed();
         } catch (Exception failure) {
             throw new AssertionError("Data-only real-server mind assignment rejected",failure);
