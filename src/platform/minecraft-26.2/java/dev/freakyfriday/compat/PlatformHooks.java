@@ -2,6 +2,8 @@ package dev.freakyfriday.compat;
 
 import dev.freakyfriday.FreakyFriday;
 import net.minecraft.resources.Identifier;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Mob;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 
 /**
@@ -17,5 +19,9 @@ public final class PlatformHooks {
                 Identifier.withDefaultNamespace("tools_and_utilities"))) {
             event.accept(FreakyFriday.BOOK);
         }
+    }
+
+    public static void nativeSwing(Mob body) {
+        body.swing(InteractionHand.MAIN_HAND,true);
     }
 }
