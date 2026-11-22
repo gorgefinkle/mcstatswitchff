@@ -23,6 +23,7 @@ public final class BodyActionGate {
     /** Portable mind-action IDs shared by worker and body-native executor. */
     public static final String MOVE_OFFSET="freakyfriday:move_offset";
     public static final String LOOK_OFFSET="freakyfriday:look_offset";
+    public static final String ATTACK_ENTITY="freakyfriday:attack_entity";
 
     /** Registry-style action ID plus parameters chosen by the current mind. */
     public record Intent(String actionId, Map<String, String> arguments) {
