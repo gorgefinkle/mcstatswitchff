@@ -80,6 +80,12 @@ def run_until_markers(command, log_path, markers, env, timeout=420):
                 for marker in markers:
                     if marker in line:
                         reached.add(marker)
+                # GameTest count rises whenever a new required regression is
+                # added. Demand a complete successful run with at least the
+                # current twelve tests instead of pinning a stale exact count.
+                completed = re.search(r"All (\\d+) required tests passed", line)
+                if completed and int(completed.group(1)) >= 12:
+                    reached.add("ALL_REQUIRED_GAME_TESTS_PASSED")
                 if len(reached) == len(markers):
                     break
             if time.monotonic() >= deadline and len(reached) < len(markers):
@@ -164,7 +170,7 @@ def main():
             cmd_base + ["runGameTestServer"] + arguments,
             ROOT / "native-worker-receiver.log",
             ("FF-NATIVE-WORKER TWO_JVM_E2E PASS",
-             "All 11 required tests passed"),
+             "ALL_REQUIRED_GAME_TESTS_PASSED"),
             env,
         )
         print("FF-NATIVE-WORKER TWO_PROCESS_CI PASS"
