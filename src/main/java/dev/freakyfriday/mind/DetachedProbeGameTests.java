@@ -187,8 +187,6 @@ public final class DetachedProbeGameTests {
         recipient.setPos(p.getX()+3.5, p.getY(), p.getZ()+0.5);
         donor.setNoAi(true);
         recipient.setNoAi(true);
-        donor.setInvulnerable(true);
-        recipient.setInvulnerable(true);
         donor.setNoGravity(true);
         recipient.setNoGravity(true);
         helper.assertTrue(level.addFreshEntity(donor) && level.addFreshEntity(recipient),
