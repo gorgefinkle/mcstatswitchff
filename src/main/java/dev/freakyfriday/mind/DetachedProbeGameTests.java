@@ -708,7 +708,9 @@ public final class DetachedProbeGameTests {
             receiverBody.targetSelector.removeAllGoals(goal->true);
             receiverBody.setNoAi(false);
             originalDonorBody.setNoAi(true);
-            receiverBody.setNoGravity(true);
+            // Recipient must use its real gravity/ground contact and native
+            // navigation. The original-donor fixture is the only body held.
+            receiverBody.setNoGravity(false);
             originalDonorBody.setNoGravity(true);
             helper.assertTrue(level.addFreshEntity(receiverBody)
                     && level.addFreshEntity(originalDonorBody),
@@ -751,46 +753,62 @@ public final class DetachedProbeGameTests {
             try{bridge.deliverAuthenticated(corrupt,secret,session,tick);}
             catch(IllegalArgumentException expected){tamperRejected=true;}
             helper.assertTrue(tamperRejected,"Receiver admitted tampered native worker frame");
-            var result=bridge.deliverAuthenticated(packet,secret,session,tick);
-            helper.assertTrue(result.status()==CapturedIntentBridge.Status.DISPATCHED
-                    && result.outcomes().size()==2
-                    && result.outcomes().get(0).status()==BodyActionGate.Status.EXECUTED
-                    && result.outcomes().get(1).status()==BodyActionGate.Status.EXECUTED,
-                "Body-native relative movement failed: "+result.outcomes());
-            helper.assertTrue(bridge.deliverAuthenticated(packet,secret,session,tick)
-                    .status()==CapturedIntentBridge.Status.DUPLICATE_OR_STALE_TICK,
-                "Native signed frame replay was not rejected");
-            helper.assertTrue(receiverBody.getUUID().equals(recipientId)
-                    && Float.compare(receiverBody.getHealth(),healthBefore)==0
-                    && Float.compare(originalDonorBody.getHealth(),donorHealthBefore)==0,
-                "Body type, physical identity or health changed during mind assignment");
             final Mob recipient=receiverBody, donor=originalDonorBody;
             final double originalX=recipient.getX(), originalZ=recipient.getZ();
             final String donorName=donorType, recipientName=recipientType;
-            helper.runAfterDelay(45,()->{
-                try {
-                    double moved=Math.hypot(recipient.getX()-originalX,
-                        recipient.getZ()-originalZ);
-                    helper.assertTrue(moved>0.20,
-                        "REAL recipient did not physically follow native donor navigation"
-                        +" donor="+donorName+" recipient="+recipientName
-                        +" distance="+moved+" nav="+recipient.getNavigation().isInProgress());
-                    helper.assertTrue(recipient.getUUID().equals(recipientId)
-                            && Float.compare(recipient.getHealth(),healthBefore)==0
-                            && Float.compare(donor.getHealth(),donorHealthBefore)==0,
-                        "Native host dispatched movement by replacing/altering physical bodies");
-                    System.out.println("FF-NATIVE-WORKER TWO_JVM_E2E PASS"
-                        +" donor="+donorName+" recipient="+recipientName
-                        +" nativeAIExecutedInSeparateNeoForgeProcess=true"
-                        +" authenticatedRelativeMovement=true"
-                        +" realRecipientMoved="+moved
-                        +" signedFrameReplayRejected=true"
-                        +" completeNativeMindTransfer=false");
-                    helper.succeed();
-                } finally {
-                    recipient.discard();
-                    donor.discard();
-                }
+            // Minecraft entity/nav initialization runs in subsequent server
+            // ticks after addFreshEntity. Do NOT dispatch at construction
+            // tick: that can report a false "no path" for a real Mob body.
+            helper.runAfterDelay(5,()->{
+                helper.assertTrue(level.getEntity(recipientId)==recipient
+                        && recipient.isAlive(),
+                    "Real recipient not registered/alive at native dispatch tick");
+                var result=bridge.deliverAuthenticated(packet,secret,session,tick);
+                helper.assertTrue(result.status()==CapturedIntentBridge.Status.DISPATCHED
+                        && result.outcomes().size()==2
+                        && result.outcomes().get(0).status()==BodyActionGate.Status.EXECUTED
+                        && result.outcomes().get(1).status()==BodyActionGate.Status.EXECUTED,
+                    "Recipient native pathfinder rejected true donor AI movement"
+                    +" donor="+donorName+" recipient="+recipientName
+                    +" path="+recipient.getNavigation().getPath()
+                    +" onGround="+recipient.onGround()
+                    +" requestedDx="+dx+" requestedDz="+dz
+                    +" outcomes="+result.outcomes());
+                helper.assertTrue(bridge.deliverAuthenticated(packet,secret,session,tick)
+                        .status()==CapturedIntentBridge.Status.DUPLICATE_OR_STALE_TICK,
+                    "Signed native worker frame replay not rejected");
+                helper.assertTrue(recipient.getUUID().equals(recipientId)
+                        && Float.compare(recipient.getHealth(),healthBefore)==0
+                        && Float.compare(donor.getHealth(),donorHealthBefore)==0,
+                    "Worker frame replaced physical body or modified health");
+
+                helper.runAfterDelay(50,()->{
+                    try {
+                        double moved=Math.hypot(recipient.getX()-originalX,
+                            recipient.getZ()-originalZ);
+                        helper.assertTrue(moved>0.20,
+                            "REAL recipient did not physically follow donor-native navigation"
+                            +" donor="+donorName+" recipient="+recipientName
+                            +" moved="+moved
+                            +" onGround="+recipient.onGround()
+                            +" nav="+recipient.getNavigation().isInProgress());
+                        helper.assertTrue(recipient.getUUID().equals(recipientId)
+                                && Float.compare(recipient.getHealth(),healthBefore)==0
+                                && Float.compare(donor.getHealth(),donorHealthBefore)==0,
+                            "Native host moved substitute or altered physical body");
+                        System.out.println("FF-NATIVE-WORKER TWO_JVM_E2E PASS"
+                            +" donor="+donorName+" recipient="+recipientName
+                            +" nativeAIExecutedInSeparateNeoForgeProcess=true"
+                            +" authenticatedRelativeMovement=true"
+                            +" realRecipientMoved="+moved
+                            +" signedFrameReplayRejected=true"
+                            +" completeNativeMindTransfer=false");
+                        helper.succeed();
+                    } finally {
+                        recipient.discard();
+                        donor.discard();
+                    }
+                });
             });
         } catch(Exception failure) {
             if(receiverBody!=null)receiverBody.discard();
