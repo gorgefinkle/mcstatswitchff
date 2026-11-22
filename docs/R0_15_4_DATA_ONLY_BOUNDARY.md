@@ -57,3 +57,31 @@ the negative `host_world_effect_escape` GameTest proves this explicitly.
 **Do not describe this feature as actual transferred native AI gameplay.**
 It is a tested species-agnostic control/data boundary, ready for future
 isolated producers. There are no per-mob rules or paid assets.
+
+## Bounded authenticated worker-to-game wire format
+
+`CapturedIntentWireCodec` has now been added as a **pure-data** HMAC-SHA256
+binary protocol. It uses 256-bit randomly generated session secrets,
+explicit magic/version, a session UUID, receiving physical body UUID, owning
+mind UUID, server tick, bounded action IDs and UTF-8 arguments.
+
+Before any frame may be dispatched by the bridge's public method,
+`deliverAuthenticated`, it validates a fixed-size HMAC in constant time,
+rejects wrong sessions and stale/future server ticks, and rejects unknown
+versions, malformed lengths/UTF-8, oversized messages (64 KiB maximum),
+duplicate action arguments, and trailing bytes. The existing controller and
+per-body tick checks are then enforced. No arbitrary Goal/Brain/Java object
+is deserialized or invoked by decoding.
+
+`CapturedIntentWireCodecSelfTest` injects tampering, wrong keys,
+cross-session messages, mismatched ticks, truncated or oversized packets,
+wrong mind identity and replay. The real-server data-only GameTest also
+sends an HMAC-authenticated frame, corrupts it deliberately, requires the
+corruption to be rejected, then validates a genuine accepted frame.
+
+**Transport and producer are not yet present.** The isolated worker would
+need to receive a key over a protected channel, possess a separate
+Minecraft/NeoForge runtime with its own world, execute donor code there,
+and emit supported decisions to this receiver. That is NOT implemented
+or verified here; the codec and receiver do not create process isolation
+or allow running donor AI safely in the live server.
