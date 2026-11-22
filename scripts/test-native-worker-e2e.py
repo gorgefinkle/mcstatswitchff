@@ -83,7 +83,7 @@ def run_until_markers(command, log_path, markers, env, timeout=420):
                 # GameTest count rises whenever a new required regression is
                 # added. Demand a complete successful run with at least the
                 # current twelve tests instead of pinning a stale exact count.
-                completed = re.search(r"All (\\d+) required tests passed", line)
+                completed = re.search(r"All (\d+) required tests passed", line)
                 if completed and int(completed.group(1)) >= 12:
                     reached.add("ALL_REQUIRED_GAME_TESTS_PASSED")
                 if len(reached) == len(markers):
