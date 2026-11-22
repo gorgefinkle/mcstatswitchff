@@ -63,6 +63,13 @@ registration paths. This is not a claim of real donor AI execution.
    on server shutdown, preventing static state from leaking into a new
    integrated-server world.
 
+7. **Misleading player interaction:** the early prototype allowed a player
+   to be locked into a diagnostic pair although the detached host factory
+   accepts only NPC `Mob` entities. The experimental runtime now explicitly
+   rejects player-target selection and leaves the Ctrl+S shortcut available
+   for future player controller work with an unsupported warning.
+   The synthetic harness tests this failure mode.
+
 ## Verification tiers
 
 - Source and pure Java unit tests: virtual host/ledger/body capability
