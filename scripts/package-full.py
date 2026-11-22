@@ -13,12 +13,53 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parent.parent
 TAG = "R0_15_10_OccupiedHealthPreviewFinalP07C"
-SOURCE_PREFIXES = ("src/", "scripts/", "versions/", "gradle/", "docs/")
+SOURCE_PREFIXES = ("src/", "scripts/", "versions/", "gradle/", "docs/", ".github/")
 SOURCE_FILES = {
     "build.gradle", "settings.gradle", "gradle.properties",
     "gradlew", "gradlew.bat", "README.md", "LICENSE",
     ".gitignore", "AGENTS.md",
 }
+
+def select_source_files():
+    """Package a git checkout or extracted source ZIP without external metadata.
+
+    Never include output caches, credentials, symlinks or stale JARs. A source
+    ZIP must build and repackage itself even though it contains no .git dir.
+    """
+    git = None
+    if (ROOT / ".git").exists():
+        git = subprocess.run(
+            ["git", "ls-files", "-z"], cwd=ROOT,
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, check=False)
+    if git is not None and git.returncode == 0 and git.stdout:
+        candidates = [Path(x.decode("utf-8")) for x in git.stdout.split(bytes([0])) if x]
+    else:
+        candidates = [
+            p.relative_to(ROOT)
+            for prefix in SOURCE_PREFIXES
+            for p in (ROOT / prefix).rglob("*") if p.is_file()
+        ] + [Path(name) for name in SOURCE_FILES if (ROOT/name).is_file()]
+    excluded_suffixes = {".pem", ".p12", ".pfx", ".jks", ".keystore",
+                         ".env", ".pyc", ".class", ".log"}
+    selected = []
+    for p in sorted(set(candidates), key=lambda t: t.as_posix()):
+        full=ROOT/p
+        rel=p.as_posix()
+        if not (rel.startswith(SOURCE_PREFIXES) or rel in SOURCE_FILES):
+            continue
+        if not full.is_file() or full.is_symlink():
+            continue
+        if any(t in {".git", ".gradle", "__pycache__", "build", "run"} for t in p.parts):
+            continue
+        if full.suffix.lower() in excluded_suffixes or full.name.endswith((".zip", ".tar", ".gz")):
+            continue
+        if full.suffix.lower()==".jar" and rel!="gradle/wrapper/gradle-wrapper.jar":
+            continue
+        if full.name.startswith(".env") or "secret" in full.name.lower():
+            continue
+        selected.append(p)
+    return selected
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -30,14 +71,7 @@ def main():
         raise SystemExit("Expected exactly one correct, current version-specific mod JAR")
     jar=jars[0]
     digest=sha256(jar.read_bytes()).hexdigest()
-    listing=subprocess.check_output(["git","ls-files","-z"],cwd=ROOT)
-    tracked=[Path(p.decode("utf-8")) for p in listing.split(b"\0") if p]
-    source_files=sorted(
-        (p for p in tracked
-         if (str(p).startswith(SOURCE_PREFIXES) or str(p) in SOURCE_FILES)
-         and (ROOT/p).is_file()),
-        key=lambda p:p.as_posix(),
-    )
+    source_files=select_source_files()
     required={
         "build.gradle", "settings.gradle", "gradlew",
         "src/main/java/dev/freakyfriday/FreakyFriday.java",
