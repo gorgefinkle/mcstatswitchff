@@ -3,6 +3,8 @@ package dev.freakyfriday.mind;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.monster.Creeper;
@@ -23,6 +25,7 @@ public final class MinecraftBodyPort implements BodyActionGate.BodyPort {
     public static final String LOOK_OFFSET = BodyActionGate.LOOK_OFFSET;
     public static final String LOOK_AT = "freakyfriday:look_at";
     public static final String JUMP = "freakyfriday:jump";
+    public static final String ATTACK_ENTITY = BodyActionGate.ATTACK_ENTITY;
     public static final String DETONATE = "freakyfriday:detonate";
 
     private static final BodyCapabilityRegistry<LivingEntity> CAPABILITIES =
@@ -74,6 +77,31 @@ public final class MinecraftBodyPort implements BodyActionGate.BodyPort {
         CAPABILITIES.register(JUMP, capability(Mob.class, (body, intent) -> {
             body.getJumpControl().jump();
             return BodyActionGate.Result.executed();
+        }));
+        // A native donor attack is an intent against a mapped world entity.
+        // The ORIGINAL recipient Mob performs it, so its real reach, damage,
+        // cooldowns, equipment and physical attack capabilities remain in
+        // charge. No donor attack is replayed against the wrong world UUID.
+        CAPABILITIES.register(ATTACK_ENTITY, capability(Mob.class, (body, intent) -> {
+            String raw=intent.arguments().get("targetId");
+            if(raw==null)
+                return BodyActionGate.Result.blocked("Missing mapped attack target");
+            final UUID targetId;
+            try { targetId=UUID.fromString(raw); }
+            catch(IllegalArgumentException invalid) {
+                return BodyActionGate.Result.blocked("Invalid mapped attack target UUID");
+            }
+            if(!(body.level() instanceof ServerLevel level))
+                return BodyActionGate.Result.blocked("Attack requires a live server body");
+            Entity target=level.getEntity(targetId);
+            if(target==null || target==body || !target.isAlive())
+                return BodyActionGate.Result.blocked("Mapped attack target is not alive in this world");
+            if(body.distanceToSqr(target)>16.0)
+                return BodyActionGate.Result.blocked("Mapped target is outside physical melee reach");
+            boolean hit=body.doHurtTarget(level,target);
+            return new BodyActionGate.Result(BodyActionGate.Status.EXECUTED,
+                hit ? "Physical body attack accepted" :
+                    "Physical body executed attack intent; damage was not confirmed");
         }));
         // This is a physical mechanism on a CREEPER BODY, not a creeper-mind
         // donor-recipient pair. Modded explosion-capable bodies can register
