@@ -6,6 +6,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EntityTypes;
@@ -107,6 +108,60 @@ public final class DetachedProbeGameTests {
         }
         System.out.println("FF-GAMETEST detached_dragon_chicken PASS");
         helper.succeed();
+    }
+
+    /**
+     * Exercises the actual Brigadier command tree on a real NeoForge server
+     * with a synthetic server-side player. No manual book, spawn or clicks.
+     * The test cases use real EntityType factories but never world-register
+     * those temporary diagnostic entities or tick donor AI.
+     */
+    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>>
+        ONE_COMMAND_DIAGNOSTICS = FUNCTIONS.register(
+            "one_command_diagnostics", () -> DetachedProbeGameTests::testCommands);
+
+    @SuppressWarnings("removal")
+    private static void testCommands(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        ServerPlayer mock = helper.makeMockServerPlayerInLevel();
+        var source = level.getServer().createCommandSourceStack().withEntity(mock);
+        var dispatcher = level.getServer().getCommands().getDispatcher();
+        try {
+            int forward = dispatcher.execute(
+                "freakyfriday test pair minecraft:ender_dragon minecraft:chicken", source);
+            helper.assertTrue(forward == 1,
+                "Command dispatcher failed Ender Dragon -> Chicken one-command test");
+
+            int reverse = dispatcher.execute(
+                "freakyfriday test pair chicken ender_dragon", source);
+            helper.assertTrue(reverse == 1,
+                "Command dispatcher failed Chicken -> Ender Dragon shortcut IDs");
+
+            int invalid = dispatcher.execute(
+                "freakyfriday test pair no_such_mob chicken", source);
+            helper.assertTrue(invalid == 0,
+                "Bad entity IDs must fail closed, not silently test a fallback mob");
+
+            int suite = dispatcher.execute("freakyfriday test suite", source);
+            helper.assertTrue(suite == 1,
+                "Full automatic eight-pair suite was not successful");
+
+            int cancel = dispatcher.execute("freakyfriday cancel", source);
+            helper.assertTrue(cancel == 1,
+                "Existing cancel command regressed");
+
+            System.out.println("FF-COMMANDTEST pair ender_dragon chicken PASS");
+            System.out.println("FF-COMMANDTEST pair chicken ender_dragon PASS");
+            System.out.println("FF-COMMANDTEST invalid_type PASS");
+            System.out.println("FF-COMMANDTEST suite PASS");
+            System.out.println("FF-COMMANDTEST cancel PASS");
+            System.out.println("FF-COMMANDTEST all PASS");
+            helper.succeed();
+        } catch (com.mojang.brigadier.exceptions.CommandSyntaxException error) {
+            throw new AssertionError("Real Brigadier command dispatch failed", error);
+        } finally {
+            dev.freakyfriday.mind.MindSwapSessions.clearOnLogout(mock.getUUID());
+        }
     }
 
     private static void testCrossSpecies(GameTestHelper helper) {
