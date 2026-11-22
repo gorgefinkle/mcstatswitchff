@@ -43,6 +43,10 @@ public final class PlayerMobGameTests {
         MOB_DEATH_RETURN=FUNCTIONS.register(
             "mob_death_returns_player",()->PlayerMobGameTests::verifyMobDeathReturn);
 
+    public static final DeferredHolder<Consumer<GameTestHelper>,Consumer<GameTestHelper>>
+        OCCUPIED_OCELOT_DAMAGE=FUNCTIONS.register(
+            "ocelot_damage_and_death",()->PlayerMobGameTests::verifyOccupiedOcelotDamage);
+
     private static void verifyPlayerControlsChicken(GameTestHelper helper) {
         var level=helper.getLevel();
         ServerPlayer player=helper.makeMockServerPlayerInLevel();
@@ -332,6 +336,65 @@ public final class PlayerMobGameTests {
             System.out.println("FF-GAMEPLAY occupied_mob_death_returns_player PASS");
             helper.succeed();
             occupied.discard();
+        });
+    }
+
+
+    /**
+     * A fall-immune Ocelot still has a native damageable health pool.
+     * This GameTest uses real Minecraft DamageSource and LivingEntity's
+     * hurtServer pathway, not a synthetic setHealth-only kill.
+     * The authenticated original player body must survive the mob's death.
+     */
+    private static void verifyOccupiedOcelotDamage(GameTestHelper helper) {
+        var level=helper.getLevel();
+        ServerPlayer player=helper.makeMockServerPlayerInLevel();
+        Mob ocelot=EntityTypes.OCELOT.create(level,EntitySpawnReason.COMMAND);
+        helper.assertTrue(ocelot!=null,"Ocelot factory failed");
+        BlockPos floor=helper.absolutePos(new BlockPos(2,0,2));
+        level.setBlockAndUpdate(floor,
+            net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+        ocelot.setPos(floor.getX()+0.5,floor.getY()+1,floor.getZ()+0.5);
+        helper.assertTrue(level.addFreshEntity(ocelot),"Ocelot was not registered");
+        UUID owner=player.getUUID(),body=ocelot.getUUID();
+        float playerHealth=player.getHealth(),original=ocelot.getHealth();
+        helper.assertTrue(original>2.0f,
+            "Physical ocelot must have real vanilla health, not fake 0 HP");
+        String error=PlayerMobPossession.begin(player,ocelot);
+        helper.assertTrue(error==null,"Ocelot possession failed: "+error);
+        helper.runAfterDelay(3,()->{
+            boolean damaged=ocelot.hurtServer(level,
+                ocelot.damageSources().generic(),2.0f);
+            helper.assertTrue(damaged && ocelot.getHealth()<original
+                && ocelot.getHealth()>0.0f,
+                "Possessed Ocelot ignored ordinary damage: old="+original
+                    +" new="+ocelot.getHealth());
+            helper.assertTrue(body.equals(PlayerMobPossession.possessedBody(owner))
+                    && !PlayerPlayerExchange.active(owner),
+                "Damage incorrectly ended living mob possession");
+            System.out.println("FF-GAMEPLAY occupied_ocelot_attack_health PASS"
+                +" original="+original+" damaged="+ocelot.getHealth());
+        });
+        // Past vanilla damage invulnerability frames; a second source can
+        // legitimately kill the actual occupied Ocelot and end possession.
+        helper.runAfterDelay(18,()->{
+            helper.assertTrue(ocelot.hurtServer(level,
+                ocelot.damageSources().generic(),100.0f),
+                "Fatal vanilla Ocelot damage was unexpectedly ignored");
+        });
+        helper.runAfterDelay(22,()->{
+            helper.assertTrue(!ocelot.isAlive(),
+                "Damaged Ocelot was still alive after a fatal vanilla hit");
+            helper.assertTrue(!PlayerMobPossession.hasSession(owner)
+                    && PlayerMobPossession.possessedBody(owner)==null,
+                "Fatal body damage did not release possession");
+            helper.assertTrue(player.isAlive()
+                    && Float.compare(playerHealth,player.getHealth())==0,
+                "Original authenticated player's own body inherited Ocelot damage");
+            System.out.println("FF-GAMEPLAY occupied_ocelot_attack_death_returns PASS"
+                +" originalPlayerAlive=true");
+            helper.succeed();
+            ocelot.discard();
         });
     }
 
