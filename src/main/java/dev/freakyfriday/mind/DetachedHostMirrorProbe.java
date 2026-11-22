@@ -69,6 +69,23 @@ public final class DetachedHostMirrorProbe {
         return SESSIONS.containsKey(bodyId);
     }
 
+    /**
+     * Immutable snapshot of the actual live host/recipient pairing. Used by
+     * real-server movement and collision GameTests to validate mirroring
+     * BEFORE session retirement, rather than inferring success from cleanup.
+     */
+    public record Progress(int ticks, int mirrors, int alignmentFailures,
+        int registrationViolations, UUID hostId, Vec3 hostPosition,
+        Vec3 bodyPosition, String error) {}
+
+    public static synchronized Progress progress(UUID bodyId) {
+        Session s = SESSIONS.get(bodyId);
+        if (s == null || s.finished) return null;
+        return new Progress(s.ticks, s.mirrored, s.alignmentFailures,
+            s.registrationViolations, s.hostId, s.host.position(),
+            s.recipient.position(), s.lastError);
+    }
+
     public static synchronized String start(ServerPlayer player, Mob donor, Mob recipient) {
         String trace = ProbeTelemetry.newTrace();
         if (donor.level() != player.level() || recipient.level() != player.level()
