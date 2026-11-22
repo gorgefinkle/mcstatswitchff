@@ -104,6 +104,21 @@ public final class DetachedHostMirrorProbe {
         } catch (Exception | LinkageError problem) {
             ProbeTelemetry.error(trace, "mirror_preflight_exception", problem,
                 "Host positioning failed before the test began; no host tick");
+            // A modded setPos override can modify either original body and
+            // then throw. Capture the AFTER-throw diff against the pre-factory
+            // baseline before returning; otherwise this is silently lost.
+            try {
+                String donorChanges = donorBefore.changes(donor);
+                String recipientChanges = recipientBefore.changes(recipient);
+                if (!donorChanges.isEmpty() || !recipientChanges.isEmpty()) {
+                    ProbeTelemetry.warn(trace, "mirror_preflight_exception_body_mutation",
+                        "donorChanges=[%s] recipientChanges=[%s] position failed and modified original bodies",
+                        donorChanges, recipientChanges);
+                }
+            } catch (Exception | LinkageError diagnosticFailure) {
+                ProbeTelemetry.error(trace, "mirror_preflight_exception_snapshot_failure",
+                    diagnosticFailure, "Failed to audit bodies after host setPos exception");
+            }
             return "Host alignment failed (" + trace + "): "
                 + problem.getClass().getSimpleName() + ". Full stack in latest.log.";
         }
