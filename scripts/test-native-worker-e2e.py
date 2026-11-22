@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
-"""Two REAL, separate NeoForge JVMs: native donor AI producer -> Cow receiver.
+"""Two REAL, separate NeoForge JVMs: native donor AI producer -> body receiver.
 
-This is a disposable CI integration harness. The worker runs in a different
-gameDirectory/world, witnesses REAL Zombie goal selection/navigation toward a
-Villager, and writes an HMAC-signed action frame. A SECOND NeoForge server
-starts AFTER the worker exits, loads that file through a GameTest, and drives
-an unrelated recipient-type body through its native capability port.
+This disposable CI harness observes native Zombie pursuit AND a real melee
+damage event against a mapped Villager, then asks a second NeoForge server to
+execute the authenticated attack intent through an unrelated physical body.
+The reverse Chicken test requires native passive navigation, not an attack.
 
-This tests observational capture of target/navigation only, not an isolated
-implementation of arbitrary modded attacks/abilities or a live continuous
-mind-swap. OS-level restrictions still need to be supplied by deployment.
+This is still bounded observation, not arbitrary modded ability capture or a
+live continuous mind-swap. OS-level restrictions remain a deployment concern.
 """
 import argparse
 import os
