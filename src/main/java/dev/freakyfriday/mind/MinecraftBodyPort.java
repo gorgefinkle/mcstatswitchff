@@ -4,7 +4,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.LivingEntity;
@@ -105,7 +104,7 @@ public final class MinecraftBodyPort implements BodyActionGate.BodyPort {
             // not a reason to reject the mind exchange or crash the session:
             // execute the native swing animation without inventing damage.
             if(body.getAttribute(Attributes.ATTACK_DAMAGE)==null) {
-                body.swing(InteractionHand.MAIN_HAND,true);
+                dev.freakyfriday.compat.PlatformHooks.nativeSwing(body);
                 return new BodyActionGate.Result(BodyActionGate.Status.EXECUTED,
                     "Physical body has no attack-damage attribute; native swing executed without damage");
             }
