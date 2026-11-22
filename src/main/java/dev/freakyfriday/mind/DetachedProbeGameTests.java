@@ -814,8 +814,9 @@ public final class DetachedProbeGameTests {
                 "Real dualprobe40 command was rejected");
             helper.assertTrue(DetachedHostMirrorProbe.hasActiveProbe(recipient.getUUID()),
                 "dualprobe40 command did not create an active 40-tick host session");
-            helper.assertTrue(dispatcher.execute("freakyfriday self", source) == 1,
-                "Real self command route failed");
+            // Exercise unsupported player diagnostic selection DIRECTLY;
+            // the public /self route now begins real player/mob possession.
+            MindSwapSessions.selectDiagnosticForTest(player, player);
             helper.assertTrue(MindSwapSessions.diagnosticPairMatches(player.getUUID(),
                     donor.getUUID(), recipient.getUUID()),
                 "Unsupported player selection changed the locked NPC pair");
