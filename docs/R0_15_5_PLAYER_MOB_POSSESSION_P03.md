@@ -68,3 +68,27 @@ present from earlier experimental checkpoints, not the gameplay product.
 
 Use the version-specific **full source/JAR** ZIP for code inspection and CI,
 but do not describe this as a fully playable reciprocal mind-swap release.
+
+
+## P04 candidate (separate development branch; not accepted)
+
+P03's original locomotion had a correctness defect: every possessed mob
+received the same fixed 0.19-block horizontal displacement per tick,
+regardless of the physical body's movement-speed attribute. The
+`feature/p03-native-body-motion` branch instead derives grounded physical
+displacement from the controlled mob's own `MOVEMENT_SPEED` and retains
+vanilla `Entity.move` collision resolution.
+
+Required `native_speed_collision` GameTest changes a single physical
+Chicken's native movement speed during an active possession. It must
+observe different travel rates, a genuine stone-wall collision, unchanged
+entity UUID and health, and restoration of AI/ownership on cancel. CI
+requires explicit pass markers separately on 26.2 and 26.3.
+
+This does **not** establish a fully vanilla-equivalent physics controller:
+the current direct-displacement factor is calibrated for the initial
+grounded possession case, not flight, swimming, mounts, friction or
+arbitrary modded movement controllers. Nor does it install a Chicken
+mind into the original player body, repair Zombie/Chicken behavioral
+exchange, or verify live client-camera integration. P04 remains a
+candidate until both real-game CI runs pass.
