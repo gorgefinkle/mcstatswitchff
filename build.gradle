@@ -39,6 +39,7 @@ neoForge {
         gameTestServer {
             type = 'gameTestServer'
             systemProperty 'neoforge.enabledGameTestNamespaces', 'freakyfriday'
+            systemProperty 'freakyfriday.thirdPartyFixture', 'true'
         }
     }
     mods { freakyfriday { sourceSet(sourceSets.main) } }
