@@ -251,14 +251,16 @@ SOURCES = {
 
         public final class DetachedProbeIntegrationHarness {
             static int checks=0;
-            static boolean throwFactory,mutateFactory,worldWriteFactory,mutateHostSetPos;
+            static boolean throwFactory,mutateFactory,worldWriteFactory,mutateHostSetPos,throwHostSetPos,worldRegisterFactory,worldWriteHostSetPos;
             static Mob victim;
             static final EntityType<Cow> COW=new EntityType<>("cow",Cow::new);
             static final EntityType<Zombie> ZOMBIE=new EntityType<>("zombie",level->{
                 if(worldWriteFactory) level.unrelatedWorldWrites++;
                 if(mutateFactory && victim!=null) victim.setHealth(victim.getHealth()-3);
                 if(throwFactory) throw new IllegalStateException("Injected factory failure");
-                return new Zombie(level);
+                Zombie created=new Zombie(level);
+                if(worldRegisterFactory) level.add(created);
+                return created;
             });
             // The type is only used as an identity; no player factory is invoked.
             static final EntityType<Mob> PLAYER_SENTINEL=new EntityType<>("player-sentinel",
@@ -271,8 +273,13 @@ SOURCES = {
                 Zombie(ServerLevel level){super(level,ZOMBIE);}
                 @Override public void setPos(double x,double y,double z){
                     super.setPos(x,y,z);
-                    if(mutateHostSetPos && level.getEntity(getUUID())==null && victim!=null)
-                        victim.setHealth(victim.getHealth()-2);
+                    if(level.getEntity(getUUID())==null) {
+                        if(worldWriteHostSetPos) level.unrelatedWorldWrites++;
+                        if((mutateHostSetPos || throwHostSetPos) && victim!=null)
+                            victim.setHealth(victim.getHealth()-2);
+                        if(throwHostSetPos)
+                            throw new IllegalStateException("Injected host setPos failure");
+                    }
                 }
             }
             record Fixture(ServerLevel level, ServerPlayer player, Zombie donor, Cow body) {}
@@ -290,6 +297,7 @@ SOURCES = {
             }
             static void resetFaults(){
                 throwFactory=mutateFactory=worldWriteFactory=mutateHostSetPos=false;
+                throwHostSetPos=worldRegisterFactory=worldWriteHostSetPos=false;
                 victim=null;
             }
             static void check(boolean ok,String message){
@@ -396,6 +404,31 @@ SOURCES = {
                 check(sessionsEmpty(),"unsafe preflight has no active session");
                 clean();
 
+                // Factory-induced ghost registration MUST fail closed.
+                f=fixture();worldRegisterFactory=true;
+                started=DetachedHostMirrorProbe.start(f.player,f.donor,f.body);
+                check(started.contains("registered"),"pre-registered native host rejected");
+                check(sessionsEmpty(),"registered factory result retains no session");
+                clean();
+
+                // setPos can throw AFTER modifying the recipient body.
+                f=fixture();throwHostSetPos=true;
+                started=DetachedHostMirrorProbe.start(f.player,f.donor,f.body);
+                check(started.contains("failed"),"throwing host setPos rejected");
+                check(sessionsEmpty(),"throwing host setPos retains no session");
+                check(ProbeTelemetry.EVENTS.contains("mirror_preflight_exception_body_mutation"),
+                    "exception preflight reports body mutation even after setPos throws");
+                clean();
+
+                // One-shot inspection must record the same failure, not silently
+                // omit the state change because the setPos call threw.
+                f=fixture();throwHostSetPos=true;
+                String inspection=DetachedMindHostProbe.inspect(f.donor,f.body);
+                check(inspection.contains("failed"),"one-shot inspection fails on host setPos exception");
+                check(ProbeTelemetry.EVENTS.contains("one_shot_exception_body_mutation"),
+                    "one-shot inspection records post-exception body mutation");
+                clean();
+
                 // An entity which stops receiving physical ticks is retired
                 // exactly at the 120th server tick, without relying on unload.
                 f=fixture();
@@ -435,6 +468,14 @@ SOURCES = {
                     "CURRENT UNSAFE GAP: existing probes miss unrelated world writes");
                 check(sessions().size()==1,
                     "world writes cannot be treated as isolated by current runtime");
+                clean();
+
+                f=fixture();worldWriteHostSetPos=true;
+                started=DetachedHostMirrorProbe.start(f.player,f.donor,f.body);
+                check(f.level.unrelatedWorldWrites==1,
+                    "host setPos writes unrelated world state");
+                check(started.contains("started"),
+                    "CURRENT UNSAFE GAP: position calls can alter world undetected");
                 clean();
                 System.out.println("PASS DetachedProbeIntegrationHarness: "+checks
                     +" assertions across real probe classes with injected failures.");
