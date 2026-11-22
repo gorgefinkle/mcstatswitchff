@@ -59,6 +59,12 @@ jobs:
           set -o pipefail
           bash ./gradlew runGameTestServer -PtargetMinecraft=${{ matrix.minecraft }} --no-daemon --stacktrace 2>&1 | tee gametest.log
           grep -Fq 'FF-GAMETEST detached_cross_species PASS' gametest.log
+          grep -Fq 'FF-GAMETEST pair zombie_to_cow PASS' gametest.log
+          grep -Fq 'FF-GAMETEST pair cow_to_zombie PASS' gametest.log
+          grep -Fq 'FF-GAMETEST pair villager_to_cow PASS' gametest.log
+          grep -Fq 'FF-GAMETEST pair creeper_to_cow PASS' gametest.log
+          grep -Fq 'FF-GAMETEST pair cow_to_creeper PASS' gametest.log
+          grep -Fq 'FF-GAMETEST pair zombie_to_villager PASS' gametest.log
       - name: Upload GameTest output
         if: always()
         uses: actions/upload-artifact@v4

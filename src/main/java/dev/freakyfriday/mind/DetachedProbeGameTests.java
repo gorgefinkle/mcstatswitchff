@@ -1,72 +1,95 @@
 package dev.freakyfriday.mind;
 
+import java.util.List;
 import java.util.function.Consumer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.Mob;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
 /**
- * Real NeoForge game test: actual vanilla Zombie factory and Cow physical body.
- * The unregistered host's Brain/Goal/Mob ticks are NEVER executed.
- * A production build can register this harmless test function without running it.
+ * Real NeoForge GameTest: generic detached host factory lifecycle for several
+ * actual vanilla class families. No donor AI, Brain, or Goal is ever ticked.
  */
 public final class DetachedProbeGameTests {
     private DetachedProbeGameTests() {}
 
     public static final DeferredRegister<Consumer<GameTestHelper>> FUNCTIONS =
         DeferredRegister.create(BuiltInRegistries.TEST_FUNCTION, "freakyfriday");
-
     public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>>
         DETACHED_CROSS_SPECIES = FUNCTIONS.register(
             "detached_cross_species", () -> DetachedProbeGameTests::testCrossSpecies);
 
+    // Test cases may name specific vanilla species; the actual runtime engine
+    // must never dispatch on species-pair rules.
+    private record Pair(String label, EntityType<? extends Mob> donorType,
+                        EntityType<? extends Mob> recipientType) {}
+    private static final List<Pair> CASES = List.of(
+        new Pair("zombie_to_cow", EntityTypes.ZOMBIE, EntityTypes.COW),
+        new Pair("cow_to_zombie", EntityTypes.COW, EntityTypes.ZOMBIE),
+        new Pair("villager_to_cow", EntityTypes.VILLAGER, EntityTypes.COW),
+        new Pair("creeper_to_cow", EntityTypes.CREEPER, EntityTypes.COW),
+        new Pair("cow_to_creeper", EntityTypes.COW, EntityTypes.CREEPER),
+        new Pair("zombie_to_villager", EntityTypes.ZOMBIE, EntityTypes.VILLAGER)
+    );
+
     private static void testCrossSpecies(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        Mob donor = EntityTypes.ZOMBIE.create(level, EntitySpawnReason.COMMAND);
-        Mob body = EntityTypes.COW.create(level, EntitySpawnReason.COMMAND);
-        helper.assertTrue(donor != null && body != null,
-            "The real Zombie/Cow EntityType factories must create living Mob objects");
+        int index = 0;
+        for (Pair pair : CASES) {
+            Mob donor = pair.donorType().create(level, EntitySpawnReason.COMMAND);
+            Mob body = pair.recipientType().create(level, EntitySpawnReason.COMMAND);
+            helper.assertTrue(donor != null && body != null,
+                pair.label() + ": registered factories must create living Mobs");
 
-        BlockPos p = helper.absolutePos(new BlockPos(1, 1, 1));
-        donor.setPos(p.getX() + 0.5, p.getY(), p.getZ() + 0.5);
-        body.setPos(p.getX() + 3.5, p.getY(), p.getZ() + 0.5);
-        helper.assertTrue(level.addFreshEntity(donor) && level.addFreshEntity(body),
-            "Both original mobs must be registered before the detached factory test");
+            // Place both actual world actors in the loaded GameTest structure,
+            // but never add the third, detached donor-class host.
+            BlockPos p = helper.absolutePos(new BlockPos(
+                1 + (index % 2) * 3, 1, 1 + ((index / 2) % 2) * 3));
+            donor.setPos(p.getX() + 0.5, p.getY(), p.getZ() + 0.5);
+            body.setPos(p.getX() + 1.5, p.getY(), p.getZ() + 0.5);
+            helper.assertTrue(level.addFreshEntity(donor) && level.addFreshEntity(body),
+                pair.label() + ": physical donor and recipient must both be registered");
 
-        ProbeBodySnapshot beforeDonor = ProbeBodySnapshot.take(donor);
-        ProbeBodySnapshot beforeBody = ProbeBodySnapshot.take(body);
-        DetachedMindHostProbe.Creation result =
-            DetachedMindHostProbe.construct(donor, body, "real-neoforge-gametest");
-        helper.assertTrue(result.host() != null,
-            "Real cross-species host construction failed: " + result.problem());
-        Mob host = result.host();
-        helper.assertTrue(host != donor && host != body, "Host must be a third Java object");
-        helper.assertTrue(host.getType() == EntityTypes.ZOMBIE,
-            "Host EntityType must be Zombie while the visible body remains Cow");
-        helper.assertTrue(host.getClass() == donor.getClass(),
-            "Host concrete Java subclass must match donor");
-        helper.assertTrue(level.getEntity(host.getUUID()) == null,
-            "Detached host must not appear in the real ServerLevel entity map");
-        helper.assertTrue(beforeDonor.unchanged(donor) && beforeBody.unchanged(body),
-            "Constructing host changed one of the original real Mob snapshots");
+            ProbeBodySnapshot donorBefore = ProbeBodySnapshot.take(donor);
+            ProbeBodySnapshot bodyBefore = ProbeBodySnapshot.take(body);
+            DetachedMindHostProbe.Creation result =
+                DetachedMindHostProbe.construct(donor, body, "real-neoforge-gametest-"+pair.label());
+            helper.assertTrue(result.host() != null,
+                pair.label() + ": detached construction failed: " + result.problem());
 
-        host.setPos(body.getX(), body.getY(), body.getZ());
-        helper.assertTrue(host.position().distanceToSqr(body.position()) < 0.000001,
-            "Detached Zombie cannot be positioned at Cow body's coordinates");
-        helper.assertTrue(level.getEntity(host.getUUID()) == null,
-            "Positioning detached Zombie unexpectedly world-registered it");
-        helper.assertTrue(beforeDonor.unchanged(donor) && beforeBody.unchanged(body),
-            "Positioning detached Zombie changed the donor or Cow body");
+            Mob host = result.host();
+            helper.assertTrue(host != donor && host != body,
+                pair.label() + ": detached host is not distinct");
+            helper.assertTrue(host.getType() == pair.donorType(),
+                pair.label() + ": host type must be donor type");
+            helper.assertTrue(host.getClass() == donor.getClass(),
+                pair.label() + ": host Java subclass must be donor class");
+            helper.assertTrue(level.getEntity(host.getUUID()) == null,
+                pair.label() + ": host unexpectedly registered");
+            helper.assertTrue(donorBefore.unchanged(donor) && bodyBefore.unchanged(body),
+                pair.label() + ": factory mutated original physical bodies");
 
+            host.setPos(body.getX(), body.getY(), body.getZ());
+            helper.assertTrue(host.position().distanceToSqr(body.position()) < 0.000001,
+                pair.label() + ": host not aligned to recipient position");
+            helper.assertTrue(level.getEntity(host.getUUID()) == null,
+                pair.label() + ": positioning host caused world registration");
+            helper.assertTrue(donorBefore.unchanged(donor) && bodyBefore.unchanged(body),
+                pair.label() + ": positioning host mutated physical bodies");
+
+            System.out.println("FF-GAMETEST pair "+pair.label()+" PASS");
+            donor.discard();
+            body.discard();
+            index++;
+        }
         System.out.println("FF-GAMETEST detached_cross_species PASS");
-        donor.discard();
-        body.discard();
         helper.succeed();
     }
 }
