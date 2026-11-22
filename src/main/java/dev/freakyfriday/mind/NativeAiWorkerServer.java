@@ -23,6 +23,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.common.world.chunk.RegisterTicketControllersEvent;
 import net.neoforged.neoforge.common.world.chunk.TicketController;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
@@ -81,8 +82,8 @@ public final class NativeAiWorkerServer {
     private static boolean started;
 
     private record Request(UUID session, UUID recipientBody, UUID sourceMind,
-                           long recipientTick, String donor, String stimulus,
-                           byte[] secret) {}
+                           UUID stimulusId, long recipientTick, String donor,
+                           String stimulus, boolean requireAttack, byte[] secret) {}
 
     private static final class State {
         final ServerLevel level;
@@ -94,6 +95,9 @@ public final class NativeAiWorkerServer {
         int age, targetTicks, navigationTicks;
         boolean produced;
         boolean genericStimulusApplied;
+        NativeMindObservation.NativeNavigation observedMovement;
+        UUID attackedTarget;
+        String attackedTargetType;
 
         State(ServerLevel level, Request request, Mob donor, Mob stimulus,
               BlockPos anchor) {
@@ -130,13 +134,16 @@ public final class NativeAiWorkerServer {
         String stimulus=config.getProperty("stimulus");
         if (donor==null || stimulus==null)
             throw new IllegalArgumentException("Missing donor/stimulus entity types");
+        UUID stimulusId=UUID.fromString(config.getProperty("stimulusId"));
+        boolean requireAttack=Boolean.parseBoolean(
+            config.getProperty("requireAttack","false"));
         long tick=Long.parseLong(config.getProperty("recipientTick"));
         if (tick < 0) throw new IllegalArgumentException("Negative recipient tick");
         return new Request(
             UUID.fromString(config.getProperty("session")),
             UUID.fromString(config.getProperty("recipientBody")),
             UUID.fromString(config.getProperty("sourceMind")),
-            tick,donor,stimulus,secret);
+            stimulusId,tick,donor,stimulus,requireAttack,secret);
     }
 
     private static Mob construct(ServerLevel level,String entityId) {
@@ -185,9 +192,11 @@ public final class NativeAiWorkerServer {
             }
             Mob donor=construct(level,request.donor());
             Mob stimulus=construct(level,request.stimulus());
+            stimulus.setUUID(request.stimulusId());
             donor.setPos(0.5,121,0.5);
             stimulus.setPos(8.5,121,0.5);
             stimulus.setNoAi(true); // Stationary target; donor uses its OWN vanilla AI.
+            stimulus.setPersistenceRequired();
             if (!level.addFreshEntity(donor) || !level.addFreshEntity(stimulus))
                 throw new IllegalStateException("Worker failed to spawn native NPCs");
             // addFreshEntity schedules registration during server startup.
@@ -196,13 +205,28 @@ public final class NativeAiWorkerServer {
             active=new State(level,request,donor,stimulus,anchor);
             started=true;
             System.out.println("FF-NATIVE-WORKER READY donor="+request.donor()
-                +" stimulus="+request.stimulus()+" ownWorld=true"
+                +" stimulus="+request.stimulus()+" requireAttack="+request.requireAttack()
+                +" ownWorld=true"
                 +" nativeAiEnabled="+!donor.isNoAi()
                 +" liveWorldAccess=false");
         } catch (Exception failure) {
             System.err.println("FF-NATIVE-WORKER START_FAILURE "
                 +failure.getClass().getName()+": "+failure.getMessage());
             throw new IllegalStateException("Native worker must fail closed",failure);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onNativeAttack(LivingIncomingDamageEvent event) {
+        State state=active;
+        if(!started || state==null || state.produced || state.attackedTarget!=null)
+            return;
+        if(event.getSource().getEntity()==state.donor) {
+            state.attackedTarget=event.getEntity().getUUID();
+            state.attackedTargetType=event.getEntity().getType().toString();
+            // Do not let the shadow donor damage the worker's target. The
+            // physical recipient will perform the mapped attack in its world.
+            event.setCanceled(true);
         }
     }
 
@@ -262,12 +286,19 @@ public final class NativeAiWorkerServer {
             state.startX,donor.getY(),state.startZ,
             donor.getX(),donor.getY(),donor.getZ(),
             state.navigationTicks>=2);
-        if (movement!=null) {
+        if(movement!=null)state.observedMovement=movement;
+
+        // For hostile AI acceptance, wait until the REAL donor reaches the
+        // native damage pipeline. The incoming hit is canceled only in this
+        // disposable worker so the mapped recipient can perform it once.
+        if(state.observedMovement!=null
+                && (!state.request.requireAttack() || state.attackedTarget!=null)) {
             try {
                 var frame=NativeMindObservation.frame(
                     state.request.recipientBody(),
                     state.request.sourceMind(),
-                    state.request.recipientTick(),movement);
+                    state.request.recipientTick(),state.observedMovement,
+                    state.attackedTarget);
                 byte[] signed=CapturedIntentWireCodec.encode(
                     new CapturedIntentWireCodec.Envelope(
                         state.request.session(),frame),state.request.secret());
@@ -284,14 +315,20 @@ public final class NativeAiWorkerServer {
                     +" donor="+state.request.donor()
                     +" nativeTargetTicks="+state.targetTicks
                     +" nativeNavigationTicks="+state.navigationTicks
-                    +" observedNativeTravel="+movement.observedDistance()
-                    +" nativeOffsetX="+movement.dx()
-                    +" nativeOffsetZ="+movement.dz()
+                    +" observedNativeTravel="+state.observedMovement.observedDistance()
+                    +" nativeOffsetX="+state.observedMovement.dx()
+                    +" nativeOffsetZ="+state.observedMovement.dz()
                     +" originalWorldIsWorker=true");
+                if(state.attackedTarget!=null)
+                    System.out.println("FF-NATIVE-WORKER NATIVE_ATTACK_OBSERVED"
+                        +" target="+state.attackedTarget
+                        +" targetType="+state.attackedTargetType
+                        +" damageCancelledInWorker=true");
                 System.out.println("FF-NATIVE-WORKER FRAME_WRITTEN PASS"
                     +" signedBytes="+signed.length
                     +" donorNativeAiActuallyTicked=true"
-                    +" actionCapture=native_relative_navigation_only");
+                    +" attackCaptured="+(state.attackedTarget!=null)
+                    +" actionCapture=native_navigation_plus_observed_attack");
             } catch (Exception failure) {
                 state.produced=true;
                 System.err.println("FF-NATIVE-WORKER FRAME_FAILURE "
@@ -299,9 +336,14 @@ public final class NativeAiWorkerServer {
             }
         } else if (state.age>=400) {
             state.produced=true;
-            System.err.println("FF-NATIVE-WORKER NO_NATIVE_DECISION"
+            System.err.println(state.observedMovement==null
+                ? "FF-NATIVE-WORKER NO_NATIVE_DECISION"
+                : "FF-NATIVE-WORKER NO_NATIVE_ATTACK");
+            System.err.println("FF-NATIVE-WORKER NATIVE_CAPTURE_INCOMPLETE"
                 +" targetTicks="+state.targetTicks
                 +" navigationTicks="+state.navigationTicks
+                +" attackCaptured="+(state.attackedTarget!=null)
+                +" requireAttack="+state.request.requireAttack()
                 +" mobTickCount="+donor.tickCount
                 +" noAi="+donor.isNoAi()
                 +" onGround="+donor.onGround()
