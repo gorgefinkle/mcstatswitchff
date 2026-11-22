@@ -62,6 +62,21 @@ public final class NativeAiWorkerServer {
         event.register(ARENA_TICKETS);
     }
 
+    /**
+     * Test fixtures may live beyond the GameTest structure's entity-ticking
+     * chunk. Give them an explicit full-ticking ticket instead of relying on
+     * a mock player or accidental chunk placement. Each fixture supplies its
+     * own owner UUID so parallel tests cannot release one another's tickets.
+     */
+    public static void setEntityTickingChunk(ServerLevel level, UUID owner,
+            int chunkX, int chunkZ, boolean forced) {
+        boolean changed=ARENA_TICKETS.forceChunk(
+            level,owner,chunkX,chunkZ,forced,true);
+        if(forced && !changed)
+            throw new IllegalStateException("Could not install full entity-ticking test ticket"
+                +" chunk="+chunkX+","+chunkZ);
+    }
+
     private static State active;
     private static boolean started;
 
