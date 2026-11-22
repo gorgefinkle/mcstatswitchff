@@ -68,6 +68,12 @@ jobs:
           grep -Fq 'FF-GAMETEST pair ender_dragon_to_chicken PASS' gametest.log
           grep -Fq 'FF-GAMETEST pair chicken_to_ender_dragon PASS' gametest.log
           grep -Fq 'FF-GAMETEST detached_dragon_chicken PASS' gametest.log
+          grep -Fq 'FF-COMMANDTEST pair ender_dragon chicken PASS' gametest.log
+          grep -Fq 'FF-COMMANDTEST pair chicken ender_dragon PASS' gametest.log
+          grep -Fq 'FF-COMMANDTEST invalid_type PASS' gametest.log
+          grep -Fq 'FF-COMMANDTEST suite PASS' gametest.log
+          grep -Fq 'FF-COMMANDTEST cancel PASS' gametest.log
+          grep -Fq 'FF-COMMANDTEST all PASS' gametest.log
       - name: Upload GameTest output
         if: always()
         uses: actions/upload-artifact@v4
