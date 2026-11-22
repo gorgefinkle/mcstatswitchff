@@ -28,6 +28,8 @@ jobs:
           test -f src/platform/minecraft-26.3/java/dev/freakyfriday/compat/PlatformHooks.java
       - name: Pure Java regression suite
         run: sh scripts/test-core.sh
+      - name: Independent detached-host lifecycle and fault-injection regression
+        run: python3 scripts/test-detached-probe-lifecycle.py
       - name: Version isolation and metadata
         run: python3 scripts/test-version-profiles.py
       - name: R0.11 extended source and synthetic Minecraft audit
