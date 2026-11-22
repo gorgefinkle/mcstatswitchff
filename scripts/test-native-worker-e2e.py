@@ -5,7 +5,7 @@ This is a disposable CI integration harness. The worker runs in a different
 gameDirectory/world, witnesses REAL Zombie goal selection/navigation toward a
 Villager, and writes an HMAC-signed action frame. A SECOND NeoForge server
 starts AFTER the worker exits, loads that file through a GameTest, and drives
-an unrelated Cow body through its native capability port.
+an unrelated recipient-type body through its native capability port.
 
 This tests observational capture of target/navigation only, not an isolated
 implementation of arbitrary modded attacks/abilities or a live continuous
@@ -116,6 +116,16 @@ def main():
     for folder in (WORKER_DIR, RECEIVER_DIR):
         folder.mkdir(parents=True, exist_ok=True)
 
+    # Both roles use exactly the same native-host and body-port code.
+    for donor,recipient,stimulus in (
+        ("minecraft:zombie","minecraft:chicken","minecraft:villager"),
+        ("minecraft:chicken","minecraft:zombie","minecraft:villager"),
+    ):
+        run_case(opts,donor,recipient,stimulus)
+    return 0
+
+def run_case(opts, donor, recipient, stimulus):
+    """Do not change capture/execution rules for different mob types."""
     key_hex = secrets.token_hex(32)
     session = uuid.uuid4()
     body = uuid.uuid4()
@@ -126,8 +136,9 @@ def main():
         "recipientBody=" + str(body) + "\n"
         "sourceMind=" + str(mind) + "\n"
         "recipientTick=" + str(tick) + "\n"
-        "donor=minecraft:zombie\n"
-        "stimulus=minecraft:villager\n"
+        "donor=" + donor + "\n"
+        "recipient=" + recipient + "\n"
+        "stimulus=" + stimulus + "\n"
     )
     WORKER_CONFIG.write_text(props, encoding="utf-8")
     (WORKER_DIR / "eula.txt").write_text("eula=true\n",encoding="utf-8")
@@ -153,7 +164,7 @@ def main():
             cmd_base + ["runAiWorker"] + arguments,
             ROOT / "native-worker-server.log",
             ("FF-NATIVE-WORKER READY",
-             "FF-NATIVE-WORKER NATIVE_TARGET_OBSERVED",
+             "FF-NATIVE-WORKER NATIVE_NAVIGATION_OBSERVED",
              "FF-NATIVE-WORKER FRAME_WRITTEN PASS"),
             env,
         )
@@ -175,10 +186,10 @@ def main():
         )
         print("FF-NATIVE-WORKER TWO_PROCESS_CI PASS"
             " minecraft=" + opts.minecraft +
-            " donorNativeGoalsTickedInSeparateServer=true"
-            " HMACFrameDeliveredToRealCow=true"
+            " donor="+donor+" recipient="+recipient
+            " nativeDonorActuallyMoved=true"
+            " signedRelativeActionsMovedRealRecipient=true"
             " samePhysicalWorld=false noArbitraryModIsolationClaim=true")
-        return 0
     finally:
         # Never store the session fixture with normal game-test logs or
         # accidentally reuse old signed packets in future tests.
@@ -187,6 +198,7 @@ def main():
                 item.unlink(missing_ok=True)
             except OSError:
                 pass
+
 
 if __name__ == "__main__":
     try:
