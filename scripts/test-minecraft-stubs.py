@@ -405,6 +405,9 @@ public static class Builder{public Builder then(Builder child){return this;}publ
 'com/mojang/brigadier/arguments/StringArgumentType.java':'''package com.mojang.brigadier.arguments;
 public final class StringArgumentType {public static Object word(){return new Object();}
 public static String getString(Object ctx,String name){return "mobility";}}''',
+'net/neoforged/neoforge/event/server/ServerStoppedEvent.java':'''package net.neoforged.neoforge.event.server;
+public final class ServerStoppedEvent {}
+''',
 'net/neoforged/neoforge/event/RegisterCommandsEvent.java':'''package net.neoforged.neoforge.event;
 import net.minecraft.commands.Commands;
 public final class RegisterCommandsEvent{public Dispatcher getDispatcher(){return new Dispatcher();}
@@ -602,6 +605,15 @@ public class BookInteractionHarness {
   BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,anotherVillager));
   ok(received(p,"First body: Villager"),
      "after explicit cancellation new first-body selection remains available");
+  MindSwapSessions.cancel(p);
+
+  // Cancelling and reselecting in the SAME Minecraft tick must not be
+  // dropped by the previous per-player dedup Stamp.
+  long beforeImmediate=p.messages.stream().filter(s->s.contains("First body: Villager")).count();
+  BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,anotherVillager));
+  long afterImmediate=p.messages.stream().filter(s->s.contains("First body: Villager")).count();
+  ok(afterImmediate==beforeImmediate+1,
+     "cancel + immediate reselect of same mob in the same tick is accepted");
   MindSwapSessions.cancel(p);
 
   p.setMainHand(new Object());
