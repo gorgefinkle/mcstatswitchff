@@ -39,5 +39,7 @@ public final class PossessionNetwork {
             PossessionViewPayload.TYPE,PossessionViewPayload.STREAM_CODEC);
         registrar.playToClient(
             PossessionStatePayload.TYPE,PossessionStatePayload.STREAM_CODEC);
+        registrar.playToClient(
+            SelectionHudPayload.TYPE,SelectionHudPayload.STREAM_CODEC);
     }
 }
