@@ -182,8 +182,21 @@ public final class PlayerMobPossession {
             double magnitude=Math.sqrt(forward*forward+strafe*strafe);
             if (magnitude>1) { forward/=magnitude; strafe/=magnitude; }
             double angle=Math.toRadians(in.yaw());
-            double dx=(-Math.sin(angle)*forward + Math.cos(angle)*strafe)*0.19;
-            double dz=( Math.cos(angle)*forward + Math.sin(angle)*strafe)*0.19;
+            // A mind does not supply its own legs. The possessed Mob's
+            // native movement-speed attribute (including modifiers and
+            // effects) determines its physical ground locomotion. The former
+            // fixed 0.19 block/tick made a slow body and a fast body identical.
+            // 0.76 converts vanilla attribute speed to the direct collision-
+            // resolved displacement used by this first possession backend.
+            // Cap only implausibly large per-tick displacements so a modded
+            // attribute cannot tunnel through blocks in one server tick.
+            double nativeSpeed=body.getAttributeValue(
+                net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED);
+            double travel=Double.isFinite(nativeSpeed)
+                ? Math.max(0.0,Math.min(0.45,nativeSpeed*0.76))
+                : 0.0;
+            double dx=(-Math.sin(angle)*forward + Math.cos(angle)*strafe)*travel;
+            double dz=( Math.cos(angle)*forward + Math.sin(angle)*strafe)*travel;
             Vec3 vel=body.getDeltaMovement();
             // NoAI mobs do not integrate the input velocity themselves.
             // Entity.move is Minecraft's actual collision resolver; unlike
