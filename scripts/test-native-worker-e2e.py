@@ -38,7 +38,8 @@ def run_until_markers(command, log_path, markers, env, timeout=420):
     error_terms = ("FF-NATIVE-WORKER START_FAILURE",
                    "FF-NATIVE-WORKER FRAME_FAILURE",
                    "FF-NATIVE-WORKER NO_NATIVE_DECISION",
-                   "FF-NATIVE-WORKER MOB_DIED")
+                   "FF-NATIVE-WORKER MOB_DIED",
+                   "FF-NATIVE-WORKER WORLD_REGISTRATION_FAILED")
     process = subprocess.Popen(
         command, cwd=ROOT, env=env, stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT, text=True, encoding="utf-8",
