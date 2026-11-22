@@ -48,12 +48,17 @@ The `third_party_command_route` GameTest creates two test players,
 simulates a verified logical player command route and checks:
 - default unswapped source and command behavior
 - both directions of `getPlayerOrException()` after exchange
-- unfamiliar addon `@s` entity selection
+- unfamiliar addon `@s` entity selection **when** Minecraft resolves
+  GameTest's non-online mock players (otherwise explicit UNTESTED)
 - original authenticated source, permissions and command feedback
 - lack of redirection for console/command-block sources using an entity
 - simultaneous two-player cleanup and post-cancel restoration
 - named player lookup if Minecraft's test harness exposes two distinct
   players through its live PlayerList (otherwise clearly logs UNTESTED).
+The test always verifies direct `CommandSourceStack.getPlayerOrException()`
+and **does not** silently substitute custom `@s` handling for Minecraft's
+real player argument parser. True live two-player login/name resolution
+still requires a separate connected-client integration test.
 
 A new required CI success marker applies to both Minecraft 26.2 and 26.3.
 
