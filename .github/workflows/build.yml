@@ -86,7 +86,7 @@ jobs:
           grep -Fq 'FF-NATIVE-PROBE world_effect_escape PASS' gametest.log
           grep -Fq 'FF-NATIVE-PROBE goal_scheduler PASS' gametest.log
           grep -Fq 'FF-PLAYER-COMMAND all PASS' gametest.log
-          grep -Fq 'FF-PLAYER-COMMAND unrelated_addon_selector PASS' gametest.log
+          grep -Fq 'FF-PLAYER-COMMAND selector_no_double_dispatch PASS' gametest.log
           grep -Fq 'FF-PLAYER-COMMAND permission_and_feedback_origin PASS' gametest.log
           grep -Fq 'FF-PLAYER-COMMAND console_not_redirected PASS' gametest.log
           grep -Fq 'FF-PLAYER-COMMAND cleanup PASS' gametest.log
