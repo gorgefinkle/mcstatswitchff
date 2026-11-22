@@ -5,6 +5,7 @@ import net.minecraft.commands.Commands;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.minecraft.server.level.ServerPlayer;
 
 /** Commands are only keyboard and cancel affordances; no category menu. */
@@ -15,6 +16,11 @@ public final class FFCommands {
     public static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player)
             MindSwapSessions.clearOnLogout(player.getUUID());
+    }
+
+    @SubscribeEvent
+    public static void onServerStop(ServerStoppedEvent event) {
+        MindSwapSessions.clearOnServerStop();
     }
 
     @SubscribeEvent
