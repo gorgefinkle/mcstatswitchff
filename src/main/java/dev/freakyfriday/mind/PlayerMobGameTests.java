@@ -472,14 +472,9 @@ public final class PlayerMobGameTests {
         ServerPlayer player=helper.makeMockServerPlayerInLevel();
         player.setItemInHand(InteractionHand.MAIN_HAND,
             new ItemStack(FreakyFriday.BOOK.get()));
-        Mob skeleton=EntityTypes.SKELETON.create(level,EntitySpawnReason.COMMAND);
-        helper.assertTrue(skeleton!=null,"Cannot spawn Skeleton");
-        BlockPos floor=helper.absolutePos(new BlockPos(2,0,2));
-        level.setBlockAndUpdate(floor,
-            net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
-        skeleton.setPos(floor.getX()+0.5,floor.getY()+1,floor.getZ()+0.5);
-        skeleton.setNoAi(true);
-        helper.assertTrue(level.addFreshEntity(skeleton),"No Skeleton in actual world");
+        // Do not spawn the second candidate 162 ticks early. A Skeleton can
+        // burn or despawn between those ticks, causing an unrelated failure
+        // when testing expiration/reselection.
         UUID owner=player.getUUID();
         MindSwapSessions.select(player,player);
         helper.assertTrue(MindSwapSessions.selectionRemainingTicks(player)
@@ -489,6 +484,15 @@ public final class PlayerMobGameTests {
         helper.runAfterDelay((int)MindSwapSessions.SELECTION_TIMEOUT_TICKS+2,()->{
             helper.assertTrue(MindSwapSessions.selectionRemainingTicks(player)==0,
                 "Timed-out first selection remained active after eight seconds");
+            Mob skeleton=EntityTypes.SKELETON.create(level,EntitySpawnReason.COMMAND);
+            helper.assertTrue(skeleton!=null,"Cannot spawn fresh test Skeleton");
+            BlockPos floor=helper.absolutePos(new BlockPos(2,0,2));
+            level.setBlockAndUpdate(floor,
+                net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+            skeleton.setPos(floor.getX()+0.5,floor.getY()+1,floor.getZ()+0.5);
+            skeleton.setNoAi(true);
+            skeleton.setNoGravity(true);
+            helper.assertTrue(level.addFreshEntity(skeleton),"Fresh Skeleton not registered");
             MindSwapSessions.selectFromInteraction(player,skeleton);
             helper.assertTrue(MindSwapSessions.selectionRemainingTicks(player)
                     ==MindSwapSessions.SELECTION_TIMEOUT_TICKS,
@@ -523,11 +527,24 @@ public final class PlayerMobGameTests {
         player.setPos(pos.getX()+0.5,pos.getY(),pos.getZ()+0.5);
         zombie.setPos(pos.getX()+1.5,pos.getY(),pos.getZ()+0.5);
         helper.assertTrue(level.addFreshEntity(zombie),"Zombie not registered");
+        player.gameMode.changeGameModeForPlayer(
+            net.minecraft.world.level.GameType.SURVIVAL);
+        // GameTest mock players may start with creative-style immunity; this
+        // test explicitly uses ordinary survival health and server damage.
+        helper.assertTrue(!player.getAbilities().invulnerable,
+            "Attack test requires a damageable Survival player");
         String issue=PlayerMobPossession.begin(player,zombie);
         helper.assertTrue(issue==null,"Zombie possession rejected: "+issue);
         float initial=player.getHealth();
         PlayerMobPossession.input(player,new PlayerMobPossession.Input(0,0,false,90,0,1));
         helper.runAfterDelay(3,()->{
+            net.minecraft.world.entity.Entity target=
+                PossessionCombat.findValidMeleeTarget(level,zombie,player.getId(),player);
+            helper.assertTrue(target==player,
+                "Authenticated original body was rejected as a melee target"
+                  +" dist="+zombie.distanceTo(player)
+                  +" yaw="+zombie.getYRot()
+                  +" sight="+zombie.hasLineOfSight(player));
             PlayerMobPossession.attack(player,player.getId(),1);
             helper.assertTrue(player.getHealth()<initial,
                 "Zombie's physical body did not damage the original player");
