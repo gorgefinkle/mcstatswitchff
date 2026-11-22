@@ -60,7 +60,17 @@ public final class MindSwapSessions {
     public static void cancel(ServerPlayer p) {
         PENDING.remove(p.getUUID());
         PAIRS.remove(p.getUUID());
+        // Without clearing this stamp a cancel + immediate reselect of
+        // the same mob on the same game tick is silently discarded.
+        LAST_INTERACTION.remove(p.getUUID());
         message(p, "Mind swap selection cancelled.");
+    }
+
+    /** No static selection state may leak into a newly launched server. */
+    public static void clearOnServerStop() {
+        PENDING.clear();
+        PAIRS.clear();
+        LAST_INTERACTION.clear();
     }
 
     /**
