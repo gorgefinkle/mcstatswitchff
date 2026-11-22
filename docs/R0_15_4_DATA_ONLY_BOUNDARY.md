@@ -79,9 +79,11 @@ wrong mind identity and replay. The real-server data-only GameTest also
 sends an HMAC-authenticated frame, corrupts it deliberately, requires the
 corruption to be rejected, then validates a genuine accepted frame.
 
-**Transport and producer are not yet present.** The isolated worker would
-need to receive a key over a protected channel, possess a separate
-Minecraft/NeoForge runtime with its own world, execute donor code there,
-and emit supported decisions to this receiver. That is NOT implemented
-or verified here; the codec and receiver do not create process isolation
-or allow running donor AI safely in the live server.
+**Update — Native Worker P01:** The separate-process producer and the first
+signed-frame handoff to a different real NeoForge server are now implemented
+and verified on Minecraft 26.2 and 26.3. A vanilla Zombie runs actual native
+target/navigation AI in a disposable worker world and the receiver executes
+the resulting supported body actions. See
+`docs/R0_15_4_NATIVE_WORKER_P01.md` for exact evidence and restrictions.
+This remains one-shot offline observational capture, NOT a full streaming
+mind swap or a safe sandbox for untrusted arbitrary modded Java code.
