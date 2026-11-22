@@ -12,6 +12,7 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 
 /**
  * Server-authoritative, first PLAYABLE player->mob possession.
@@ -122,6 +123,31 @@ public final class PlayerMobPossession {
         return end(player.getUUID(),true);
     }
 
+    /**
+     * Return the mind as soon as its occupied physical body dies. This is a
+     * gameplay return, NOT revival or teleportation of the dead mob.
+     * The tick fallback below covers removal/unload and canceled death events.
+     */
+    @SubscribeEvent
+    public static synchronized void onDeath(LivingDeathEvent event) {
+        if (event.getEntity() instanceof Mob mob) {
+            UUID owner=BODY_OWNERS.get(mob.getUUID());
+            if (owner!=null) {
+                Session session=ACTIVE.get(owner);
+                if (session!=null) {
+                    end(owner,true);
+                    if (!session.player.isRemoved())
+                        session.player.sendSystemMessage(Component.literal(
+                            "[Freaky Friday] Your occupied mob died; you returned to your own body."));
+                }
+            }
+        } else if (event.getEntity() instanceof ServerPlayer player) {
+            // The original player's body can itself be killed while its mind
+            // is away. Never retain an orphaned camera/control assignment.
+            end(player.getUUID(),true);
+        }
+    }
+
     public static synchronized void clearOnLogout(UUID playerId) {
         end(playerId,false);
     }
@@ -159,14 +185,21 @@ public final class PlayerMobPossession {
             Mob body=s.body;
             if (player.isRemoved() || !player.isAlive() || !body.isAlive()
                     || body.isRemoved() || player.level()!=body.level()) {
+                // Safe in-place retirement; do not remove another entry
+                // directly while iterating. This is also the fallback when
+                // another mod suppresses the ordinary LivingDeathEvent.
                 it.remove();
                 BODY_OWNERS.remove(body.getUUID());
                 if (!body.isRemoved()) {
                     body.setNoAi(s.originalNoAi);
                     body.setNoGravity(s.originalNoGravity);
                 }
-                if (!player.isRemoved())
+                if (!player.isRemoved()) {
                     sendCamera(player,new PossessionViewPayload(-1,false,0,0,0));
+                    if (!body.isAlive())
+                        player.sendSystemMessage(Component.literal(
+                            "[Freaky Friday] Occupied body died; returned to your original body."));
+                }
                 continue;
             }
             // Original player's actual body remains in place; do not transfer
@@ -198,16 +231,22 @@ public final class PlayerMobPossession {
             double dx=(-Math.sin(angle)*forward + Math.cos(angle)*strafe)*travel;
             double dz=( Math.cos(angle)*forward + Math.sin(angle)*strafe)*travel;
             Vec3 vel=body.getDeltaMovement();
-            // NoAI mobs do not integrate the input velocity themselves.
-            // Entity.move is Minecraft's actual collision resolver; unlike
-            // setPos/teleport it cannot walk through a real stone wall.
-            // Keep gravity vertical (unless the physical mob disables it),
-            // and jump only from ground contact.
+            // NoAI prevents native Mob.travel from applying the physical
+            // body's ordinary motion, so we must integrate collision-safe
+            // vertical motion while preserving native species mechanics.
+            // Vanilla chickens flap during aiStep, multiplying their
+            // negative Y velocity by 0.6. NoAI suppresses that behavior and
+            // P05's hardcoded gravity made a chicken fall like a zombie.
+            // Restore ONLY the chicken's native glide; a fall-damage-immune
+            // ocelot is NOT a glider and keeps ordinary gravity. The normal
+            // Minecraft entity-type immunity tag still owns fall damage.
             double dy = (in.jump() && body.onGround())
                 ? 0.40
                 : (body.onGround() || body.isNoGravity())
                     ? 0.0
                     : Math.max(-0.58,vel.y-0.08);
+            if (dy<0.0 && body.getType()==net.minecraft.world.entity.EntityTypes.CHICKEN)
+                dy*=0.6;
             body.setYRot(in.yaw());
             body.setXRot(in.pitch());
             body.setYHeadRot(in.yaw());
