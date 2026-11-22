@@ -171,6 +171,7 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
         print("FF-NATIVE-WORKER starting distinct disposable NeoForge producer")
         worker_markers = [
             "FF-NATIVE-WORKER READY",
+            "FF-NATIVE-WORKER ENTITIES_SPAWNED PASS",
             "FF-NATIVE-WORKER NATIVE_NAVIGATION_OBSERVED",
             "FF-NATIVE-WORKER FRAME_WRITTEN PASS",
         ]
