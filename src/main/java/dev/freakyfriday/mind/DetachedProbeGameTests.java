@@ -631,6 +631,137 @@ public final class DetachedProbeGameTests {
         }
     }
 
+    /**
+     * TWO REAL JVMs: this real GameTest receiver reads a signed intent frame
+     * created by a separate native NeoForge worker server. The CI runner
+     * copies only the request descriptor + HMAC frame into this independent
+     * receiver world's directory. No worker Java object or world is shared.
+     *
+     * When the fixture is absent (ordinary baseline GameTests), succeed as
+     * explicitly SKIPPED; the separate CI worker job requires the PASS marker.
+     */
+    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>>
+        EXTERNAL_NATIVE_WORKER = FUNCTIONS.register(
+            "external_native_worker", () -> DetachedProbeGameTests::testExternalNativeWorker);
+
+    private static void testExternalNativeWorker(GameTestHelper helper) {
+        java.nio.file.Path requestPath = java.nio.file.Path.of("ff-worker-request.properties");
+        java.nio.file.Path packetPath = java.nio.file.Path.of("ff-worker-frame.bin");
+        if (!java.nio.file.Files.exists(requestPath)
+                && !java.nio.file.Files.exists(packetPath)) {
+            System.out.println("FF-NATIVE-WORKER E2E_SKIPPED_NO_EXTERNAL_FIXTURE");
+            helper.succeed();
+            return;
+        }
+        helper.assertTrue(java.nio.file.Files.isRegularFile(requestPath)
+                && java.nio.file.Files.isRegularFile(packetPath),
+            "A partially present worker fixture must never be accepted");
+
+        ServerLevel level=helper.getLevel();
+        Mob cow=null, zombie=null;
+        try {
+            java.util.Properties request = new java.util.Properties();
+            try (var stream=java.nio.file.Files.newInputStream(requestPath)) {
+                request.load(stream);
+            }
+            helper.assertTrue("minecraft:zombie".equals(request.getProperty("donor"))
+                    && "minecraft:villager".equals(request.getProperty("stimulus")),
+                "Expected native Zombie chasing Villager in external worker fixture");
+            java.util.UUID session=java.util.UUID.fromString(request.getProperty("session"));
+            java.util.UUID recipientBody=java.util.UUID.fromString(
+                request.getProperty("recipientBody"));
+            java.util.UUID sourceMind=java.util.UUID.fromString(
+                request.getProperty("sourceMind"));
+            long tick=Long.parseLong(request.getProperty("recipientTick"));
+            byte[] secret=java.util.HexFormat.of().parseHex(
+                System.getenv("FF_WORKER_KEY_HEX"));
+            helper.assertTrue(secret.length==CapturedIntentWireCodec.KEY_BYTES,
+                "Missing external-worker HMAC verification key");
+
+            cow=EntityTypes.COW.create(level,EntitySpawnReason.COMMAND);
+            zombie=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
+            helper.assertTrue(cow!=null && zombie!=null,
+                "The receiver must create real physical Cow and Zombie mobs");
+            BlockPos p=helper.absolutePos(new BlockPos(1,1,1));
+            cow.setPos(p.getX()+0.5,p.getY(),p.getZ()+0.5);
+            zombie.setPos(p.getX()+2.5,p.getY(),p.getZ()+0.5);
+            cow.setUUID(recipientBody); // Only before adding to the world.
+            cow.setNoAi(true);
+            zombie.setNoAi(true);
+            cow.setNoGravity(true);
+            zombie.setNoGravity(true);
+            helper.assertTrue(level.addFreshEntity(cow) && level.addFreshEntity(zombie),
+                "Real-world Cow/Zombie receiver actors must be registered");
+            helper.assertTrue(level.getEntity(recipientBody)==cow,
+                "Data-frame recipient UUID must identify the ACTUAL Cow entity");
+            float cowHealth=cow.getHealth(), zombieHealth=zombie.getHealth();
+            java.util.UUID cowMind=java.util.UUID.randomUUID();
+            var receiver=new CapturedIntentBridge();
+            receiver.register(new MinecraftBodyPort(cow),
+                new MindLedger.Mind(cowMind,MindLedger.Kind.NPC,"minecraft:cow"));
+            receiver.register(new MinecraftBodyPort(zombie),
+                new MindLedger.Mind(sourceMind,MindLedger.Kind.NPC,"minecraft:zombie"));
+            receiver.exchange(recipientBody,zombie.getUUID());
+
+            byte[] packet=java.nio.file.Files.readAllBytes(packetPath);
+            helper.assertTrue(packet.length>0
+                && packet.length<=CapturedIntentWireCodec.MAX_WIRE_BYTES,
+                "Worker packet is empty or exceeds bound");
+            var decoded=CapturedIntentWireCodec.decode(packet,secret,session,tick);
+            helper.assertTrue(decoded.frame().bodyId().equals(recipientBody)
+                    && decoded.frame().mindId().equals(sourceMind)
+                    && decoded.frame().actions().size()==2
+                    && decoded.frame().actions().get(0).actionId()
+                        .equals(MinecraftBodyPort.LOOK_AT)
+                    && decoded.frame().actions().get(1).actionId()
+                        .equals(MinecraftBodyPort.MOVE_TO),
+                "External native worker emitted unexpected or misaddressed actions");
+
+            byte[] corrupt=packet.clone();
+            corrupt[20]^=1;
+            boolean rejected=false;
+            try {
+                receiver.deliverAuthenticated(corrupt,secret,session,tick);
+            } catch (IllegalArgumentException expected) {
+                rejected=true;
+            }
+            helper.assertTrue(rejected,
+                "Receiver admitted tampered real-worker packet");
+            var executed=receiver.deliverAuthenticated(packet,secret,session,tick);
+            helper.assertTrue(executed.status()==CapturedIntentBridge.Status.DISPATCHED
+                && executed.outcomes().size()==2
+                && executed.outcomes().get(0).status()
+                    == BodyActionGate.Status.EXECUTED,
+                "Real Cow failed to execute signed native-target observation look intent");
+            helper.assertTrue(executed.outcomes().get(1).status()
+                    != BodyActionGate.Status.UNAVAILABLE,
+                "Real Cow unexpectedly lacks native move_to capability");
+            helper.assertTrue(receiver.deliverAuthenticated(packet,secret,session,tick)
+                    .status()==CapturedIntentBridge.Status.DUPLICATE_OR_STALE_TICK,
+                "Real-worker frame replay not rejected");
+            helper.assertTrue(cow.getUUID().equals(recipientBody)
+                && level.getEntity(recipientBody)==cow
+                && Float.compare(cow.getHealth(),cowHealth)==0
+                && Float.compare(zombie.getHealth(),zombieHealth)==0,
+                "Real worker frame changed the physical body identity/health");
+            System.out.println("FF-NATIVE-WORKER TWO_JVM_E2E PASS"
+                +" donor=minecraft:zombie stimulus=minecraft:villager"
+                +" recipient=minecraft:cow"
+                +" nativeAIExecutedInSeparateNeoForgeProcess=true"
+                +" authenticatedIntentAccepted=true"
+                +" signedFrameReplayRejected=true"
+                +" realBodyLookExecuted=true"
+                +" sourceWorldNotShared=true"
+                +" completeNativeMindTransfer=false");
+            helper.succeed();
+        } catch (Exception error) {
+            throw new AssertionError("External native AI worker receiver failure",error);
+        } finally {
+            if (cow!=null) cow.discard();
+            if (zombie!=null) zombie.discard();
+        }
+    }
+
     /** Real command lifecycle through Brigadier, live mobs and 40 physical ticks. */
     public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>>
         FULL_COMMAND_WORKFLOW = FUNCTIONS.register(
