@@ -16,6 +16,7 @@ public final class FreakyFriday {
 
     public FreakyFriday(IEventBus modBus) {
         ITEMS.register(modBus);
+        dev.freakyfriday.mind.DetachedProbeGameTests.FUNCTIONS.register(modBus);
         modBus.addListener(PlatformHooks::addBookToCreativeTab);
         NeoForge.EVENT_BUS.register(FFCommands.class);
         NeoForge.EVENT_BUS.register(BookInteractions.class);

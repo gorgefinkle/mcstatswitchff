@@ -30,6 +30,10 @@ neoForge {
     runs {
         client { client() }
         server { server(); programArgument '--nogui' }
+        gameTestServer {
+            type = 'gameTestServer'
+            systemProperty 'neoforge.enabledGameTestNamespaces', 'freakyfriday'
+        }
     }
     mods { freakyfriday { sourceSet(sourceSets.main) } }
 }
