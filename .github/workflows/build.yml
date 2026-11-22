@@ -92,6 +92,10 @@ jobs:
           grep -Fq 'FF-GAMEPLAY player_death_ejects_both PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY occupied_ocelot_attack_health PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY occupied_ocelot_attack_death_returns PASS' gametest.log
+          grep -Fq 'FF-GAMEPLAY stale_self_selection_cannot_swap PASS' gametest.log
+          grep -Fq 'FF-GAMEPLAY explicit_two_body_selection PASS' gametest.log
+          grep -Fq 'FF-GAMEPLAY mob_origin_attack_original_body PASS' gametest.log
+          grep -Fq 'FF-GAMEPLAY invalid_entity_attack_guard PASS' gametest.log
           grep -Fq 'FF-NATIVE-PROBE inventory PASS' gametest.log
           grep -Fq 'FF-NATIVE-PROBE world_effect_escape DETECTED' gametest.log
           grep -Fq 'FF-NATIVE-PROBE world_effect_escape PASS' gametest.log
