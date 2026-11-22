@@ -14,6 +14,9 @@ import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.MoverType;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.level.block.Blocks;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
@@ -165,6 +168,123 @@ public final class DetachedProbeGameTests {
         } finally {
             dev.freakyfriday.mind.MindSwapSessions.clearOnLogout(mock.getUUID());
         }
+    }
+
+    /**
+     * REAL server simulation: a Cow body is moved with Minecraft's native
+     * Entity.move collision resolver into an actual stone barrier, while an
+     * unregistered Chicken-class host tracks it for forty physical ticks.
+     * Sentinel blocks and original entity identities must survive unchanged.
+     * Controlled movement != swapped native AI.
+     */
+    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>>
+        PHYSICAL_WORLD_MIRROR = FUNCTIONS.register(
+            "physical_world_mirror", () -> DetachedProbeGameTests::testPhysicalWorldMirror);
+
+    private static void testPhysicalWorldMirror(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        BlockPos p = helper.absolutePos(new BlockPos(1, 1, 1));
+        BlockPos barrier = p.east(4);
+        BlockPos sentinel = p.south(5);
+        var stone = Blocks.STONE.defaultBlockState();
+        var gold = Blocks.GOLD_BLOCK.defaultBlockState();
+        helper.assertTrue(level.setBlockAndUpdate(barrier, stone),
+            "Failed to place a genuine Minecraft collision block");
+        level.setBlockAndUpdate(barrier.above(), stone);
+        helper.assertTrue(level.setBlockAndUpdate(sentinel, gold),
+            "Failed to place the world integrity sentinel");
+
+        Mob donor = EntityTypes.CHICKEN.create(level, EntitySpawnReason.COMMAND);
+        Mob body = EntityTypes.COW.create(level, EntitySpawnReason.COMMAND);
+        helper.assertTrue(donor != null && body != null,
+            "Real world motion requires actual Chicken and Cow entities");
+        donor.setPos(p.getX() - 1.5, p.getY(), p.getZ() + 0.5);
+        body.setPos(p.getX() + 0.5, p.getY(), p.getZ() + 0.5);
+        donor.setNoAi(true);
+        body.setNoAi(true);
+        donor.setNoGravity(true);
+        body.setNoGravity(true);
+        helper.assertTrue(level.addFreshEntity(donor) && level.addFreshEntity(body),
+            "Failed to register real actors for movement regression");
+        final var initialId = body.getUUID();
+        final var donorId = donor.getUUID();
+        final float bodyHealth = body.getHealth();
+        final float donorHealth = donor.getHealth();
+        final double startX = body.getX();
+
+        String started = DetachedHostMirrorProbe.start(player, donor, body);
+        helper.assertTrue(started.contains("started"),
+            "Real detached-host mirror did not start: " + started);
+        DetachedHostMirrorProbe.Progress initial = DetachedHostMirrorProbe.progress(initialId);
+        helper.assertTrue(initial != null,
+            "Started mirror had no observable active host");
+        final var hostId = initial.hostId();
+        helper.assertTrue(level.getEntity(hostId) == null,
+            "Detached host appeared in the world at initialization");
+
+        for (int i = 0; i < 5; i++) {
+            helper.runAfterDelay(5 + 5 * i, () -> {
+                // Unlike setPos(), move() uses actual collision resolution.
+                body.move(MoverType.SELF, new Vec3(0.95, 0, 0));
+                helper.assertTrue(level.getEntity(hostId) == null,
+                    "Host registered while the physical Cow body was moving");
+            });
+        }
+
+        helper.runAfterDelay(33, () -> {
+            DetachedHostMirrorProbe.Progress progress =
+                DetachedHostMirrorProbe.progress(initialId);
+            helper.assertTrue(progress != null && progress.ticks() >= 20,
+                "Mirror ended prematurely during actual body movement");
+            helper.assertTrue(progress.mirrors() >= 2,
+                "Host did not follow the physically moving recipient");
+            helper.assertTrue(progress.alignmentFailures() == 0
+                    && progress.registrationViolations() == 0,
+                "Live mirror reported misalignment or world registration");
+            helper.assertTrue(progress.hostPosition().distanceToSqr(
+                    progress.bodyPosition()) < 0.000001,
+                "Detached host did not match the moving physical body's position");
+            helper.assertTrue(body.getX() > startX + 1.0,
+                "Native movement did not displace the physical Cow body");
+            helper.assertTrue(body.getX() < barrier.getX() - 0.15,
+                "Physical body crossed a stone collision wall");
+            helper.assertTrue(level.getBlockState(barrier).equals(stone)
+                    && level.getBlockState(sentinel).equals(gold),
+                "A real world block changed during detached-host mirroring");
+            System.out.println("FF-WORLDTEST moving_body_collision PASS"
+                + " progressTicks=" + progress.ticks()
+                + " hostMirrors=" + progress.mirrors()
+                + " blockCollision=true realMobTicks=true hostAiTicked=false");
+        });
+
+        helper.runAfterDelay(75, () -> {
+            try {
+                helper.assertTrue(!DetachedHostMirrorProbe.hasActiveProbe(initialId),
+                    "40 real physical ticks did not retire detached host");
+                helper.assertTrue(level.getEntity(hostId) == null,
+                    "Detached host appeared in level after 40-tick completion");
+                helper.assertTrue(level.getEntity(initialId) == body
+                        && level.getEntity(donorId) == donor,
+                    "An original physical mob was replaced or lost");
+                helper.assertTrue(body.isAlive() && donor.isAlive()
+                        && Float.compare(body.getHealth(), bodyHealth) == 0
+                        && Float.compare(donor.getHealth(), donorHealth) == 0,
+                    "Real server test changed original mobs' life/health state");
+                helper.assertTrue(level.getBlockState(barrier).equals(stone)
+                        && level.getBlockState(barrier.above()).equals(stone)
+                        && level.getBlockState(sentinel).equals(gold),
+                    "World integrity sentinel or collision barrier changed");
+                System.out.println("FF-WORLDTEST 40tick_cleanup PASS");
+                System.out.println("FF-WORLDTEST original_entities_and_blocks PASS");
+                System.out.println("FF-WORLDTEST all PASS");
+                helper.succeed();
+            } finally {
+                donor.discard();
+                body.discard();
+                MindSwapSessions.clearOnLogout(player.getUUID());
+            }
+        });
     }
 
     /** Real command lifecycle through Brigadier, live mobs and 40 physical ticks. */
