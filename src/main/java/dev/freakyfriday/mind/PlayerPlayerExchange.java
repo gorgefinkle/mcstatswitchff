@@ -11,6 +11,7 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 
 /**
  * First two-player reciprocal PHYSICAL control session.
@@ -135,6 +136,19 @@ public final class PlayerPlayerExchange {
         if(c==null || in.sequence()<=c.input.sequence()) return;
         c.input=in;
         c.lastInputTick=connected.level().getGameTime();
+    }
+
+    /**
+     * A swapped player's PHYSICAL body died. Eject BOTH remote minds before
+     * normal death processing/respawn changes that player's entity instance.
+     * A dead body stays dead; this only restores the controlling cameras.
+     */
+    @SubscribeEvent
+    public static synchronized void onDeath(LivingDeathEvent event) {
+        if (event.getEntity() instanceof ServerPlayer body) {
+            Session session=ACTIVE_BY_ACCOUNT.get(body.getUUID());
+            if (session!=null) end(session,true);
+        }
     }
 
     /** Any participant can end the WHOLE reciprocal session. */
