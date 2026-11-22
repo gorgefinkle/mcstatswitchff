@@ -7,7 +7,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.item.component.SwingAnimation;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.LivingEntity;
@@ -125,7 +124,7 @@ public final class NativeMindProxySessions {
         proxy.setYRot(body.getYRot());
         proxy.setXRot(body.getXRot());
         proxy.setYHeadRot(body.getYHeadRot());
-        proxy.setYBodyRot(body.getYBodyRot());
+        proxy.setYBodyRot(body.getYRot());
         proxy.setNoAi(false);
         proxy.setNoGravity(true);
         proxy.noPhysics=true;
@@ -195,7 +194,7 @@ public final class NativeMindProxySessions {
         body.setYRot(proxy.getYRot());
         body.setXRot(proxy.getXRot());
         body.setYHeadRot(proxy.getYHeadRot());
-        body.setYBodyRot(proxy.getYBodyRot());
+        body.setYBodyRot(proxy.getYRot());
 
         // Keep the hidden native host co-located with the physical body so
         // its next native AI tick observes the recipient's current world.
@@ -217,7 +216,7 @@ public final class NativeMindProxySessions {
                 || target.level()!=host.body.level()
                 || host.body.distanceToSqr(target)>16.0)return;
         if(host.body.getAttribute(Attributes.ATTACK_DAMAGE)==null) {
-            host.body.swing(InteractionHand.MAIN_HAND,SwingAnimation.DEFAULT);
+            host.body.swing(InteractionHand.MAIN_HAND,true);
         } else if(host.body.level() instanceof ServerLevel level) {
             host.body.doHurtTarget(level,target);
         }
