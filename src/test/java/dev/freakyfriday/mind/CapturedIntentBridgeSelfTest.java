@@ -21,7 +21,7 @@ public final class CapturedIntentBridgeSelfTest {
         final List<String> received = new ArrayList<>();
         final String physicalType;
         Body(int id, String physicalType, String... actions) {
-            this.identity = id(id);
+            this.identity = CapturedIntentBridgeSelfTest.id(id);
             this.physicalType = physicalType;
             this.actions = Set.of(actions);
         }
