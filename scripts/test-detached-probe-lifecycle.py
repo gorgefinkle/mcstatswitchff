@@ -23,7 +23,14 @@ SOURCES = {
     """,
     "net/minecraft/world/phys/Vec3.java": """
         package net.minecraft.world.phys;
-        public record Vec3(double x, double y, double z) {
+        public final class Vec3 {
+            public final double x, y, z;
+            public Vec3(double x,double y,double z) {
+                this.x=x; this.y=y; this.z=z;
+            }
+            public double x(){return x;}
+            public double y(){return y;}
+            public double z(){return z;}
             public double distanceToSqr(Vec3 o) {
                 double a=x-o.x, b=y-o.y, c=z-o.z;
                 return a*a+b*b+c*c;
@@ -31,6 +38,13 @@ SOURCES = {
             public double distanceTo(Vec3 o) {
                 return Math.sqrt(distanceToSqr(o));
             }
+            @Override public boolean equals(Object other){
+                if(!(other instanceof Vec3 o))return false;
+                return Double.compare(x,o.x)==0
+                    && Double.compare(y,o.y)==0 && Double.compare(z,o.z)==0;
+            }
+            @Override public int hashCode(){return java.util.Objects.hash(x,y,z);}
+            @Override public String toString(){return "Vec3("+x+","+y+","+z+")";}
         }
     """,
     "net/minecraft/network/chat/Component.java": """
@@ -246,9 +260,7 @@ SOURCES = {
                 if(throwFactory) throw new IllegalStateException("Injected factory failure");
                 return new Zombie(level);
             });
-            static final EntityType<ServerPlayer> PLAYER =
-                new EntityType<>("player",level->new ServerPlayer(level,PLAYER_SENTINEL));
-            // The type is only used as an identity; avoid static self-reference.
+            // The type is only used as an identity; no player factory is invoked.
             static final EntityType<Mob> PLAYER_SENTINEL=new EntityType<>("player-sentinel",
                 level->new Mob(level,null));
 
