@@ -559,6 +559,9 @@ public class BookInteractionHarness {
  public static void main(String[] args) {
   ServerLevel w=new ServerLevel("minecraft:overworld");
   ServerPlayer p=new ServerPlayer("Player",w);p.setMainHand(FreakyFriday.BOOK.get());
+  MindSwapSessions.select(p,p);
+  ok(received(p,"Player mind transfer is not implemented"),
+     "unsupported player mind host is explicitly rejected rather than locked into an unusable NPC probe pair");
   Mob villager=new Mob("Villager",w),cow=new Mob("Cow",w);
   var armor=BuiltInRegistries.ATTRIBUTE.register("minecraft:armor");
   villager.getAttributes().put(armor,8);
