@@ -25,12 +25,7 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
 public final class PlayerPlayerExchange {
     private PlayerPlayerExchange() {}
 
-    private static final int CONSENT_TICKS = 600;
     private static final double MAX_START_DISTANCE_SQUARED = 32.0 * 32.0;
-    private static final double MAX_SESSION_DISTANCE_SQUARED = 48.0 * 48.0;
-
-    private record Request(ServerPlayer requester, ServerPlayer recipient,
-                           long createdAtTick) {}
 
     private static final class Controller {
         final ServerPlayer account;
@@ -71,7 +66,6 @@ public final class PlayerPlayerExchange {
         }
     }
 
-    private static final Map<UUID,Request> PENDING_BY_TARGET = new HashMap<>();
     private static final Map<UUID,Session> ACTIVE_BY_ACCOUNT = new HashMap<>();
 
     public static synchronized boolean active(UUID player) {
@@ -85,7 +79,18 @@ public final class PlayerPlayerExchange {
             ? s.first.occupiedBody.getUUID() : s.second.occupiedBody.getUUID();
     }
 
-    public static synchronized String request(ServerPlayer requester, ServerPlayer target) {
+    private static boolean valid(ServerPlayer a, ServerPlayer b) {
+        return a.isAlive() && b.isAlive() && !a.isRemoved() && !b.isRemoved()
+            && a.level()==b.level() && a.level().getServer()==b.level().getServer();
+    }
+
+    /**
+     * Book-selected two-player exchange. The OTHER player does not consent:
+     * this is the direct Freaky Friday mechanic, just as mob selection is.
+     * Only the selecting account can request a swap involving its own body;
+     * no arbitrary client-supplied target UUID is accepted.
+     */
+    public static synchronized String begin(ServerPlayer requester, ServerPlayer target) {
         if (requester==null || target==null || requester==target)
             return "Choose yourself and a different online player.";
         if (!valid(requester,target)
@@ -95,62 +100,27 @@ public final class PlayerPlayerExchange {
                 || PlayerMobPossession.hasSession(target.getUUID())
                 || active(requester.getUUID()) || active(target.getUUID()))
             return "One of those players already controls another body.";
-        if (PENDING_BY_TARGET.containsKey(target.getUUID())
-                || PENDING_BY_TARGET.values().stream().anyMatch(
-                    q -> q.requester.getUUID().equals(requester.getUUID())))
-            return "A player already has a pending exchange request.";
-        PENDING_BY_TARGET.put(target.getUUID(),
-            new Request(requester,target,target.level().getGameTime()));
-        target.sendSystemMessage(Component.literal(
-            "[Freaky Friday] "+requester.getName().getString()
-            +" requests a reciprocal BODY swap. Type /freakyfriday accept"
-            +" or /freakyfriday decline within 30 seconds."));
-        return null;
-    }
-
-    private static boolean valid(ServerPlayer a, ServerPlayer b) {
-        return a.isAlive() && b.isAlive() && !a.isRemoved() && !b.isRemoved()
-            && a.level()==b.level() && a.level().getServer()==b.level().getServer();
-    }
-
-    public static synchronized String accept(ServerPlayer recipient) {
-        Request request=PENDING_BY_TARGET.remove(recipient.getUUID());
-        if (request==null || request.recipient!=recipient)
-            return "No player-body exchange invitation is waiting for you.";
-        ServerPlayer requester=request.requester;
-        if (!valid(requester,recipient)
-                || recipient.level().getGameTime()-request.createdAtTick>CONSENT_TICKS
-                || requester.position().distanceToSqr(recipient.position())>MAX_START_DISTANCE_SQUARED)
-            return "Exchange request expired or a player is no longer nearby.";
-        if (active(requester.getUUID()) || active(recipient.getUUID())
-                || PlayerMobPossession.hasSession(requester.getUUID())
-                || PlayerMobPossession.hasSession(recipient.getUUID()))
-            return "Another possession session already occupies a player body.";
-        Session session=new Session(requester,recipient);
+        Session session=new Session(requester,target);
         try {
-            PlayerCommandBodyRouting.bindCommittedPlayerExchange(requester,recipient);
+            PlayerCommandBodyRouting.bindCommittedPlayerExchange(requester,target);
             ACTIVE_BY_ACCOUNT.put(requester.getUUID(),session);
-            ACTIVE_BY_ACCOUNT.put(recipient.getUUID(),session);
-            sendCamera(requester,recipient,session.firstBody.expected);
-            sendCamera(recipient,requester,session.secondBody.expected);
+            ACTIVE_BY_ACCOUNT.put(target.getUUID(),session);
+            sendCamera(requester,target,session.firstBody.expected);
+            sendCamera(target,requester,session.secondBody.expected);
             requester.sendSystemMessage(Component.literal(
-                "[Freaky Friday] "+recipient.getName().getString()
-                +" accepted. You now move their physical body. /freakyfriday cancel returns both."));
+                "[Freaky Friday] You now control "+target.getName().getString()
+                +"'s physical body. /freakyfriday cancel returns both."));
+            target.sendSystemMessage(Component.literal(
+                "[Freaky Friday] Your body has been swapped with "
+                +requester.getName().getString()
+                +". You now control their physical body. /freakyfriday cancel returns both."));
             return null;
         } catch (RuntimeException error) {
             ACTIVE_BY_ACCOUNT.remove(requester.getUUID());
-            ACTIVE_BY_ACCOUNT.remove(recipient.getUUID());
+            ACTIVE_BY_ACCOUNT.remove(target.getUUID());
             PlayerCommandBodyRouting.clearInvolving(requester.getUUID());
             return "Player-body exchange failed before starting: "+error.getMessage();
         }
-    }
-
-    public static synchronized boolean decline(ServerPlayer recipient) {
-        Request request=PENDING_BY_TARGET.remove(recipient.getUUID());
-        if (request==null) return false;
-        request.requester.sendSystemMessage(Component.literal(
-            "[Freaky Friday] Player exchange request declined."));
-        return true;
     }
 
     /**
@@ -169,8 +139,6 @@ public final class PlayerPlayerExchange {
 
     /** Any participant can end the WHOLE reciprocal session. */
     public static synchronized boolean cancel(ServerPlayer player) {
-        PENDING_BY_TARGET.values().removeIf(r -> r.requester==player);
-        decline(player);
         Session s=ACTIVE_BY_ACCOUNT.get(player.getUUID());
         if (s==null) return false;
         end(s,true);
@@ -178,8 +146,6 @@ public final class PlayerPlayerExchange {
     }
 
     public static synchronized void clearOnLogout(UUID account) {
-        PENDING_BY_TARGET.remove(account);
-        PENDING_BY_TARGET.values().removeIf(r -> r.requester.getUUID().equals(account));
         Session s=ACTIVE_BY_ACCOUNT.get(account);
         if (s!=null) end(s,true);
     }
@@ -188,7 +154,6 @@ public final class PlayerPlayerExchange {
         for (Session session : java.util.Set.copyOf(ACTIVE_BY_ACCOUNT.values()))
             end(session,false);
         ACTIVE_BY_ACCOUNT.clear();
-        PENDING_BY_TARGET.clear();
     }
 
     private static void sendCamera(ServerPlayer account, ServerPlayer body, Vec3 ownAnchor) {
@@ -251,7 +216,7 @@ public final class PlayerPlayerExchange {
         for (Session s : java.util.Set.copyOf(ACTIVE_BY_ACCOUNT.values())) {
             if (!ACTIVE_BY_ACCOUNT.containsKey(s.first.account.getUUID())) continue;
             ServerPlayer a=s.first.account,b=s.second.account;
-            if (!valid(a,b) || a.position().distanceToSqr(b.position())>MAX_SESSION_DISTANCE_SQUARED) {
+            if (!valid(a,b)) {
                 end(s,true);
                 continue;
             }
@@ -263,8 +228,5 @@ public final class PlayerPlayerExchange {
                 sendCamera(b,a,s.secondBody.expected);
             }
         }
-        PENDING_BY_TARGET.values().removeIf(r ->
-            !valid(r.requester,r.recipient)
-            || r.recipient.level().getGameTime()-r.createdAtTick>CONSENT_TICKS);
     }
 }
