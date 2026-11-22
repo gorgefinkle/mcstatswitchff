@@ -148,3 +148,13 @@ tasks.register("runProbeTimeoutGuardSelfTest", JavaExec) {
     enableAssertions = true
 }
 tasks.named('check') { dependsOn tasks.named('runProbeTimeoutGuardSelfTest') }
+
+tasks.register("runCapturedIntentBridgeSelfTest", JavaExec) {
+    group = 'verification'
+    description = 'Assert immutable, fail-closed intent frames before native donor AI is connected'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.freakyfriday.mind.CapturedIntentBridgeSelfTest'
+    enableAssertions = true
+}
+tasks.named('check') { dependsOn tasks.named('runCapturedIntentBridgeSelfTest') }
