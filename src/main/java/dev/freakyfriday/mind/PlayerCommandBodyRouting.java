@@ -92,6 +92,12 @@ public final class PlayerCommandBodyRouting {
         var parsed = event.getParseResults();
         CommandSourceStack original = parsed.getContext().getSource();
         if (!(original.getEntity() instanceof ServerPlayer connected)) return;
+        if (Boolean.getBoolean("freakyfriday.thirdPartyFixture"))
+            System.out.println("FF-PLAYER-ROUTE event"
+                +" actor="+connected.getUUID()
+                +" authenticatedSource="+(original.source==connected.commandSource())
+                +" armed="+hasRoute(connected.getUUID())
+                +" input="+parsed.getReader().getString());
 
         // Console, command blocks and /execute as must not masquerade as
         // a connected user's own command. Their original source differs.
@@ -131,5 +137,11 @@ public final class PlayerCommandBodyRouting {
 
         var dispatcher = original.getServer().getCommands().getDispatcher();
         event.setParseResults(dispatcher.parse(parsed.getReader().getString(), projected));
+        if (Boolean.getBoolean("freakyfriday.thirdPartyFixture"))
+            System.out.println("FF-PLAYER-ROUTE rewritten"
+                +" actor="+connected.getUUID()
+                +" body="+body.getUUID()
+                +" parsedBody="+event.getParseResults().getContext()
+                    .getSource().getEntity().getUUID());
     }
 }
