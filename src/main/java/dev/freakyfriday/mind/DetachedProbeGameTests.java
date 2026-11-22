@@ -1,6 +1,7 @@
 package dev.freakyfriday.mind;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -335,6 +336,78 @@ public final class DetachedProbeGameTests {
             + " types=5 candidates=" + candidateCount
             + " runtimeWorldEffectIsolation=UNVERIFIED");
         helper.succeed();
+    }
+
+    /**
+     * Real Minecraft AI scheduling control: the same harmless Goal class is
+     * attached to a registered Chicken and an unregistered Chicken-class host.
+     * The registered Chicken gets ticked by the real server and runs its Goal,
+     * while the unregistered host's Goal stays dormant. This observes genuine
+     * scheduler execution; it does NOT transfer a donor's actual Brain/AI.
+     */
+    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>>
+        NATIVE_GOAL_SCHEDULER = FUNCTIONS.register(
+            "native_goal_scheduler", () -> DetachedProbeGameTests::testNativeGoalScheduler);
+
+    private static void testNativeGoalScheduler(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        Mob live = EntityTypes.CHICKEN.create(level, EntitySpawnReason.COMMAND);
+        Mob recipient = EntityTypes.COW.create(level, EntitySpawnReason.COMMAND);
+        helper.assertTrue(live != null && recipient != null,
+            "Scheduler probe requires real Chicken and Cow factories");
+
+        BlockPos p = helper.absolutePos(new BlockPos(1, 1, 1));
+        live.setPos(p.getX()+0.5, p.getY(), p.getZ()+0.5);
+        live.setNoGravity(true);
+        recipient.setPos(p.getX()+2.5, p.getY(), p.getZ()+0.5);
+        helper.assertTrue(level.addFreshEntity(live),
+            "Chicken must world-register to tick its native GoalSelector");
+        DetachedMindHostProbe.Creation result =
+            DetachedMindHostProbe.construct(live, recipient, "native-goal-scheduler-test");
+        helper.assertTrue(result.host() != null,
+            "Detached Chicken host creation failed: " + result.problem());
+        Mob detached = result.host();
+        helper.assertTrue(level.getEntity(detached.getUUID()) == null,
+            "Detached Chicken must be absent from the world entity map");
+
+        AtomicInteger liveGoalTicks = new AtomicInteger();
+        AtomicInteger detachedGoalTicks = new AtomicInteger();
+        Goal liveGoal = new Goal() {
+            @Override public boolean canUse() { return true; }
+            @Override public boolean canContinueToUse() { return true; }
+            @Override public void tick() { liveGoalTicks.incrementAndGet(); }
+        };
+        Goal detachedGoal = new Goal() {
+            @Override public boolean canUse() { return true; }
+            @Override public boolean canContinueToUse() { return true; }
+            @Override public void tick() { detachedGoalTicks.incrementAndGet(); }
+        };
+        live.goalSelector.addGoal(0, liveGoal);
+        detached.goalSelector.addGoal(0, detachedGoal);
+
+        helper.runAfterDelay(65, () -> {
+            try {
+                int registeredTicks = liveGoalTicks.get();
+                int unregisteredTicks = detachedGoalTicks.get();
+                helper.assertTrue(registeredTicks >= 5,
+                    "Real native GoalSelector did not run registered Chicken's test Goal"
+                        + " across 65 server ticks (observed=" + registeredTicks + ")");
+                helper.assertTrue(unregisteredTicks == 0,
+                    "Unregistered detached-host Goal was unexpectedly ticked by the server");
+                helper.assertTrue(level.getEntity(detached.getUUID()) == null,
+                    "Detached Chicken became world registered during scheduler observation");
+                helper.assertTrue(level.getEntity(live.getUUID()) == live,
+                    "Original registered Chicken was replaced or unloaded");
+                System.out.println("FF-NATIVE-PROBE goal_scheduler PASS"
+                    + " registeredGoalTicks=" + registeredTicks
+                    + " detachedGoalTicks=" + unregisteredTicks
+                    + " registeredNativeSchedulerTicked=true"
+                    + " detachedNativeDonorAiTicked=false");
+                helper.succeed();
+            } finally {
+                live.discard();
+            }
+        });
     }
 
     /**
