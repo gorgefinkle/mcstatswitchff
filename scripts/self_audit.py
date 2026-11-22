@@ -70,7 +70,7 @@ assert (root/'src/main/java/dev/freakyfriday/core/CategorySchema.java').exists()
 assert (root/'src/main/java/dev/freakyfriday/PortableAttributes.java').exists()
 assert (root/'src/main/java/dev/freakyfriday/BookInteractions.java').exists()
 assert 'NeoForge.EVENT_BUS.register(BookInteractions.class)' in (root/'src/main/java/dev/freakyfriday/FreakyFriday.java').read_text()
-assert 'modBus.addListener(PortableAttributes::addToEntityTypes)' in (root/'src/main/java/dev/freakyfriday/FreakyFriday.java').read_text()
+assert 'modBus.addListener(PortableAttributes::addToEntityTypes)' not in (root/'src/main/java/dev/freakyfriday/FreakyFriday.java').read_text(), 'Experimental mind/body tests must not modify entity attribute definitions globally'
 assert 'EntityAttributeModificationEvent' in (root/'src/main/java/dev/freakyfriday/PortableAttributes.java').read_text()
 assert 'sanitizeValue' in (root/'src/main/java/dev/freakyfriday/AttributeCategorySwapper.java').read_text()
 assert (root/'src/main/java/dev/freakyfriday/core/PermanentModifier.java').exists()
