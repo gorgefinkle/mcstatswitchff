@@ -12,7 +12,7 @@ for file in sorted(resources.rglob('*.json')):
 mods=tomllib.loads((resources/'META-INF/neoforge.mods.toml').read_text())
 assert mods['mods'][0]['modId']=='freakyfriday'
 assert mods['mods'][0]['version']=='${ff_mod_version}'
-assert "version = '0.15.4-alpha'" in (root/'build.gradle').read_text()
+assert "version = '0.15.5-alpha'" in (root/'build.gradle').read_text()
 assert (root/'src/platform/minecraft-26.2/java/dev/freakyfriday/compat/PlatformHooks.java').exists()
 assert (root/'src/platform/minecraft-26.3/java/dev/freakyfriday/compat/PlatformHooks.java').exists()
 assert 'PlatformHooks::addBookToCreativeTab' in (root/'src/main/java/dev/freakyfriday/FreakyFriday.java').read_text()
@@ -42,7 +42,10 @@ assert 'mirror_body_mutation' in (root/'src/main/java/dev/freakyfriday/mind/Deta
 assert 'constructor_body_mutation' in (root/'src/main/java/dev/freakyfriday/mind/DetachedMindHostProbe.java').read_text()
 assert 'physical_probe_watchdog_timeout' in (root/'src/main/java/dev/freakyfriday/mind/LiveBodyProbe.java').read_text()
 assert 'LAST_INTERACTION.remove(p.getUUID())' in (root/'src/main/java/dev/freakyfriday/mind/MindSwapSessions.java').read_text()
-assert 'Player mind transfer is not implemented' in (root/'src/main/java/dev/freakyfriday/mind/MindSwapSessions.java').read_text()
+# The public book now enters actual possession, not the old diagnostic branch.
+actual_book = (root/'src/main/java/dev/freakyfriday/mind/MindSwapSessions.java').read_text()
+assert 'PlayerMobPossession.begin(p,mob)' in actual_book
+assert 'NativeBrainSwap.exchange(mobA,mobB)' in actual_book
 assert 'modBus.addListener(PortableAttributes::addToEntityTypes)' not in (root/'src/main/java/dev/freakyfriday/FreakyFriday.java').read_text()
 
 assert (root/'src/main/java/dev/freakyfriday/mind/ProbeTelemetry.java').exists()
