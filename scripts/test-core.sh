@@ -20,3 +20,6 @@ java -ea -cp build/core-test dev.freakyfriday.mind.CapturedIntentBridgeSelfTest
 java -ea -cp build/core-test dev.freakyfriday.mind.CapturedIntentWireCodecSelfTest
 
 java -ea -cp build/core-test dev.freakyfriday.mind.NativeMindObservationSelfTest
+
+# Reject CI worker harness syntax errors before expensive NeoForge matrix jobs.
+python3 -m py_compile scripts/test-native-worker-e2e.py
