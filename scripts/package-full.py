@@ -68,6 +68,8 @@ def main():
         "The native AI worker is EXPERIMENTAL and the first stage observes native\n"
         "target/navigation decisions in a separate disposable NeoForge server.\n"
         "It is NOT yet generic world-effect interception or a complete mind swap.\n"
+        "Player command-body routing is experimental and only bound in GameTests;\n"
+        "two connected-player network control and named player lookup are not proven.\n"
         "Do not run untrusted modded code in the same OS security domain as\n"
         "production worlds. See source/docs and scripted CI validation.\n"
     )
