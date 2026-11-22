@@ -219,7 +219,7 @@ public final class NativeMindProxySessions {
                 || target.level()!=host.body.level()
                 || host.body.distanceToSqr(target)>16.0)return;
         if(host.body.getAttribute(Attributes.ATTACK_DAMAGE)==null) {
-            host.dev.freakyfriday.compat.PlatformHooks.nativeSwing(body);
+            dev.freakyfriday.compat.PlatformHooks.nativeSwing(host.body);
         } else if(host.body.level() instanceof ServerLevel level) {
             host.body.doHurtTarget(level,target);
         }
