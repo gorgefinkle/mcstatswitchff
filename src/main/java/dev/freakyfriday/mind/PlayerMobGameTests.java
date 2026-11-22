@@ -36,6 +36,13 @@ public final class PlayerMobGameTests {
         NATIVE_SPEED_COLLISION=FUNCTIONS.register(
             "native_speed_collision",()->PlayerMobGameTests::verifyNativeSpeedCollision);
 
+    public static final DeferredHolder<Consumer<GameTestHelper>,Consumer<GameTestHelper>>
+        FALL_PROFILES=FUNCTIONS.register(
+            "native_fall_profiles",()->PlayerMobGameTests::verifyFallProfiles);
+    public static final DeferredHolder<Consumer<GameTestHelper>,Consumer<GameTestHelper>>
+        MOB_DEATH_RETURN=FUNCTIONS.register(
+            "mob_death_returns_player",()->PlayerMobGameTests::verifyMobDeathReturn);
+
     private static void verifyPlayerControlsChicken(GameTestHelper helper) {
         var level=helper.getLevel();
         ServerPlayer player=helper.makeMockServerPlayerInLevel();
@@ -217,6 +224,111 @@ public final class PlayerMobGameTests {
             chicken.discard();
             throw failure;
         }
+    }
+
+
+    /**
+     * Behavioral fall check using REAL world ticks, three distinct original
+     * bodies and one controller at a time: chicken flaps; ocelot falls
+     * normally without damage; zombie falls normally and IS damaged.
+     * Distinct native body type behavior must never leak between sessions.
+     */
+    private static void verifyFallProfiles(GameTestHelper helper) {
+        var level=helper.getLevel();
+        ServerPlayer player=helper.makeMockServerPlayerInLevel();
+        for (int x=1;x<=9;x++)for (int z=1;z<=6;z++)
+            level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,0,z)),
+                net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+
+        Mob chicken=EntityTypes.CHICKEN.create(level,EntitySpawnReason.COMMAND);
+        Mob ocelot=EntityTypes.OCELOT.create(level,EntitySpawnReason.COMMAND);
+        Mob zombie=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
+        helper.assertTrue(chicken!=null && ocelot!=null && zombie!=null,
+            "Three real vanilla physical entity factories required");
+        Mob[] bodies={chicken,ocelot,zombie};
+        for (int i=0;i<bodies.length;i++) {
+            BlockPos origin=helper.absolutePos(new BlockPos(2+2*i,12,2));
+            bodies[i].setPos(origin.getX()+0.5,origin.getY(),origin.getZ()+0.5);
+            bodies[i].setNoAi(true); // Inactive comparison mobs cannot fall early
+            helper.assertTrue(level.addFreshEntity(bodies[i]),
+                "Native fall test could not register entity "+i);
+        }
+        double startY=chicken.getY();
+        float ocelotHealth=ocelot.getHealth(),zombieHealth=zombie.getHealth();
+        String error=PlayerMobPossession.begin(player,chicken);
+        helper.assertTrue(error==null,"Chicken fall session rejected: "+error);
+        final double[] chickenDrop={0.0};
+        helper.runAfterDelay(12,()->{
+            chickenDrop[0]=startY-chicken.getY();
+            helper.assertTrue(chickenDrop[0]>0.2 && chickenDrop[0]<2.75,
+                "Possessed chicken did not flap slowly: distance="+chickenDrop[0]);
+            helper.assertTrue(PlayerMobPossession.end(player),"Cannot end chicken session");
+            String next=PlayerMobPossession.begin(player,ocelot);
+            helper.assertTrue(next==null,"Ocelot fall session rejected: "+next);
+        });
+        helper.runAfterDelay(25,()->{
+            double drop=startY-ocelot.getY();
+            helper.assertTrue(drop>chickenDrop[0]+1.2,
+                "Normal-gravity ocelot inherited chicken glide: chicken="
+                    +chickenDrop[0]+" ocelot="+drop);
+        });
+        helper.runAfterDelay(42,()->{
+            helper.assertTrue(ocelot.onGround(),
+                "Normal-gravity ocelot did not land in 30 ticks");
+            helper.assertTrue(Float.compare(ocelot.getHealth(),ocelotHealth)==0,
+                "Vanilla fall-immune ocelot took damage in possessed body");
+            helper.assertTrue(PlayerMobPossession.end(player),"Cannot end ocelot session");
+            String next=PlayerMobPossession.begin(player,zombie);
+            helper.assertTrue(next==null,"Zombie fall session rejected: "+next);
+        });
+        helper.runAfterDelay(55,()->{
+            double drop=startY-zombie.getY();
+            helper.assertTrue(drop>chickenDrop[0]+1.2,
+                "Zombie acquired chicken glide: chicken="+chickenDrop[0]
+                    +" zombie="+drop);
+        });
+        helper.runAfterDelay(75,()->{
+            helper.assertTrue(zombie.onGround(),"Zombie did not land under normal gravity");
+            helper.assertTrue(zombie.getHealth()<zombieHealth,
+                "Zombie failed to take vanilla fall damage; health="
+                    +zombie.getHealth()+" initial="+zombieHealth);
+            helper.assertTrue(PlayerMobPossession.end(player),"Cannot end zombie session");
+            System.out.println("FF-GAMEPLAY native_fall_profiles PASS"
+                +" chickenSlowDrop="+chickenDrop[0]
+                +" ocelotImmune=true zombieDamaged=true"
+                +" noCrossBodyGlide=true");
+            for (Mob mob:bodies)mob.discard();
+            helper.succeed();
+        });
+    }
+
+    private static void verifyMobDeathReturn(GameTestHelper helper) {
+        var level=helper.getLevel();
+        ServerPlayer player=helper.makeMockServerPlayerInLevel();
+        Mob occupied=EntityTypes.CHICKEN.create(level,EntitySpawnReason.COMMAND);
+        helper.assertTrue(occupied!=null,"Death-return body factory failed");
+        BlockPos floor=helper.absolutePos(new BlockPos(2,0,2));
+        level.setBlockAndUpdate(floor,
+            net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+        occupied.setPos(floor.getX()+0.5,floor.getY()+1,floor.getZ()+0.5);
+        occupied.setNoAi(false);
+        helper.assertTrue(level.addFreshEntity(occupied),
+            "Death-return body did not register");
+        UUID controller=player.getUUID();
+        String problem=PlayerMobPossession.begin(player,occupied);
+        helper.assertTrue(problem==null,"Death-return possession failed: "+problem);
+        helper.runAfterDelay(3,()->occupied.setHealth(0.0f));
+        helper.runAfterDelay(6,()->{
+            helper.assertTrue(!occupied.isAlive(),"Occupied body was not actually dead");
+            helper.assertTrue(!PlayerMobPossession.hasSession(controller)
+                    && PlayerMobPossession.possessedBody(controller)==null,
+                "Occupied body death left player's mind controlling a dead mob");
+            helper.assertTrue(player.isAlive(),
+                "Possessed mob death wrongly killed authenticated player body");
+            System.out.println("FF-GAMEPLAY occupied_mob_death_returns_player PASS");
+            helper.succeed();
+            occupied.discard();
+        });
     }
 
 }
