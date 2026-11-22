@@ -644,6 +644,33 @@ public final class DetachedProbeGameTests {
         EXTERNAL_NATIVE_WORKER = FUNCTIONS.register(
             "external_native_worker", () -> DetachedProbeGameTests::testExternalNativeWorker);
 
+
+    private static int[] arenaChunkBounds(GameTestHelper helper,
+            int minX,int maxX,int minZ,int maxZ) {
+        BlockPos[] corners={
+            helper.absolutePos(new BlockPos(minX,1,minZ)),
+            helper.absolutePos(new BlockPos(minX,1,maxZ)),
+            helper.absolutePos(new BlockPos(maxX,1,minZ)),
+            helper.absolutePos(new BlockPos(maxX,6,maxZ))
+        };
+        int minCx=Integer.MAX_VALUE,maxCx=Integer.MIN_VALUE;
+        int minCz=Integer.MAX_VALUE,maxCz=Integer.MIN_VALUE;
+        for(BlockPos p:corners) {
+            int cx=p.getX()>>4, cz=p.getZ()>>4;
+            minCx=Math.min(minCx,cx); maxCx=Math.max(maxCx,cx);
+            minCz=Math.min(minCz,cz); maxCz=Math.max(maxCz,cz);
+        }
+        return new int[]{minCx,maxCx,minCz,maxCz};
+    }
+
+    private static void setArenaChunks(ServerLevel level,UUID owner,
+            int[] bounds,boolean forced) {
+        if(bounds==null)return;
+        for(int cx=bounds[0];cx<=bounds[1];cx++)
+            for(int cz=bounds[2];cz<=bounds[3];cz++)
+                NativeAiWorkerServer.setEntityTickingChunk(level,owner,cx,cz,forced);
+    }
+
     private static void testExternalNativeWorker(GameTestHelper helper) {
         java.nio.file.Path requestPath=java.nio.file.Path.of("ff-worker-request.properties");
         java.nio.file.Path packetPath=java.nio.file.Path.of("ff-worker-frame.bin");
@@ -658,6 +685,12 @@ public final class DetachedProbeGameTests {
             "A partially present worker fixture must never be accepted");
         ServerLevel level=helper.getLevel();
         Mob receiverBody=null, originalDonorBody=null;
+        UUID ticketOwner=UUID.randomUUID();
+        int[] ticketBounds=arenaChunkBounds(helper,1,12,1,12);
+        setArenaChunks(level,ticketOwner,ticketBounds,true);
+        // The GameTest structure may straddle a chunk edge. Release this
+        // isolated fixture's tickets even if a later assertion fails.
+        helper.runAfterDelay(60,()->setArenaChunks(level,ticketOwner,ticketBounds,false));
         try {
             java.util.Properties request=new java.util.Properties();
             try(var in=java.nio.file.Files.newInputStream(requestPath)){request.load(in);}
@@ -816,12 +849,14 @@ public final class DetachedProbeGameTests {
                     } finally {
                         recipient.discard();
                         donor.discard();
+                        setArenaChunks(level,ticketOwner,ticketBounds,false);
                     }
                 });
             });
         } catch(Exception failure) {
             if(receiverBody!=null)receiverBody.discard();
             if(originalDonorBody!=null)originalDonorBody.discard();
+            setArenaChunks(level,ticketOwner,ticketBounds,false);
             throw new AssertionError("External native AI worker receiver failure",failure);
         }
     }
