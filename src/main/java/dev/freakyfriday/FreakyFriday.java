@@ -19,6 +19,7 @@ public final class FreakyFriday {
         dev.freakyfriday.mind.DetachedProbeGameTests.FUNCTIONS.register(modBus);
         dev.freakyfriday.mind.PlayerCommandRouteGameTests.FUNCTIONS.register(modBus);
         dev.freakyfriday.mind.PlayerMobGameTests.FUNCTIONS.register(modBus);
+        dev.freakyfriday.mind.PlayerPlayerGameTests.FUNCTIONS.register(modBus);
         modBus.addListener(PlatformHooks::addBookToCreativeTab);
         modBus.addListener(PossessionNetwork::register);
         NeoForge.EVENT_BUS.register(FFCommands.class);
@@ -28,6 +29,7 @@ public final class FreakyFriday {
         NeoForge.EVENT_BUS.register(dev.freakyfriday.mind.NativeAiWorkerServer.class);
         NeoForge.EVENT_BUS.register(BookInteractions.class);
         NeoForge.EVENT_BUS.register(dev.freakyfriday.mind.PlayerMobPossession.class);
+        NeoForge.EVENT_BUS.register(dev.freakyfriday.mind.PlayerPlayerExchange.class);
         NeoForge.EVENT_BUS.register(dev.freakyfriday.mind.LiveBodyProbe.class);
         NeoForge.EVENT_BUS.register(dev.freakyfriday.mind.DetachedHostMirrorProbe.class);
     }

@@ -6,6 +6,7 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.client.event.MovementInputUpdateEvent;
 import net.neoforged.neoforge.client.network.event.RegisterClientPayloadHandlersEvent;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 
@@ -24,9 +25,14 @@ public final class ClientPossession {
     @SubscribeEvent
     public static void registerPayload(RegisterClientPayloadHandlersEvent event) {
         event.register(PossessionViewPayload.TYPE,(data,context)-> {
-            bodyId=data.active()?data.entityId():-1;
-            sequence=0;
-            ticks=0;
+            int newBody=data.active()?data.entityId():-1;
+            // Player/body exchange refreshes the body's own authoritative
+            // anchor repeatedly. Do not reset input sequence on refresh.
+            if (newBody!=bodyId) {
+                sequence=0;
+                ticks=0;
+            }
+            bodyId=newBody;
             if(data.active()){
                 anchorX=data.anchorX();
                 anchorY=data.anchorY();
@@ -37,6 +43,16 @@ public final class ClientPossession {
                 if(mc.player!=null)mc.setCameraEntity(mc.player);
             }
         });
+    }
+
+    @SubscribeEvent
+    public static void suppressLocalBodyMovement(MovementInputUpdateEvent event) {
+        Minecraft mc=Minecraft.getInstance();
+        if (bodyId>=0 && event.getEntity()==mc.player) {
+            // Inputs are sent to the server-owned OCCUPIED body instead of
+            // locally moving the account's original body.
+            event.getInput().keyPresses=net.minecraft.world.entity.player.Input.EMPTY;
+        }
     }
 
     @SubscribeEvent
@@ -64,15 +80,14 @@ public final class ClientPossession {
             return;
         }
         if(mc.getCameraEntity()!=body)mc.setCameraEntity(body);
-        // The mouse still rotates the local authenticated player. Apply that
-        // view to the Mob body in the client while server accepts bounded yaw.
-        body.setYRot(mc.player.getYRot());
-        body.setXRot(mc.player.getXRot());
+        // Minecraft's mouse controller rotates the CAMERA entity. When
+        // following another player's body or a Mob, read THAT body's look
+        // rather than resetting it to the local account player's rotation.
         if(mc.gui.screen()!=null) return; // no gameplay input while typing/in menus
         float forward=(mc.options.keyUp.isDown()?1:0)-(mc.options.keyDown.isDown()?1:0);
         float strafe=(mc.options.keyLeft.isDown()?1:0)-(mc.options.keyRight.isDown()?1:0);
         ClientPacketDistributor.sendToServer(new PossessionInputPayload(
             forward,strafe,mc.options.keyJump.isDown(),
-            mc.player.getYRot(),mc.player.getXRot(),++sequence));
+            body.getYRot(),body.getXRot(),++sequence));
     }
 }

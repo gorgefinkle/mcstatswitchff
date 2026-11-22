@@ -132,3 +132,23 @@ Known source references: `main` contains R0.12 numerical category
 experiments; `feature/whole-mind-swap` contains the previous R0.13
 experimental AI transplant; the current branch is a **new hybrid host
 architecture**.
+
+
+## P05 immediate player/player physical-control candidate
+
+When the Freaky Friday book selects your own body and another online player
+(in either order), reciprocal server-owned physical control begins **immediately**.
+No permission request, confirmation or `/accept` is required. Both real
+player entities retain their body UUID and stats; each account's movement
+samples drive the other player's collision-resolved body. Either player may
+use `/freakyfriday cancel` to restore both. The existing player-command
+context projection now binds with the real reciprocal-control session.
+
+Minecraft 26.2 and 26.3 real GameTests must physically move two different
+ServerPlayer bodies in opposite directions and verify their identities,
+command routing and simultaneous cancellation. Mock GameTests have **no
+connected graphical clients**; working camera, inventory/GUI, item use,
+combat, all addon commands and player↔mob reciprocal native AI behavior
+are **not** proven. The real player session is experimental, not an entire
+transfer of accounts or mob minds. No fake players are created as gameplay
+avatars, and no permanent player account properties change hands.

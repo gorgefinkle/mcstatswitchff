@@ -12,7 +12,7 @@ import subprocess
 import zipfile
 
 ROOT = Path(__file__).resolve().parent.parent
-TAG = "R0_15_5_PlayerMobPossessionP03"
+TAG = "R0_15_6_PlayerPlayerImmediateP05"
 SOURCE_PREFIXES = ("src/", "scripts/", "versions/", "gradle/", "docs/")
 SOURCE_FILES = {
     "build.gradle", "settings.gradle", "gradle.properties",
@@ -45,6 +45,8 @@ def main():
         "src/main/java/dev/freakyfriday/mind/PlayerMobPossession.java",
         "src/main/java/dev/freakyfriday/ClientPossession.java",
         "src/main/java/dev/freakyfriday/mind/PlayerMobGameTests.java",
+        "src/main/java/dev/freakyfriday/mind/PlayerPlayerExchange.java",
+        "src/main/java/dev/freakyfriday/mind/PlayerPlayerGameTests.java",
         "src/main/java/dev/freakyfriday/mind/CapturedIntentWireCodec.java",
         "src/main/java/dev/freakyfriday/mind/DetachedProbeGameTests.java",
         "scripts/test-native-worker-e2e.py",
@@ -71,8 +73,8 @@ def main():
         "The native AI worker is EXPERIMENTAL and the first stage observes native\n"
         "target/navigation decisions in a separate disposable NeoForge server.\n"
         "It is NOT yet generic world-effect interception or a complete mind swap.\n"
-        "Player command-body routing is experimental and only bound in GameTests;\n"
-        "two connected-player network control and named player lookup are not proven.\n"
+        "Player command-body routing is included in the P05 reciprocal player session;\n"
+        "real-client camera, combat, inventory and named-player lookup remain unproven.\n"
         "Do not run untrusted modded code in the same OS security domain as\n"
         "production worlds. See source/docs and scripted CI validation.\n"
     )
