@@ -7,6 +7,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.component.SwingAnimation;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.LivingEntity;
@@ -216,7 +217,7 @@ public final class NativeMindProxySessions {
                 || target.level()!=host.body.level()
                 || host.body.distanceToSqr(target)>16.0)return;
         if(host.body.getAttribute(Attributes.ATTACK_DAMAGE)==null) {
-            host.body.swing(InteractionHand.MAIN_HAND);
+            host.body.swing(InteractionHand.MAIN_HAND,SwingAnimation.DEFAULT);
         } else if(host.body.level() instanceof ServerLevel level) {
             host.body.doHurtTarget(level,target);
         }
