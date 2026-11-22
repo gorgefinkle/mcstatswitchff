@@ -84,7 +84,10 @@ public final class PlayerCommandRouteGameTests {
             helper.assertTrue(self != null
                     && self.executorBody().equals(sally.getUUID())
                     && self.targetBody().equals(sally.getUUID()),
-                "Unfamiliar @s selector did not resolve Sally's occupied body");
+                "Unfamiliar @s entity selector did not resolve Sally's occupied body"
+                    +" observed="+self
+                    +" expected="+sally.getUUID()
+                    +" executions="+UnseenAddonCommandFixture.executions());
 
             UnseenAddonCommandFixture.clear();
             server.getCommands().performPrefixedCommand(
