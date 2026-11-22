@@ -250,10 +250,13 @@ public final class PlayerMobGameTests {
 
         Mob chicken=EntityTypes.CHICKEN.create(level,EntitySpawnReason.COMMAND);
         Mob ocelot=EntityTypes.OCELOT.create(level,EntitySpawnReason.COMMAND);
-        Mob zombie=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
-        helper.assertTrue(chicken!=null && ocelot!=null && zombie!=null,
-            "Three real vanilla physical entity factories required");
-        Mob[] bodies={chicken,ocelot,zombie};
+        helper.assertTrue(chicken!=null && ocelot!=null,
+            "Native chicken/ocelot factories required");
+        // Delay Zombie creation until its actual test window: a no-AI
+        // entity still experiences gravity and would fall to its death
+        // before reaching the test at tick 42.
+        Mob[] bodies={chicken,ocelot};
+        Mob[] zombieBody={null};
         for (int i=0;i<bodies.length;i++) {
             BlockPos origin=helper.absolutePos(new BlockPos(2+2*i,12,2));
             bodies[i].setPos(origin.getX()+0.5,origin.getY(),origin.getZ()+0.5);
@@ -262,7 +265,8 @@ public final class PlayerMobGameTests {
                 "Native fall test could not register entity "+i);
         }
         double startY=chicken.getY();
-        float ocelotHealth=ocelot.getHealth(),zombieHealth=zombie.getHealth();
+        float ocelotHealth=ocelot.getHealth();
+        float[] zombieHealth={0.0f};
         String error=PlayerMobPossession.begin(player,chicken);
         helper.assertTrue(error==null,"Chicken fall session rejected: "+error);
         final double[] chickenDrop={0.0};
@@ -286,26 +290,39 @@ public final class PlayerMobGameTests {
             helper.assertTrue(Float.compare(ocelot.getHealth(),ocelotHealth)==0,
                 "Vanilla fall-immune ocelot took damage in possessed body");
             helper.assertTrue(PlayerMobPossession.end(player),"Cannot end ocelot session");
+            Mob zombie=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
+            helper.assertTrue(zombie!=null,"Native zombie factory failed");
+            BlockPos zombieOrigin=helper.absolutePos(new BlockPos(6,12,2));
+            zombie.setPos(zombieOrigin.getX()+0.5,zombieOrigin.getY(),
+                zombieOrigin.getZ()+0.5);
+            helper.assertTrue(level.addFreshEntity(zombie),"Zombie did not register");
+            zombieHealth[0]=zombie.getHealth();
+            zombieBody[0]=zombie;
             String next=PlayerMobPossession.begin(player,zombie);
             helper.assertTrue(next==null,"Zombie fall session rejected: "+next);
         });
         helper.runAfterDelay(55,()->{
+            Mob zombie=zombieBody[0];
+            helper.assertTrue(zombie!=null,"Zombie not constructed for fall test");
             double drop=startY-zombie.getY();
             helper.assertTrue(drop>chickenDrop[0]+1.2,
                 "Zombie acquired chicken glide: chicken="+chickenDrop[0]
                     +" zombie="+drop);
         });
         helper.runAfterDelay(75,()->{
+            Mob zombie=zombieBody[0];
+            helper.assertTrue(zombie!=null,"Missing zombie when checking landing");
             helper.assertTrue(zombie.onGround(),"Zombie did not land under normal gravity");
-            helper.assertTrue(zombie.getHealth()<zombieHealth,
+            helper.assertTrue(zombie.getHealth()<zombieHealth[0],
                 "Zombie failed to take vanilla fall damage; health="
-                    +zombie.getHealth()+" initial="+zombieHealth);
+                    +zombie.getHealth()+" initial="+zombieHealth[0]);
             helper.assertTrue(PlayerMobPossession.end(player),"Cannot end zombie session");
             System.out.println("FF-GAMEPLAY native_fall_profiles PASS"
                 +" chickenSlowDrop="+chickenDrop[0]
                 +" ocelotImmune=true zombieDamaged=true"
                 +" noCrossBodyGlide=true");
             for (Mob mob:bodies)mob.discard();
+            zombie.discard();
             helper.succeed();
         });
     }
