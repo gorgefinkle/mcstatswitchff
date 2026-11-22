@@ -220,6 +220,11 @@ public final class MindSwapSessions {
             message(p, "Hold the Freaky Friday book first.");
             return;
         }
+        if (target instanceof ServerPlayer) {
+            message(p, "Player mind transfer is not implemented in the R0.15.4 detached NPC-host test. "
+                + "Select two NPC mobs, or use /freakyfriday cancel to start over.");
+            return;
+        }
         if (!target.isAlive()) {
             message(p, "Only living, active bodies can be selected.");
             return;
