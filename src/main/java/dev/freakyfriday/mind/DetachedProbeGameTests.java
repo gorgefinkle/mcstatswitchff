@@ -792,7 +792,7 @@ public final class DetachedProbeGameTests {
         try {
             // Exactly the same selection procedure called from BookInteractions;
             // no mouse clicks or manual mob summons required.
-            MindSwapSessions.selectFromInteraction(player, donor);
+            MindSwapSessions.selectDiagnosticForTest(player, donor);
             helper.assertTrue(dispatcher.execute("freakyfriday inspect", source) == 1,
                 "Real inspect command was rejected");
             helper.assertTrue(dispatcher.execute("freakyfriday hostprobe", source) == 1,
@@ -800,11 +800,11 @@ public final class DetachedProbeGameTests {
             helper.assertTrue(dispatcher.execute("freakyfriday hostprobe40", source) == 1,
                 "Real hostprobe40 command was rejected");
 
-            MindSwapSessions.selectFromInteraction(player, recipient);
+            MindSwapSessions.selectDiagnosticForTest(player, recipient);
             helper.assertTrue(MindSwapSessions.diagnosticPairMatches(player.getUUID(),
                     donor.getUUID(), recipient.getUUID()),
                 "Book event selections did not lock Cow -> Zombie");
-            MindSwapSessions.selectFromInteraction(player, donor);
+            MindSwapSessions.selectDiagnosticForTest(player, donor);
             helper.assertTrue(MindSwapSessions.diagnosticPairMatches(player.getUUID(),
                     donor.getUUID(), recipient.getUUID()),
                 "Third book interaction silently replaced the locked pair");
@@ -839,7 +839,7 @@ public final class DetachedProbeGameTests {
                 helper.assertTrue(!MindSwapSessions.diagnosticPairMatches(player.getUUID(),
                         donor.getUUID(), recipient.getUUID()),
                     "Cancel left the locked diagnostic pair active");
-                MindSwapSessions.selectFromInteraction(player, donor);
+                MindSwapSessions.selectDiagnosticForTest(player, donor);
                 helper.assertTrue(!MindSwapSessions.diagnosticPairMatches(player.getUUID(),
                         donor.getUUID(), recipient.getUUID()),
                     "Cancel + same-tick reselect incorrectly recreated a locked pair");
