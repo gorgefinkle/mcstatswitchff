@@ -1,0 +1,10 @@
+{
+  "environment": "minecraft:default",
+  "structure": "freakyfriday:empty_arena",
+  "max_ticks": 100,
+  "setup_ticks": 0,
+  "required": true,
+  "manual_only": false,
+  "type": "minecraft:function",
+  "function": "freakyfriday:player_controls_chicken"
+}
