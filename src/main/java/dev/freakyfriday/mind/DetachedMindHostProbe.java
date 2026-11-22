@@ -41,6 +41,16 @@ public final class DetachedMindHostProbe {
             donor.position(), recipient.position(),
             donor.getHealth(), recipient.getHealth());
 
+        // Baselines must precede the untrusted native factory, not be
+        // captured after potential constructor side effects have occurred.
+        ProbeBodySnapshot donorBefore = ProbeBodySnapshot.take(donor);
+        ProbeBodySnapshot recipientBefore = ProbeBodySnapshot.take(recipient);
+        ProbeTelemetry.info(trace, "constructor_body_baseline",
+            "donorId=%s donorHealth=%.2f donorMax=%.2f donorPos=%s recipientId=%s recipientHealth=%.2f recipientMax=%.2f recipientPos=%s",
+            donorBefore.id(), donorBefore.health(), donorBefore.maxHealth(), donorBefore.position(),
+            recipientBefore.id(), recipientBefore.health(),
+            recipientBefore.maxHealth(), recipientBefore.position());
+
         // The registered EntityType factory, never spawn/finalizeSpawn or tick.
         final Entity created;
         try {
@@ -50,6 +60,15 @@ public final class DetachedMindHostProbe {
                 "Factory threw before a host was returned; original mob AI not executed");
             return new Creation(null, "Native donor factory failed: "
                 + error.getClass().getSimpleName() + " (trace " + trace + ")");
+        }
+        String donorFactoryChanges = donorBefore.changes(donor);
+        String recipientFactoryChanges = recipientBefore.changes(recipient);
+        if (!donorFactoryChanges.isEmpty() || !recipientFactoryChanges.isEmpty()) {
+            ProbeTelemetry.warn(trace, "constructor_body_mutation",
+                "Donor changes=[%s] Recipient changes=[%s] Host rejected. Side effects may already have occurred.",
+                donorFactoryChanges, recipientFactoryChanges);
+            return new Creation(null, "Host factory changed original donor/recipient body properties. "
+                + "Inspect constructor_body_mutation trace " + trace);
         }
         if (!(created instanceof Mob host)) {
             ProbeTelemetry.warn(trace, "constructor_reject",
@@ -95,6 +114,8 @@ public final class DetachedMindHostProbe {
 
         Mob host = candidate.host();
         ServerLevel level = (ServerLevel) recipient.level();
+        ProbeBodySnapshot donorBeforePosition = ProbeBodySnapshot.take(donor);
+        ProbeBodySnapshot recipientBeforePosition = ProbeBodySnapshot.take(recipient);
         final java.util.UUID originalRecipientId = recipient.getUUID();
         final String originalRecipientType = recipient.getType().toString();
         final float originalHealth = recipient.getHealth();
@@ -129,14 +150,22 @@ public final class DetachedMindHostProbe {
                 + " targetCountHost=" + host.targetSelector.getAvailableGoals().size()
                 + " brainActiveDonor=" + !donor.getBrain().isBrainDead()
                 + " brainActiveHost=" + !host.getBrain().isBrainDead();
-            if (!detached || !aligned || !originalIntact)
-                ProbeTelemetry.warn(trace, "one_shot_result", "%s", result);
+            String donorChanges = donorBeforePosition.changes(donor);
+            String recipientChanges = recipientBeforePosition.changes(recipient);
+            boolean noBodySideEffects = donorChanges.isEmpty() && recipientChanges.isEmpty();
+            if (!noBodySideEffects) {
+                ProbeTelemetry.warn(trace, "one_shot_body_mutation",
+                    "Donor changes=[%s] Recipient changes=[%s]", donorChanges, recipientChanges);
+            }
+            if (!detached || !aligned || !originalIntact || !noBodySideEffects)
+                ProbeTelemetry.warn(trace, "one_shot_result", "%s bodiesUnchanged=%s", result, noBodySideEffects);
             else
-                ProbeTelemetry.info(trace, "one_shot_result", "%s", result);
+                ProbeTelemetry.info(trace, "one_shot_result", "%s bodiesUnchanged=%s", result, noBodySideEffects);
             return "Dual-instance host feasibility (" + trace
                 + "): host NOT world-registered=" + detached
                 + "; host aligned=" + aligned
                 + "; recipient unchanged=" + originalIntact
+                + "; donor/recipient body snapshots unchanged=" + noBodySideEffects
                 + "; see latest.log [FF-PROBE] for detailed entity identities and AI counts."
                 + " Host AI never ticked; constructor effects are NOT sandboxed.";
         } catch (Exception | LinkageError error) {
