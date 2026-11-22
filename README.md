@@ -152,3 +152,31 @@ combat, all addon commands and player↔mob reciprocal native AI behavior
 are **not** proven. The real player session is experimental, not an entire
 transfer of accounts or mob minds. No fake players are created as gameplay
 avatars, and no permanent player account properties change hands.
+
+
+## P06 chicken fall, camera-input and death-return candidate
+
+User gameplay reported that the original player's head rotated while the
+possessed mob camera failed to turn. The P05 client sent the occupied entity's
+stale network yaw and pitch. P06 copies the local mouse-look rotation into the
+camera entity and sends those same angles as authenticated movement input.
+**This client-camera behavior must still be confirmed by a live connected
+client; headless GameTests do not render.**
+
+P05's no-AI possession applied identical gravity to every body. P06 re-adds
+the vanilla Chicken glide coefficient (0.6 on negative vertical motion).
+Ocelots **must not** glide but naturally remain fall-damage-immune under the
+vanilla entity-type tag. Normal zombies must descend at regular gravity and
+take normal fall damage. Required `native_fall_profiles` runs real falls
+for all three bodies in sequence; only the controlling mind moves.
+
+On death of a possessed mob, return its player to their original body.
+On death of either physical player in a player↔player exchange, immediately
+eject BOTH connected minds and clear both command-body routes. The other
+player always recovers their own body, with no consent prompt or fake avatar.
+Required server GameTests check both death cleanup paths.
+
+This is not a completed general-purpose native-movement or cross-species
+mind-swapping engine. In particular, a chicken's AI still does not drive a
+vacated player body, and full player item, combat and GUI forwarding need
+connected-client verification.

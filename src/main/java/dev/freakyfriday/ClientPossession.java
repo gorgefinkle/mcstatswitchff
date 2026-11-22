@@ -80,14 +80,25 @@ public final class ClientPossession {
             return;
         }
         if(mc.getCameraEntity()!=body)mc.setCameraEntity(body);
-        // Minecraft's mouse controller rotates the CAMERA entity. When
-        // following another player's body or a Mob, read THAT body's look
-        // rather than resetting it to the local account player's rotation.
+        // Vanilla mouse input rotates the authenticated LocalPlayer, not
+        // the server-selected remote entity. P05 mistakenly sent the remote
+        // entity's last network yaw back to the server, making the camera
+        // appear locked while the original player's head still turned.
+        // Project the LOCAL mouse look into the occupied body first, then
+        // send the same angles to the authoritative server. Do not use the
+        // remote body's stale yaw as the source of new mouse input.
         if(mc.gui.screen()!=null) return; // no gameplay input while typing/in menus
+        float lookYaw=mc.player.getYRot();
+        float lookPitch=mc.player.getXRot();
+        body.setYRot(lookYaw);
+        body.setXRot(lookPitch);
+        // Avoid interpolating back toward the preceding network frame.
+        body.yRotO=lookYaw;
+        body.xRotO=lookPitch;
         float forward=(mc.options.keyUp.isDown()?1:0)-(mc.options.keyDown.isDown()?1:0);
         float strafe=(mc.options.keyLeft.isDown()?1:0)-(mc.options.keyRight.isDown()?1:0);
         ClientPacketDistributor.sendToServer(new PossessionInputPayload(
             forward,strafe,mc.options.keyJump.isDown(),
-            body.getYRot(),body.getXRot(),++sequence));
+            lookYaw,lookPitch,++sequence));
     }
 }
