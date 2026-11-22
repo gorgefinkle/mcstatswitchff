@@ -186,7 +186,7 @@ def run_case(opts, donor, recipient, stimulus):
         )
         print("FF-NATIVE-WORKER TWO_PROCESS_CI PASS"
             " minecraft=" + opts.minecraft +
-            " donor="+donor+" recipient="+recipient
+            " donor="+donor+" recipient="+recipient+
             " nativeDonorActuallyMoved=true"
             " signedRelativeActionsMovedRealRecipient=true"
             " samePhysicalWorld=false noArbitraryModIsolationClaim=true")
