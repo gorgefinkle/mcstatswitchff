@@ -490,6 +490,127 @@ public final class DetachedProbeGameTests {
         helper.succeed();
     }
 
+    /**
+     * REAL NeoForge host/recipient intent-boundary proof. Two registered
+     * vanilla NPC bodies exchange only logical mind ownership. The controlling
+     * mind provides immutable DATA-ONLY intent frames, never Goal/Brain Java
+     * callbacks. Every accepted action goes through the recipient's existing
+     * native BodyPort; unsupported physical abilities stay unavailable.
+     *
+     * This proves the receiving boundary and species-independent body action
+     * dispatch, NOT isolation/execution of arbitrary native donor AI.
+     */
+    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>>
+        DATA_ONLY_INTENT_BOUNDARY = FUNCTIONS.register(
+            "data_only_intent_boundary", () -> DetachedProbeGameTests::testDataOnlyBoundary);
+
+    private static void testDataOnlyBoundary(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        Mob cow = EntityTypes.COW.create(level, EntitySpawnReason.COMMAND);
+        Mob zombie = EntityTypes.ZOMBIE.create(level, EntitySpawnReason.COMMAND);
+        helper.assertTrue(cow != null && zombie != null,
+            "Data-only intent boundary test requires real Cow and Zombie");
+        BlockPos p = helper.absolutePos(new BlockPos(1, 1, 1));
+        cow.setPos(p.getX() + 0.5, p.getY(), p.getZ() + 0.5);
+        zombie.setPos(p.getX() + 3.5, p.getY(), p.getZ() + 0.5);
+        cow.setNoAi(true);
+        zombie.setNoAi(true);
+        cow.setNoGravity(true);
+        zombie.setNoGravity(true);
+        helper.assertTrue(level.addFreshEntity(cow) && level.addFreshEntity(zombie),
+            "Actual Cow/Zombie physical bodies must be registered");
+
+        try {
+            var cowId = cow.getUUID();
+            var zombieId = zombie.getUUID();
+            float cowHealth = cow.getHealth(), zombieHealth = zombie.getHealth();
+            var cowMind = new MindLedger.Mind(java.util.UUID.randomUUID(),
+                MindLedger.Kind.NPC, "minecraft:cow_native_profile_not_executed");
+            var zombieMind = new MindLedger.Mind(java.util.UUID.randomUUID(),
+                MindLedger.Kind.NPC, "minecraft:zombie_native_profile_not_executed");
+            var receiver = new CapturedIntentBridge();
+            receiver.register(new MinecraftBodyPort(cow), cowMind);
+            receiver.register(new MinecraftBodyPort(zombie), zombieMind);
+            receiver.exchange(cowId, zombieId);
+
+            long now = level.getGameTime();
+            var oldOwnerFrame = new CapturedIntentBridge.Frame(cowId,
+                cowMind.identity(), now,
+                List.of(new BodyActionGate.Intent(MinecraftBodyPort.LOOK_AT,
+                    java.util.Map.of("x", Double.toString(zombie.getX()),
+                        "y", Double.toString(zombie.getY()),
+                        "z", Double.toString(zombie.getZ())))));
+            var denied = receiver.deliver(oldOwnerFrame);
+            helper.assertTrue(denied.status() ==
+                    CapturedIntentBridge.Status.WRONG_CONTROLLER
+                    && denied.outcomes().isEmpty(),
+                "Original mind must not control Cow after logical ownership swap");
+
+            var frame = new CapturedIntentBridge.Frame(cowId,
+                zombieMind.identity(), now,
+                List.of(
+                    new BodyActionGate.Intent(MinecraftBodyPort.LOOK_AT,
+                        java.util.Map.of("x", Double.toString(zombie.getX()),
+                            "y", Double.toString(zombie.getY()),
+                            "z", Double.toString(zombie.getZ()))),
+                    new BodyActionGate.Intent(MinecraftBodyPort.DETONATE)
+                ));
+            var result = receiver.deliver(frame);
+            helper.assertTrue(result.status() == CapturedIntentBridge.Status.DISPATCHED
+                    && result.outcomes().size() == 2,
+                "Real physical Cow rejected a valid swapped, data-only action frame");
+            helper.assertTrue(result.outcomes().get(0).status()
+                    == BodyActionGate.Status.EXECUTED,
+                "Recipient Cow did not execute its own native look control");
+            helper.assertTrue(result.outcomes().get(1).status()
+                    == BodyActionGate.Status.UNAVAILABLE,
+                "Cow body inherited unavailable explosive anatomy");
+            helper.assertTrue(receiver.deliver(frame).status()
+                    == CapturedIntentBridge.Status.DUPLICATE_OR_STALE_TICK,
+                "Replay frame was not blocked after a successful physical dispatch");
+
+            var reverse = new CapturedIntentBridge.Frame(zombieId,
+                cowMind.identity(), now,
+                List.of(new BodyActionGate.Intent(MinecraftBodyPort.LOOK_AT,
+                    java.util.Map.of("x", Double.toString(cow.getX()),
+                        "y", Double.toString(cow.getY()),
+                        "z", Double.toString(cow.getZ())))));
+            var reverseResult = receiver.deliver(reverse);
+            helper.assertTrue(reverseResult.status() == CapturedIntentBridge.Status.DISPATCHED
+                    && reverseResult.outcomes().get(0).status()
+                        == BodyActionGate.Status.EXECUTED,
+                "Cow mind data frame did not route to Zombie's native body");
+            helper.assertTrue(cow.getUUID().equals(cowId)
+                    && zombie.getUUID().equals(zombieId)
+                    && level.getEntity(cowId) == cow && level.getEntity(zombieId) == zombie
+                    && Float.compare(cow.getHealth(),cowHealth) == 0
+                    && Float.compare(zombie.getHealth(),zombieHealth) == 0,
+                "Data-only frame exchange modified real entity identity or health");
+
+            receiver.exchange(cowId, zombieId);
+            helper.assertTrue(receiver.controlling(cowId).equals(cowMind)
+                    && receiver.controlling(zombieId).equals(zombieMind),
+                "Reverse exchange did not restore exact complete mind identities");
+            helper.assertTrue(receiver.deliver(
+                new CapturedIntentBridge.Frame(cowId, cowMind.identity(), now,
+                    List.of())).status() == CapturedIntentBridge.Status.DUPLICATE_OR_STALE_TICK,
+                "Reversing controllers allowed same-tick action replay");
+
+            System.out.println("FF-ISOLATION data_only_exchange PASS"
+                + " realWorld=true pairedBodies=cow,zombie"
+                + " recipientNativeLook=true unavailableAnatomyBlocked=true"
+                + " wrongMindRejected=true replayRejected=true"
+                + " bothBodyIdentitiesPreserved=true"
+                + " nativeDonorAiTicked=false noArbitraryDecisionCallback=true");
+            helper.succeed();
+        } catch (Exception failure) {
+            throw new AssertionError("Data-only real-server mind assignment rejected",failure);
+        } finally {
+            cow.discard();
+            zombie.discard();
+        }
+    }
+
     /** Real command lifecycle through Brigadier, live mobs and 40 physical ticks. */
     public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>>
         FULL_COMMAND_WORKFLOW = FUNCTIONS.register(
