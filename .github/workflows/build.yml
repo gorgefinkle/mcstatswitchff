@@ -77,6 +77,10 @@ jobs:
           grep -Fq 'FF-COMMANDTEST full_workflow PASS' gametest.log
           grep -Fq 'FF-COMMANDTEST mirror40_completion PASS' gametest.log
           grep -Fq 'FF-COMMANDTEST cancel_reselect PASS' gametest.log
+          grep -Fq 'FF-WORLDTEST moving_body_collision PASS' gametest.log
+          grep -Fq 'FF-WORLDTEST 40tick_cleanup PASS' gametest.log
+          grep -Fq 'FF-WORLDTEST original_entities_and_blocks PASS' gametest.log
+          grep -Fq 'FF-WORLDTEST all PASS' gametest.log
       - name: Upload GameTest output
         if: always()
         uses: actions/upload-artifact@v4
