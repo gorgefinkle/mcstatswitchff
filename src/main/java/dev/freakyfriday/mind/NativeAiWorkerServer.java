@@ -38,10 +38,11 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
  * layer is still needed to restrict arbitrary modded Java filesystem/network
  * effects: a separate JVM alone is not a comprehensive security sandbox.
  *
- * The first bounded observation captures naturally produced native navigation
- * movement from either hostile or passive donors. It does NOT capture all native powers, inventory changes, attacks,
- * projectiles, or modded side effects. Unknown/unsupported behavior fails
- * closed instead of being replaced with scripted per-mob rules.
+ * The bounded observer captures naturally produced native navigation and,
+ * when it actually occurs, a direct melee hit at Minecraft's damage event
+ * boundary. It does NOT capture all native powers, ranged/projectile attacks,
+ * inventory changes, blocks, or modded side effects. Unknown behavior is not
+ * replaced with scripted per-mob rules.
  */
 public final class NativeAiWorkerServer {
     private NativeAiWorkerServer() {}
