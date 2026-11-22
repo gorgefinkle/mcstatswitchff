@@ -39,6 +39,76 @@ public final class DetachedProbeGameTests {
         new Pair("zombie_to_villager", EntityTypes.ZOMBIE, EntityTypes.VILLAGER)
     );
 
+    /**
+     * Intentionally isolated from the ordinary six-pair matrix. The dragon
+     * has multipart anatomy and boss-specific initialization, so failures
+     * here must be attributed to this pairing, not to ordinary Mob hosts.
+     * This is a construction/position diagnostic, NOT a controller swap.
+     */
+    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>>
+        DETACHED_DRAGON_CHICKEN = FUNCTIONS.register(
+            "detached_dragon_chicken", () -> DetachedProbeGameTests::testDragonChicken);
+
+    private static void testDragonChicken(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        Pair[] pairs = {
+            new Pair("ender_dragon_to_chicken", EntityTypes.ENDER_DRAGON, EntityTypes.CHICKEN),
+            new Pair("chicken_to_ender_dragon", EntityTypes.CHICKEN, EntityTypes.ENDER_DRAGON)
+        };
+        for (int index = 0; index < pairs.length; index++) {
+            Pair pair = pairs[index];
+            String label = pair.label();
+            // Run in disposable, isolated headless GameTest world. Never
+            // execute the detached host's native AI.
+            Mob donor = pair.donorType().create(level, EntitySpawnReason.COMMAND);
+            Mob recipient = pair.recipientType().create(level, EntitySpawnReason.COMMAND);
+            helper.assertTrue(donor != null && recipient != null,
+                label + ": factory did not produce two Mob instances");
+            BlockPos pos = helper.absolutePos(new BlockPos(1, 1, 1 + index * 3));
+            donor.setPos(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5);
+            recipient.setPos(pos.getX() + 2.5, pos.getY(), pos.getZ() + 0.5);
+            helper.assertTrue(level.addFreshEntity(donor) && level.addFreshEntity(recipient),
+                label + ": original donor/recipient couldn't register");
+            ProbeBodySnapshot donorBefore = ProbeBodySnapshot.take(donor);
+            ProbeBodySnapshot bodyBefore = ProbeBodySnapshot.take(recipient);
+
+            DetachedMindHostProbe.Creation created =
+                DetachedMindHostProbe.construct(donor, recipient,
+                    "real-neoforge-gametest-" + label);
+            helper.assertTrue(created.host() != null,
+                label + ": host creation rejected: " + created.problem());
+            Mob host = created.host();
+            helper.assertTrue(host != donor && host != recipient,
+                label + ": host aliases an existing mob");
+            helper.assertTrue(host.getType() == donor.getType()
+                    && host.getClass() == donor.getClass(),
+                label + ": detached host class/type don't match donor");
+            helper.assertTrue(level.getEntity(host.getUUID()) == null,
+                label + ": host world-registered before mirroring");
+            helper.assertTrue(donorBefore.unchanged(donor) && bodyBefore.unchanged(recipient),
+                label + ": native constructor mutated an original body");
+
+            host.setPos(recipient.getX(), recipient.getY(), recipient.getZ());
+            helper.assertTrue(host.position().distanceToSqr(recipient.position()) < 0.000001,
+                label + ": host positioning mismatch");
+            helper.assertTrue(level.getEntity(host.getUUID()) == null,
+                label + ": host world-registered after setPos");
+            helper.assertTrue(donorBefore.unchanged(donor) && bodyBefore.unchanged(recipient),
+                label + ": host setPos mutated original bodies");
+            System.out.println("FF-GAMETEST pair " + label + " PASS"
+                + " donorHealth=" + donor.getHealth()
+                + " recipientHealth=" + recipient.getHealth()
+                + " hostType=" + host.getType()
+                + " recipientType=" + recipient.getType()
+                + " hostClass=" + host.getClass().getName()
+                + " hostRegistered=false hostAiTicked=false actualMindSwapped=false");
+            donor.discard();
+            recipient.discard();
+        }
+        System.out.println("FF-GAMETEST detached_dragon_chicken PASS");
+        helper.succeed();
+    }
+
     private static void testCrossSpecies(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         int index = 0;
