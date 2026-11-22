@@ -2,6 +2,7 @@ package dev.freakyfriday.mind;
 
 import dev.freakyfriday.PossessionNetwork;
 import dev.freakyfriday.PossessionViewPayload;
+import dev.freakyfriday.PossessionStatePayload;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -32,14 +33,19 @@ public final class PlayerMobPossession {
         final ServerPlayer player;
         final Mob body;
         final Vec3 anchor;
+        final float originalYaw,originalPitch;
         final boolean originalNoAi;
         final boolean originalNoGravity;
         Input input = new Input(0,0,false,0,0,0);
         long lastInputTick;
+        long lastAttackTick=Long.MIN_VALUE/4;
+        long lastAttackSequence;
         Session(ServerPlayer player, Mob body) {
             this.player = player;
             this.body = body;
             this.anchor = player.position();
+            this.originalYaw=player.getYRot();
+            this.originalPitch=player.getXRot();
             this.originalNoAi = body.isNoAi();
             this.originalNoGravity = body.isNoGravity();
             this.lastInputTick = player.level().getGameTime();
@@ -119,6 +125,29 @@ public final class PlayerMobPossession {
         session.lastInputTick=connected.level().getGameTime();
     }
 
+    /**
+     * Attack intent is authenticated to the controlling connection; the
+     * physical Mob is the attacker, not the abandoned ServerPlayer body.
+     * Vanilla self-attack packets must be canceled on the client.
+     */
+    public static synchronized void attack(ServerPlayer sender,int candidateId,long sequence) {
+        Session session=ACTIVE.get(sender.getUUID());
+        if(session==null||session.player!=sender||sequence<=session.lastAttackSequence)return;
+        session.lastAttackSequence=sequence;
+        Mob body=session.body;
+        if(!sender.isAlive()||!body.isAlive()
+            ||!(body.level() instanceof net.minecraft.server.level.ServerLevel level))return;
+        long now=level.getGameTime();
+        if(now-session.lastAttackTick<10)return;
+        body.setYRot(session.input.yaw());
+        body.setXRot(session.input.pitch());
+        net.minecraft.world.entity.Entity victim=
+            PossessionCombat.findValidMeleeTarget(level,body,candidateId);
+        if(victim==null)return;
+        session.lastAttackTick=now;
+        body.doHurtTarget(level,victim);
+    }
+
     public static synchronized boolean end(ServerPlayer player) {
         return end(player.getUUID(),true);
     }
@@ -160,6 +189,7 @@ public final class PlayerMobPossession {
         Session session=ACTIVE.remove(account);
         if (session==null) return false;
         BODY_OWNERS.remove(session.body.getUUID(),account);
+        MindSwapSessions.clearSelectionAfterReturn(account);
         if (!session.body.isRemoved()) {
             session.body.getNavigation().stop();
             session.body.setDeltaMovement(Vec3.ZERO);
@@ -190,6 +220,7 @@ public final class PlayerMobPossession {
                 // another mod suppresses the ordinary LivingDeathEvent.
                 it.remove();
                 BODY_OWNERS.remove(body.getUUID());
+                MindSwapSessions.clearSelectionAfterReturn(player.getUUID());
                 if (!body.isRemoved()) {
                     body.setNoAi(s.originalNoAi);
                     body.setNoGravity(s.originalNoGravity);
@@ -211,47 +242,18 @@ public final class PlayerMobPossession {
 
             Input in=(player.level().getGameTime()-s.lastInputTick <= 8)
                 ? s.input:new Input(0,0,false,s.input.yaw(),s.input.pitch(),s.input.sequence());
-            double forward=in.forward(), strafe=in.strafe();
-            double magnitude=Math.sqrt(forward*forward+strafe*strafe);
-            if (magnitude>1) { forward/=magnitude; strafe/=magnitude; }
-            double angle=Math.toRadians(in.yaw());
-            // A mind does not supply its own legs. The possessed Mob's
-            // native movement-speed attribute (including modifiers and
-            // effects) determines its physical ground locomotion. The former
-            // fixed 0.19 block/tick made a slow body and a fast body identical.
-            // 0.76 converts vanilla attribute speed to the direct collision-
-            // resolved displacement used by this first possession backend.
-            // Cap only implausibly large per-tick displacements so a modded
-            // attribute cannot tunnel through blocks in one server tick.
-            double nativeSpeed=body.getAttributeValue(
-                net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED);
-            double travel=Double.isFinite(nativeSpeed)
-                ? Math.max(0.0,Math.min(0.45,nativeSpeed*0.76))
-                : 0.0;
-            double dx=(-Math.sin(angle)*forward + Math.cos(angle)*strafe)*travel;
-            double dz=( Math.cos(angle)*forward + Math.sin(angle)*strafe)*travel;
-            Vec3 vel=body.getDeltaMovement();
-            // NoAI prevents native Mob.travel from applying the physical
-            // body's ordinary motion, so we must integrate collision-safe
-            // vertical motion while preserving native species mechanics.
-            // Vanilla chickens flap during aiStep, multiplying their
-            // negative Y velocity by 0.6. NoAI suppresses that behavior and
-            // P05's hardcoded gravity made a chicken fall like a zombie.
-            // Restore ONLY the chicken's native glide; a fall-damage-immune
-            // ocelot is NOT a glider and keeps ordinary gravity. The normal
-            // Minecraft entity-type immunity tag still owns fall damage.
-            double dy = (in.jump() && body.onGround())
-                ? 0.40
-                : (body.onGround() || body.isNoGravity())
-                    ? 0.0
-                    : Math.max(-0.58,vel.y-0.08);
-            if (dy<0.0 && body.getType()==net.minecraft.world.entity.EntityTypes.CHICKEN)
-                dy*=0.6;
-            body.setYRot(in.yaw());
-            body.setXRot(in.pitch());
-            body.setYHeadRot(in.yaw());
-            body.move(net.minecraft.world.entity.MoverType.SELF,new Vec3(dx,dy,dz));
-            body.setDeltaMovement(new Vec3(0,body.onGround()?0:dy*0.98,0));
+            player.setYRot(s.originalYaw);
+            player.setXRot(s.originalPitch);
+            player.setYHeadRot(s.originalYaw);
+            PossessionMotion.step(body,in.forward(),in.strafe(),in.jump(),
+                in.yaw(),in.pitch());
+            if ((player.level().getGameTime()&1L)==0
+                    && !Boolean.getBoolean("freakyfriday.thirdPartyFixture")) {
+                net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(
+                    player,new PossessionStatePayload(body.getId(),in.sequence(),
+                        body.getX(),body.getY(),body.getZ(),
+                        body.getYRot(),body.getXRot(),body.getDeltaMovement().y));
+            }
         }
     }
 }
