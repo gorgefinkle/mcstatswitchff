@@ -21,6 +21,8 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.level.block.Blocks;
 import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.neoforge.common.world.chunk.RegisterTicketControllersEvent;
+import net.neoforged.neoforge.common.world.chunk.TicketController;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
@@ -46,6 +48,19 @@ public final class NativeAiWorkerServer {
     private static final String WORKER_PROP = "freakyfriday.aiWorker";
     private static final Path REQUEST = Path.of("ff-worker-request.properties");
     private static final Path OUTPUT = Path.of("ff-worker-frame.bin");
+
+    // NeoForge's UUID owner ticking ticket explicitly enables full entity
+    // ticks in a playerless worker dimension. Vanilla setChunkForced alone
+    // left Chicken AI at ~75 ticks after 400 worker-server ticks.
+    private static final TicketController ARENA_TICKETS = new TicketController(
+        Identifier.fromNamespaceAndPath("freakyfriday","native_worker_arena"));
+    private static final UUID ARENA_OWNER = UUID.nameUUIDFromBytes(
+        "freakyfriday-native-worker".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+    /** Registered on NeoForge's MOD event bus during mod construction. */
+    public static void registerChunkTickets(RegisterTicketControllersEvent event) {
+        event.register(ARENA_TICKETS);
+    }
 
     private static State active;
     private static boolean started;
@@ -138,7 +153,11 @@ public final class NativeAiWorkerServer {
             // every chunk containing arena ground, not only the spawn chunk.
             // This is a generic Minecraft simulation ticket, NOT a Mob patch.
             for (int cx=-1;cx<=0;cx++) for (int cz=-1;cz<=0;cz++) {
-                level.setChunkForced(cx,cz,true);
+                boolean ticketAdded=ARENA_TICKETS.forceChunk(
+                    level,ARENA_OWNER,cx,cz,true,true);
+                if(!ticketAdded)
+                    throw new IllegalStateException(
+                        "Full entity-ticking ticket not installed for "+cx+","+cz);
                 level.getChunk(cx,cz);
             }
             for(int x=-12;x<=12;x++) for(int z=-12;z<=12;z++) {
@@ -282,6 +301,10 @@ public final class NativeAiWorkerServer {
 
     @SubscribeEvent
     public static void onStop(ServerStoppedEvent event) {
+        if (active!=null) {
+            for (int cx=-1;cx<=0;cx++) for (int cz=-1;cz<=0;cz++)
+                ARENA_TICKETS.forceChunk(active.level,ARENA_OWNER,cx,cz,false,true);
+        }
         active=null;
         started=false;
     }
