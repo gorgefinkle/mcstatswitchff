@@ -22,7 +22,7 @@ import net.minecraft.world.entity.LivingEntity;
 public final class MindSwapSessions {
     private MindSwapSessions() {}
 
-    private record Pending(UUID firstBody, String dimension, long startedNanos) {}
+    private record Pending(UUID firstBody, String dimension, long startedTick) {}
     /** Last selected two-body candidate is a diagnostic, NOT a committed swap. */
     private record Pair(UUID donorBody, UUID recipientBody, String dimension, long createdNanos) {}
     private static final Map<UUID, Pair> PAIRS = new ConcurrentHashMap<>();
@@ -30,6 +30,7 @@ public final class MindSwapSessions {
     private static final Map<UUID, Pending> PENDING = new ConcurrentHashMap<>();
     private static final Map<UUID, Stamp> LAST_INTERACTION = new ConcurrentHashMap<>();
     private static final long TIMEOUT_NANOS = 120_000_000_000L;
+    public static final long SELECTION_TIMEOUT_TICKS = 160L; // 8 seconds
 
     private static boolean hasBook(ServerPlayer p) {
         return p.getMainHandItem().is(FreakyFriday.BOOK.get())
@@ -46,7 +47,8 @@ public final class MindSwapSessions {
     private static Pending current(ServerPlayer p) {
         Pending pending = PENDING.get(p.getUUID());
         if (pending != null && (!pending.dimension.equals(p.level().dimension().identifier().toString())
-                || System.nanoTime() - pending.startedNanos > TIMEOUT_NANOS)) {
+                || p.level().getGameTime() < pending.startedTick()
+                || p.level().getGameTime()-pending.startedTick() > SELECTION_TIMEOUT_TICKS)) {
             PENDING.remove(p.getUUID());
             return null;
         }
@@ -80,6 +82,12 @@ public final class MindSwapSessions {
             ? "Reciprocal player-body control ended for both accounts."
             : returned ? "Returned to your player body; mob AI restored."
             : "Mind swap selection cancelled.");
+    }
+
+    static void clearSelectionAfterReturn(UUID account) {
+        PENDING.remove(account);
+        PAIRS.remove(account);
+        LAST_INTERACTION.remove(account);
     }
 
     /** No static selection state may leak into a newly launched server. */
@@ -259,9 +267,9 @@ public final class MindSwapSessions {
         if (pending==null) {
             PENDING.put(p.getUUID(),new Pending(
                 target.getUUID(),p.level().dimension().identifier().toString(),
-                System.nanoTime()));
+                p.level().getGameTime()));
             message(p,"First body: "+target.getDisplayName().getString()
-                +". Choose the second body.");
+                +". Choose the second body within 8 seconds; no swap until both are selected.");
             return;
         }
         Entity entity=p.level().getEntity(pending.firstBody());
