@@ -385,8 +385,10 @@ public final class MindSwapSessions {
         Pending pending = current(p);
         if (pending == null) {
             PAIRS.remove(p.getUUID());
+            // The shared Pending/current() expiry clock is world game ticks.
+            // Mixing System.nanoTime here invalidates the diagnostic pair.
             PENDING.put(p.getUUID(), new Pending(target.getUUID(),
-                p.level().dimension().identifier().toString(), System.nanoTime()));
+                p.level().dimension().identifier().toString(), p.level().getGameTime()));
             message(p, "First body: " + target.getDisplayName().getString()
                 + ". Choose the SECOND body for dual-instance host testing. No mind swap yet.");
             return;
