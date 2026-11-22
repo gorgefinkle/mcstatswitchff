@@ -100,7 +100,8 @@ public final class PlayerMobPossession {
         body.setNoAi(true);
         // No artificial flight granted by possession. Leave the native
         // body's original gravity/physics and collision in charge.
-        sendCamera(player,new PossessionViewPayload(body.getId(),true));
+        sendCamera(player,new PossessionViewPayload(body.getId(),true,
+            session.anchor.x,session.anchor.y,session.anchor.z));
         return null;
     }
 
@@ -140,7 +141,7 @@ public final class PlayerMobPossession {
             session.body.setNoGravity(session.originalNoGravity);
         }
         if (notifyClient && !session.player.isRemoved())
-            sendCamera(session.player,new PossessionViewPayload(-1,false));
+            sendCamera(session.player,new PossessionViewPayload(-1,false,0,0,0));
         return true;
     }
 
@@ -165,7 +166,7 @@ public final class PlayerMobPossession {
                     body.setNoGravity(s.originalNoGravity);
                 }
                 if (!player.isRemoved())
-                    sendCamera(player,new PossessionViewPayload(-1,false));
+                    sendCamera(player,new PossessionViewPayload(-1,false,0,0,0));
                 continue;
             }
             // Original player's actual body remains in place; do not transfer
