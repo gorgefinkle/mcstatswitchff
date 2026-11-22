@@ -185,13 +185,21 @@ public final class PlayerMobPossession {
             double dx=(-Math.sin(angle)*forward + Math.cos(angle)*strafe)*0.19;
             double dz=( Math.cos(angle)*forward + Math.sin(angle)*strafe)*0.19;
             Vec3 vel=body.getDeltaMovement();
-            // Maintain Y velocity/gravity from the physical body's vanilla
-            // physics. Jump only when grounded.
-            double dy=in.jump() && body.onGround()?0.40:vel.y;
+            // NoAI mobs do not integrate the input velocity themselves.
+            // Entity.move is Minecraft's actual collision resolver; unlike
+            // setPos/teleport it cannot walk through a real stone wall.
+            // Keep gravity vertical (unless the physical mob disables it),
+            // and jump only from ground contact.
+            double dy = (in.jump() && body.onGround())
+                ? 0.40
+                : (body.onGround() || body.isNoGravity())
+                    ? 0.0
+                    : Math.max(-0.58,vel.y-0.08);
             body.setYRot(in.yaw());
             body.setXRot(in.pitch());
             body.setYHeadRot(in.yaw());
-            body.setDeltaMovement(new Vec3(dx,dy,dz));
+            body.move(net.minecraft.world.entity.MoverType.SELF,new Vec3(dx,dy,dz));
+            body.setDeltaMovement(new Vec3(0,body.onGround()?0:dy*0.98,0));
         }
     }
 }
