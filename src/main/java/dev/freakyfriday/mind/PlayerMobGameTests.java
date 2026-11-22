@@ -173,44 +173,44 @@ public final class PlayerMobGameTests {
                 helper.runAfterDelay(tick,()->PlayerMobPossession.input(player,
                     new PlayerMobPossession.Input(1,0,false,0,0,sequence)));
             }
+            final double[] slow={Double.NaN};
             helper.runAfterDelay(10,()->{
-                double slowDistance=chicken.getZ()-startZ;
-                helper.assertTrue(slowDistance>0.10 && slowDistance<1.1,
-                    "Slow native speed failed: distance="+slowDistance);
+                slow[0]=chicken.getZ()-startZ;
+                helper.assertTrue(slow[0]>0.10 && slow[0]<1.1,
+                    "Slow native speed failed: distance="+slow[0]);
                 speed.setBaseValue(0.40);
-                // Observe the changed native attribute on the same physical
-                // body, with no new possession session or entity replacement.
-                for(int tick=11;tick<=23;tick++) {
-                    final int sequence=tick;
-                    helper.runAfterDelay(tick-10,()->PlayerMobPossession.input(player,
-                        new PlayerMobPossession.Input(1,0,false,0,0,sequence)));
-                }
-                helper.runAfterDelay(15,()->{
-                    double total=chicken.getZ()-startZ;
-                    double fastDistance=total-slowDistance;
-                    // The chicken's width must not enter the solid wall.
-                    double wallFront=helper.absolutePos(new BlockPos(3,1,5)).getZ();
-                    helper.assertTrue(fastDistance>slowDistance+0.30,
-                        "Native movement attribute did not increase travel: slow="
-                            +slowDistance+" fast="+fastDistance);
-                    helper.assertTrue(chicken.getBoundingBox().maxZ<=wallFront+0.0001,
-                        "Chicken passed through a solid vanilla block wall: box="
-                            +chicken.getBoundingBox()+" wallZ="+wallFront);
-                    helper.assertTrue(level.getEntity(bodyId)==chicken
-                            && Float.compare(health,chicken.getHealth())==0,
-                        "Native-speed test replaced/damaged physical chicken");
-                    helper.assertTrue(PlayerMobPossession.end(player),
-                        "Native-speed test cannot cancel active possession");
-                    helper.assertTrue(!chicken.isNoAi()
-                            && !PlayerMobPossession.hasSession(owner),
-                        "Native-speed cancel failed to restore AI and ownership");
-                    System.out.println("FF-GAMEPLAY native_body_speed PASS"
-                        +" slow="+slowDistance+" accelerated="+fastDistance);
-                    System.out.println("FF-GAMEPLAY solid_wall_collision PASS"
-                        +" maxZ="+chicken.getBoundingBox().maxZ+" wallZ="+wallFront);
-                    helper.succeed();
-                    chicken.discard();
-                });
+            });
+            for(int tick=11;tick<=23;tick++) {
+                final int sequence=tick;
+                helper.runAfterDelay(tick,()->PlayerMobPossession.input(player,
+                    new PlayerMobPossession.Input(1,0,false,0,0,sequence)));
+            }
+            helper.runAfterDelay(25,()->{
+                double total=chicken.getZ()-startZ;
+                double fastDistance=total-slow[0];
+                // The chicken's width must not enter the solid wall.
+                double wallFront=helper.absolutePos(new BlockPos(3,1,5)).getZ();
+                helper.assertTrue(Double.isFinite(slow[0])
+                        && fastDistance>slow[0]+0.30,
+                    "Native movement attribute did not increase travel: slow="
+                        +slow[0]+" fast="+fastDistance);
+                helper.assertTrue(chicken.getBoundingBox().maxZ<=wallFront+0.0001,
+                    "Chicken passed through a solid vanilla block wall: box="
+                        +chicken.getBoundingBox()+" wallZ="+wallFront);
+                helper.assertTrue(level.getEntity(bodyId)==chicken
+                        && Float.compare(health,chicken.getHealth())==0,
+                    "Native-speed test replaced/damaged physical chicken");
+                helper.assertTrue(PlayerMobPossession.end(player),
+                    "Native-speed test cannot cancel active possession");
+                helper.assertTrue(!chicken.isNoAi()
+                        && !PlayerMobPossession.hasSession(owner),
+                    "Native-speed cancel failed to restore AI and ownership");
+                System.out.println("FF-GAMEPLAY native_body_speed PASS"
+                    +" slow="+slow[0]+" accelerated="+fastDistance);
+                System.out.println("FF-GAMEPLAY solid_wall_collision PASS"
+                    +" maxZ="+chicken.getBoundingBox().maxZ+" wallZ="+wallFront);
+                helper.succeed();
+                chicken.discard();
             });
         } catch (RuntimeException failure) {
             PlayerMobPossession.clearOnLogout(owner);
