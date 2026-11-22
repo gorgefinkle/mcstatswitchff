@@ -529,10 +529,12 @@ public final class PlayerMobGameTests {
         helper.assertTrue(level.addFreshEntity(zombie),"Zombie not registered");
         player.gameMode.changeGameModeForPlayer(
             net.minecraft.world.level.GameType.SURVIVAL);
-        // GameTest mock players may start with creative-style immunity; this
-        // test explicitly uses ordinary survival health and server damage.
-        helper.assertTrue(!player.getAbilities().invulnerable,
-            "Attack test requires a damageable Survival player");
+        // Test harness players may carry both creative abilities and the
+        // Entity INVULNERABLE flag separately. Clear both explicitly.
+        player.setInvulnerable(false);
+        helper.assertTrue(!player.getAbilities().invulnerable
+                && !player.isInvulnerable(),
+            "Attack test requires a genuinely damageable Survival player");
         String issue=PlayerMobPossession.begin(player,zombie);
         helper.assertTrue(issue==null,"Zombie possession rejected: "+issue);
         float initial=player.getHealth();
@@ -547,7 +549,13 @@ public final class PlayerMobGameTests {
                   +" sight="+zombie.hasLineOfSight(player));
             PlayerMobPossession.attack(player,player.getId(),1);
             helper.assertTrue(player.getHealth()<initial,
-                "Zombie's physical body did not damage the original player");
+                "Zombie physical attack caused no damage to mock player"
+                +" id="+player.getId()+" registered="+(level.getEntity(player.getId())==player)
+                +" creative="+player.isCreative()+" spectator="+player.isSpectator()
+                +" invulnerable="+player.isInvulnerable()
+                +" zombieAttack="+zombie.getAttributeValue(
+                    net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE)
+                +" health="+player.getHealth());
             float damaged=player.getHealth();
             PlayerMobPossession.attack(player,player.getId(),1);
             PlayerMobPossession.attack(player,zombie.getId(),2);
