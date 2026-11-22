@@ -529,9 +529,9 @@ public final class PlayerMobGameTests {
         helper.assertTrue(level.addFreshEntity(zombie),"Zombie not registered");
         player.gameMode.changeGameModeForPlayer(
             net.minecraft.world.level.GameType.SURVIVAL);
-        // Test harness players may carry both creative abilities and the
-        // Entity INVULNERABLE flag separately. Clear both explicitly.
-        player.setInvulnerable(false);
+        // Survival gamemode clears creative abilities. The separate
+        // entity-level immunity is asserted below rather than mutated via
+        // an API that is unavailable in Minecraft 26.3.
         helper.assertTrue(!player.getAbilities().invulnerable
                 && !player.isInvulnerable(),
             "Attack test requires a genuinely damageable Survival player");
