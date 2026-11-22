@@ -6,7 +6,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntitySpawnReason;
-import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.Mob;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -28,8 +28,8 @@ public final class DetachedProbeGameTests {
 
     private static void testCrossSpecies(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
-        Mob donor = EntityType.ZOMBIE.create(level, EntitySpawnReason.COMMAND);
-        Mob body = EntityType.COW.create(level, EntitySpawnReason.COMMAND);
+        Mob donor = EntityTypes.ZOMBIE.create(level, EntitySpawnReason.COMMAND);
+        Mob body = EntityTypes.COW.create(level, EntitySpawnReason.COMMAND);
         helper.assertTrue(donor != null && body != null,
             "The real Zombie/Cow EntityType factories must create living Mob objects");
 
@@ -47,7 +47,7 @@ public final class DetachedProbeGameTests {
             "Real cross-species host construction failed: " + result.problem());
         Mob host = result.host();
         helper.assertTrue(host != donor && host != body, "Host must be a third Java object");
-        helper.assertTrue(host.getType() == EntityType.ZOMBIE,
+        helper.assertTrue(host.getType() == EntityTypes.ZOMBIE,
             "Host EntityType must be Zombie while the visible body remains Cow");
         helper.assertTrue(host.getClass() == donor.getClass(),
             "Host concrete Java subclass must match donor");
