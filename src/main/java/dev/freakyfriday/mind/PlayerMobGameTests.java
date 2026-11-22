@@ -236,9 +236,13 @@ public final class PlayerMobGameTests {
     private static void verifyFallProfiles(GameTestHelper helper) {
         var level=helper.getLevel();
         ServerPlayer player=helper.makeMockServerPlayerInLevel();
-        for (int x=1;x<=9;x++)for (int z=1;z<=6;z++)
+        for (int x=1;x<=9;x++)for (int z=1;z<=6;z++) {
             level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,0,z)),
                 net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+            // Prevent daytime Zombie ignition from masquerading as fall damage.
+            level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,17,z)),
+                net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+        }
 
         Mob chicken=EntityTypes.CHICKEN.create(level,EntitySpawnReason.COMMAND);
         Mob ocelot=EntityTypes.OCELOT.create(level,EntitySpawnReason.COMMAND);
