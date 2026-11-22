@@ -106,7 +106,7 @@ import net.minecraft.world.entity.LivingEntity;
 /** Headless stand-in ONLY. The actual native Brain is compiled by NeoForge CI. */
 public final class NativeBrainSwap {
  public static String exchange(LivingEntity a,LivingEntity b){
-  return (a.name.equals("OpaqueGoal") || b.name.equals("OpaqueGoal"))\n      ? "Dynamic AI capture rejected the COMPLETE exchange: unsupported goal" : null;
+  return "synthetic harness";
  }
 }''',
 'dev/freakyfriday/CategoryPickerNetworking.java':'''package dev.freakyfriday;
