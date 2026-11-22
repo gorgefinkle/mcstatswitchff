@@ -1,4 +1,4 @@
-# Freaky Friday — R0.15.3 Dual-Instance Native Host Feasibility
+# Freaky Friday — R0.15.4 Dual-Instance Native Host Feasibility
 
 **Development branch:** `feature/native-mind-host-poc`  
 **Minecraft targets:** 26.2 and 26.3 / NeoForge / Java 25
@@ -29,16 +29,31 @@ that the original donor AI can safely execute.
 
 See [the R0.15 dual-instance test and safety gate](docs/R0_15_DETACHED_DUAL_INSTANCE_PROOF.md).
 
-## First real-world result and R0.15.3 correction
+## First real-world result and R0.15.4 correction
 
 The initial user-validated R0.15.2 session passed the 40-tick
 detached-host lifecycle test, but the final pair was **Cow -> Cow**:
 additional book clicks had silently changed the original Cow -> Zombie
-selection. This is fixed in R0.15.3: two clicks LOCK the donor/recipient
+selection. This is fixed in R0.15.4: two clicks LOCK the donor/recipient
 pair; later clicks cannot change it. Use `/freakyfriday cancel` to pick
 a new pair. This still does not execute native donor AI or swap minds.
 
 [Full test findings and retest plan](docs/R0_15_3_PAIR_LOCK_CROSS_SPECIES_GATE.md).
+
+## R0.15.4 independent audit
+
+A real source review found and corrected leftover global entity attribute
+registration, checks that captured body integrity too late, abandoned
+probe-session references when recipients stop ticking, same-tick
+cancel/reselection loss, and stale selection state across server restart.
+
+The detached host's original AI **still cannot safely run**. All donor
+Goal/Brain tick paths remain disabled until there is an effective
+world-side-effect isolation mechanism. `dualprobe` and `dualprobe40`
+are diagnostics only, and their output is not proof that donor memories
+or decisions have been transferred.
+
+[Read the verified findings and remaining blockers](docs/R0_15_4_SELF_AUDIT.md).
 
 ## Intended gameplay
 
