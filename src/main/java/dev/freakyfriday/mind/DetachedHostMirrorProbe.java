@@ -163,6 +163,8 @@ public final class DetachedHostMirrorProbe {
             }
             Vec3 destination = s.recipient.position();
             Vec3 before = s.host.position();
+            ProbeBodySnapshot donorBeforeSetPos = ProbeBodySnapshot.take(s.donor);
+            ProbeBodySnapshot recipientBeforeSetPos = ProbeBodySnapshot.take(s.recipient);
             double squaredBefore = before.distanceToSqr(destination);
             boolean changed = squaredBefore > 0.000001;
             if (changed) {
@@ -170,6 +172,16 @@ public final class DetachedHostMirrorProbe {
                 s.mirrored++;
             }
             double squaredAfter = s.host.position().distanceToSqr(destination);
+            String donorMutation = donorBeforeSetPos.changes(s.donor);
+            String recipientMutation = recipientBeforeSetPos.changes(s.recipient);
+            if (!donorMutation.isEmpty() || !recipientMutation.isEmpty()) {
+                s.lastError = "Detached host setPos altered original body state";
+                ProbeTelemetry.warn(s.trace, "mirror_body_mutation",
+                    "tick=%d donorChanges=[%s] recipientChanges=[%s]",
+                    s.ticks + 1, donorMutation, recipientMutation);
+                finish(s, "Body mutation detected during host position mirroring");
+                return;
+            }
             if (squaredAfter > 0.000001) s.alignmentFailures++;
             boolean afterRegistered = s.level.getEntity(s.hostId) != null;
 
