@@ -630,6 +630,7 @@ public final class PlayerMobGameTests {
         UUID ticketOwner=UUID.randomUUID();
         int[] ticketBounds=arenaChunkBounds(helper,1,14,1,12);
         setArenaChunks(level,ticketOwner,ticketBounds,true);
+        helper.runAfterDelay(130,()->setArenaChunks(level,ticketOwner,ticketBounds,false));
 
         ServerPlayer temptPlayer=helper.makeMockServerPlayerInLevel();
         temptPlayer.setPos(helper.absolutePos(new BlockPos(3,1,9)).getX()+0.5,
