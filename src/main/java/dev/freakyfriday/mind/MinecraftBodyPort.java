@@ -4,7 +4,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.monster.Creeper;
@@ -98,6 +100,15 @@ public final class MinecraftBodyPort implements BodyActionGate.BodyPort {
                 return BodyActionGate.Result.blocked("Mapped attack target is not alive in this world");
             if(body.distanceToSqr(target)>16.0)
                 return BodyActionGate.Result.blocked("Mapped target is outside physical melee reach");
+            // Some real bodies (Chicken is the regression case) do not
+            // possess ATTACK_DAMAGE at all. That is a body capability limit,
+            // not a reason to reject the mind exchange or crash the session:
+            // execute the native swing animation without inventing damage.
+            if(body.getAttribute(Attributes.ATTACK_DAMAGE)==null) {
+                body.swing(InteractionHand.MAIN_HAND);
+                return new BodyActionGate.Result(BodyActionGate.Status.EXECUTED,
+                    "Physical body has no attack-damage attribute; native swing executed without damage");
+            }
             boolean hit=body.doHurtTarget(level,target);
             return new BodyActionGate.Result(BodyActionGate.Status.EXECUTED,
                 hit ? "Physical body attack accepted" :
