@@ -701,6 +701,15 @@ public final class DetachedProbeGameTests {
             receiverBody.setPos(start.getX()+0.5,start.getY(),start.getZ()+0.5);
             originalDonorBody.setPos(start.getX()+4.5,start.getY(),start.getZ()+4.5);
             receiverBody.setUUID(recipientId);
+            // This is an isolated GameTest, not a normal mob spawn. Keep
+            // the actual Mob bodies alive while the server registers their
+            // chunks; the native AI action must then move THAT same entity.
+            receiverBody.setPersistenceRequired();
+            originalDonorBody.setPersistenceRequired();
+            ServerPlayer spectatorAnchor=helper.makeMockServerPlayerInLevel();
+            var spectatorPos=helper.absolutePos(new BlockPos(2,1,2));
+            spectatorAnchor.setPos(spectatorPos.getX()+0.5,
+                spectatorPos.getY(),spectatorPos.getZ()+0.5);
             // Disable only the recipient's own goals in this disposable test
             // fixture, while keeping its ACTUAL native navigation/controller
             // running to obey the donor's observed relative movement.
