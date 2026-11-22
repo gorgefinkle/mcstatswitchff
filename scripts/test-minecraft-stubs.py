@@ -75,8 +75,10 @@ public final class ProbeTelemetry {
 }''',
 'net/minecraft/world/entity/Mob.java':'''package net.minecraft.world.entity;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.InteractionHand;
 public class Mob extends LivingEntity {
  public Mob(String name, ServerLevel level){super(name,level);}
+ public void swing(InteractionHand hand,boolean updateSelf){}
 }''',
 'dev/freakyfriday/mind/DetachedHostMirrorProbe.java':'''package dev.freakyfriday.mind;
 import net.minecraft.server.level.ServerPlayer;
