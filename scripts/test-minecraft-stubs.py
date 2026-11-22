@@ -440,6 +440,9 @@ public final class UnseenAddonCommandFixture {}
 'net/neoforged/neoforge/common/world/chunk/RegisterTicketControllersEvent.java':'''package net.neoforged.neoforge.common.world.chunk;
 public final class RegisterTicketControllersEvent {}
 ''',
+'dev/freakyfriday/mind/NativeMindProxySessions.java':'''package dev.freakyfriday.mind;
+public final class NativeMindProxySessions {}
+''',
 'dev/freakyfriday/mind/NativeAiWorkerServer.java':'''package dev.freakyfriday.mind;
 public final class NativeAiWorkerServer {
  public static void registerChunkTickets(
