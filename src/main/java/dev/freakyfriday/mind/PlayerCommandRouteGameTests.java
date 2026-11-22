@@ -66,6 +66,8 @@ public final class PlayerCommandRouteGameTests {
                     +" observed="+moved
                     +" expected="+sally.getUUID()
                     +" from="+fred.getUUID());
+            helper.assertTrue(UnseenAddonCommandFixture.executions()==1,
+                "Rerouting executed the unrelated command more than once");
             helper.assertTrue(moved.feedbackSource() == origin.source
                     && moved.permissions().equals(origin.permissions()),
                 "Connected Fred's feedback source or permissions were changed");
@@ -77,6 +79,8 @@ public final class PlayerCommandRouteGameTests {
             server.getCommands().performPrefixedCommand(
                 fred.createCommandSourceStack(),"unseenaddon selector @s");
             var self=UnseenAddonCommandFixture.last();
+            helper.assertTrue(UnseenAddonCommandFixture.executions()==1,
+                "Rerouted @s outsider command executed more than once");
             helper.assertTrue(self != null
                     && self.executorBody().equals(sally.getUUID())
                     && self.targetBody().equals(sally.getUUID()),
@@ -99,6 +103,8 @@ public final class PlayerCommandRouteGameTests {
                 server.createCommandSourceStack().withEntity(fred),
                 "unseenaddon self");
             var console=UnseenAddonCommandFixture.last();
+            helper.assertTrue(UnseenAddonCommandFixture.executions()==1,
+                "Console outside command was double-executed");
             helper.assertTrue(console != null
                     && console.executorBody().equals(fred.getUUID()),
                 "Non-player command masqueraded as the connected client");
