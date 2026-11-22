@@ -11,6 +11,7 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.entity.EntityLeaveLevelEvent;
 import net.neoforged.neoforge.event.tick.EntityTickEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 
 /**
@@ -30,6 +31,8 @@ public final class LiveBodyProbe {
     private static final int DURATION_TICKS = 40;
     private static final int MAX_ACTIVE = 8;
     private static final Map<UUID, Run> ACTIVE = new HashMap<>();
+    private static final long MAX_IDLE_SERVER_TICKS = 120;
+    private static long serverTicks;
 
     private static final class Run {
         final Mob body;
@@ -48,11 +51,13 @@ public final class LiveBodyProbe {
         int captureFailed;
         int dispatchFailed;
         int duplicate;
+        long lastProgressServerTick;
         String lastDiagnostic = "";
 
         Run(Mob body, ServerPlayer player) {
             this.body = body;
             this.trace = ProbeTelemetry.newTrace();
+            this.lastProgressServerTick = serverTicks;
             this.requestingPlayer = player.getUUID();
             this.bodyUuid = body.getUUID();
             this.bodyType = body.getType().toString();
@@ -135,6 +140,7 @@ public final class LiveBodyProbe {
             var report = active.engine.tick(new MindHostEngine.Observation(
                 mob.getUUID(), mob.level().getGameTime(), Map.of()));
             active.frames++;
+            active.lastProgressServerTick = serverTicks;
             ProbeTelemetry.info(active.trace, "physical_probe_tick",
                 "tick=%d gameTime=%d bodyId=%s realPos=%s status=%s intentCount=%d outcomeCount=%d details=%s",
                 active.frames, mob.level().getGameTime(), mob.getUUID(), mob.position(),
@@ -169,6 +175,21 @@ public final class LiveBodyProbe {
     }
 
     @SubscribeEvent
+    public static synchronized void onServerTick(ServerTickEvent.Post event) {
+        serverTicks++;
+        for (Run run : java.util.List.copyOf(ACTIVE.values())) {
+            if (!(run.body.level() instanceof ServerLevel level)
+                    || level.getServer() != event.getServer()) continue;
+            if (serverTicks - run.lastProgressServerTick >= MAX_IDLE_SERVER_TICKS) {
+                ProbeTelemetry.warn(run.trace, "physical_probe_watchdog_timeout",
+                    "No recipient tick for %d server ticks; frames=%d",
+                    serverTicks - run.lastProgressServerTick, run.frames);
+                finish(run, "Physical body probe timed out: recipient stopped ticking");
+            }
+        }
+    }
+
+    @SubscribeEvent
     public static synchronized void onLeave(EntityLeaveLevelEvent event) {
         Run active = ACTIVE.get(event.getEntity().getUUID());
         if (active != null && active.body == event.getEntity())
@@ -182,6 +203,7 @@ public final class LiveBodyProbe {
                 "server stopped during active test; frames=%d", active.frames);
         }
         ACTIVE.clear();
+        serverTicks = 0L;
     }
 
     private static void finish(Run result, String reason) {
