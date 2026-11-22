@@ -58,6 +58,18 @@ public final class DetachedMindHostProbe {
         } catch (Exception | LinkageError error) {
             ProbeTelemetry.error(trace, "constructor_exception", error,
                 "Factory threw before a host was returned; original mob AI not executed");
+            try {
+                String donorChanges = donorBefore.changes(donor);
+                String recipientChanges = recipientBefore.changes(recipient);
+                if (!donorChanges.isEmpty() || !recipientChanges.isEmpty()) {
+                    ProbeTelemetry.warn(trace, "constructor_exception_body_mutation",
+                        "Constructor threw AND changed bodies: donor=[%s] recipient=[%s]",
+                        donorChanges, recipientChanges);
+                }
+            } catch (Exception | LinkageError diagnosticsFailed) {
+                ProbeTelemetry.error(trace, "constructor_failure_snapshot", diagnosticsFailed,
+                    "Could not measure original body state after failed constructor");
+            }
             return new Creation(null, "Native donor factory failed: "
                 + error.getClass().getSimpleName() + " (trace " + trace + ")");
         }
