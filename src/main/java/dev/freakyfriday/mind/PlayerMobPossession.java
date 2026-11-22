@@ -56,6 +56,16 @@ public final class PlayerMobPossession {
         }
     }
 
+    /**
+     * GameTest's mock ServerPlayer has NO client channel negotiation. Only
+     * the real GameTest JVM sets thirdPartyFixture=true. Ordinary dedicated
+     * servers ALWAYS deliver the camera packet to the real modded client.
+     */
+    private static void sendCamera(ServerPlayer player,PossessionViewPayload payload) {
+        if (Boolean.getBoolean("freakyfriday.thirdPartyFixture")) return;
+        net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,payload);
+    }
+
     private static final Map<UUID,Session> ACTIVE = new HashMap<>();
     private static final Map<UUID,UUID> BODY_OWNERS = new HashMap<>();
 
@@ -90,8 +100,7 @@ public final class PlayerMobPossession {
         body.setNoAi(true);
         // No artificial flight granted by possession. Leave the native
         // body's original gravity/physics and collision in charge.
-        net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(
-            player, new PossessionViewPayload(body.getId(),true));
+        sendCamera(player,new PossessionViewPayload(body.getId(),true));
         return null;
     }
 
@@ -131,8 +140,7 @@ public final class PlayerMobPossession {
             session.body.setNoGravity(session.originalNoGravity);
         }
         if (notifyClient && !session.player.isRemoved())
-            net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(
-                session.player,new PossessionViewPayload(-1,false));
+            sendCamera(session.player,new PossessionViewPayload(-1,false));
         return true;
     }
 
@@ -157,8 +165,7 @@ public final class PlayerMobPossession {
                     body.setNoGravity(s.originalNoGravity);
                 }
                 if (!player.isRemoved())
-                    net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(
-                        player,new PossessionViewPayload(-1,false));
+                    sendCamera(player,new PossessionViewPayload(-1,false));
                 continue;
             }
             // Original player's actual body remains in place; do not transfer
