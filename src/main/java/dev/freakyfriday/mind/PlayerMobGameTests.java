@@ -39,6 +39,12 @@ public final class PlayerMobGameTests {
             new ItemStack(FreakyFriday.BOOK.get()));
         Mob chicken=EntityTypes.CHICKEN.create(level,EntitySpawnReason.COMMAND);
         helper.assertTrue(chicken!=null,"Actual Chicken physical entity factory failed");
+        // A reproducible, actual collision platform. The default empty
+        // structure has no reliable survival floor for a walking Chicken.
+        for(int x=1;x<=6;x++)for(int z=1;z<=7;z++)
+            level.setBlockAndUpdate(
+                helper.absolutePos(new BlockPos(x,0,z)),
+                net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
         BlockPos origin=helper.absolutePos(new BlockPos(2,1,2));
         chicken.setPos(origin.getX()+0.5,origin.getY(),origin.getZ()+0.5);
         chicken.setNoAi(false);
