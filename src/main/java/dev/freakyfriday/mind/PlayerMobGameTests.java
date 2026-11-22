@@ -47,6 +47,17 @@ public final class PlayerMobGameTests {
         OCCUPIED_OCELOT_DAMAGE=FUNCTIONS.register(
             "ocelot_damage_and_death",()->PlayerMobGameTests::verifyOccupiedOcelotDamage);
 
+    public static final DeferredHolder<Consumer<GameTestHelper>,Consumer<GameTestHelper>>
+        EXPLICIT_SELF_REQUIRED=FUNCTIONS.register(
+            "explicit_self_selection",()->PlayerMobGameTests::verifyExplicitSelfSelection);
+    public static final DeferredHolder<Consumer<GameTestHelper>,Consumer<GameTestHelper>>
+        MOB_ORIGIN_ATTACK=FUNCTIONS.register(
+            "possessed_mob_attack",()->PlayerMobGameTests::verifyMobOriginAttack);
+    public static final DeferredHolder<Consumer<GameTestHelper>,Consumer<GameTestHelper>>
+        ZOMBIE_CHICKEN_BEHAVIOR=FUNCTIONS.register(
+            "zombie_chicken_behavior_acceptance",
+            ()->PlayerMobGameTests::verifyZombieChickenBehaviorAcceptance);
+
     private static void verifyPlayerControlsChicken(GameTestHelper helper) {
         var level=helper.getLevel();
         ServerPlayer player=helper.makeMockServerPlayerInLevel();
@@ -73,6 +84,9 @@ public final class PlayerMobGameTests {
             // Same entrypoint as a real book right-click, then the actual
             // Brigadier command that Ctrl+S sends from the player's client.
             MindSwapSessions.selectFromInteraction(player,chicken);
+            helper.assertTrue(MindSwapSessions.selectionRemainingTicks(player)
+                    ==MindSwapSessions.SELECTION_TIMEOUT_TICKS,
+                "Selecting first mob did not start 8-second HUD selection countdown");
             var commandSource=level.getServer().createCommandSourceStack().withEntity(player);
             try {
                 helper.assertTrue(level.getServer().getCommands().getDispatcher().execute(
@@ -81,6 +95,9 @@ public final class PlayerMobGameTests {
             } catch (com.mojang.brigadier.exceptions.CommandSyntaxException e) {
                 throw new AssertionError("Real self selection command failed",e);
             }
+            helper.assertTrue(MindSwapSessions.selectionRemainingTicks(player)==0,
+                "Completing mob/player pairing did not clear first-body HUD");
+            System.out.println("FF-GAMEPLAY selection_hud_completed_pair_clears PASS");
             helper.assertTrue(PlayerMobPossession.hasSession(ownerId)
                     && id.equals(PlayerMobPossession.possessedBody(ownerId)),
                 "Book pair did NOT activate genuine server-side Chicken control");
@@ -443,6 +460,151 @@ public final class PlayerMobGameTests {
             helper.succeed();
             ocelot.discard();
         });
+    }
+
+
+    /**
+     * No silent pairing with a stale /self. A freshly selected second self
+     * explicitly starts the session. Real book/test command workflow.
+     */
+    private static void verifyExplicitSelfSelection(GameTestHelper helper) {
+        var level=helper.getLevel();
+        ServerPlayer player=helper.makeMockServerPlayerInLevel();
+        player.setItemInHand(InteractionHand.MAIN_HAND,
+            new ItemStack(FreakyFriday.BOOK.get()));
+        // Do not spawn the second candidate 162 ticks early. A Skeleton can
+        // burn or despawn between those ticks, causing an unrelated failure
+        // when testing expiration/reselection.
+        UUID owner=player.getUUID();
+        MindSwapSessions.select(player,player);
+        helper.assertTrue(MindSwapSessions.selectionRemainingTicks(player)
+                ==MindSwapSessions.SELECTION_TIMEOUT_TICKS,
+            "First selected body failed to enter HUD countdown state");
+        helper.assertTrue(!PlayerMobPossession.hasSession(owner),"First self was interpreted as completed swap");
+        helper.runAfterDelay((int)MindSwapSessions.SELECTION_TIMEOUT_TICKS+2,()->{
+            helper.assertTrue(MindSwapSessions.selectionRemainingTicks(player)==0,
+                "Timed-out first selection remained active after eight seconds");
+            Mob skeleton=EntityTypes.SKELETON.create(level,EntitySpawnReason.COMMAND);
+            helper.assertTrue(skeleton!=null,"Cannot spawn fresh test Skeleton");
+            BlockPos floor=helper.absolutePos(new BlockPos(2,0,2));
+            level.setBlockAndUpdate(floor,
+                net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+            skeleton.setPos(floor.getX()+0.5,floor.getY()+1,floor.getZ()+0.5);
+            skeleton.setNoAi(true);
+            skeleton.setNoGravity(true);
+            helper.assertTrue(level.addFreshEntity(skeleton),"Fresh Skeleton not registered");
+            MindSwapSessions.selectFromInteraction(player,skeleton);
+            helper.assertTrue(MindSwapSessions.selectionRemainingTicks(player)
+                    ==MindSwapSessions.SELECTION_TIMEOUT_TICKS,
+                "Next first selected mob did not restart HUD countdown");
+            helper.assertTrue(!PlayerMobPossession.hasSession(owner),
+                "Stale self unexpectedly caused an automatic swap");
+            System.out.println("FF-GAMEPLAY stale_self_selection_cannot_swap PASS");
+            MindSwapSessions.select(player,player);
+            helper.assertTrue(skeleton.getUUID().equals(PlayerMobPossession.possessedBody(owner)),
+                "Explicit second body did not start playable possession");
+            MindSwapSessions.cancel(player);
+            helper.assertTrue(MindSwapSessions.selectionRemainingTicks(player)==0,
+                "Cancel failed to dismiss first-body selection");
+            helper.assertTrue(!PlayerMobPossession.hasSession(owner),"Cancel failed");
+            System.out.println("FF-GAMEPLAY selection_hud_expire_and_cancel PASS");
+            System.out.println("FF-GAMEPLAY explicit_two_body_selection PASS");
+            skeleton.discard();
+            helper.succeed();
+        });
+    }
+
+    /** Zombie-origin attack must damage actual original player, not kick them. */
+    private static void verifyMobOriginAttack(GameTestHelper helper) {
+        var level=helper.getLevel();
+        ServerPlayer player=helper.makeMockServerPlayerInLevel();
+        Mob zombie=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
+        helper.assertTrue(zombie!=null,"Cannot spawn Zombie");
+        for(int x=1;x<=8;x++)for(int z=1;z<=8;z++) {
+            level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,0,z)),
+                net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+            // No daytime Zombie burning during the spawn-invulnerability wait.
+            level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,4,z)),
+                net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+        }
+        BlockPos pos=helper.absolutePos(new BlockPos(3,1,3));
+        player.setPos(pos.getX()+0.5,pos.getY(),pos.getZ()+0.5);
+        zombie.setPos(pos.getX()+1.5,pos.getY(),pos.getZ()+0.5);
+        helper.assertTrue(level.addFreshEntity(zombie),"Zombie not registered");
+        player.gameMode.changeGameModeForPlayer(
+            net.minecraft.world.level.GameType.SURVIVAL);
+        // Survival gamemode clears creative abilities. The separate
+        // entity-level immunity is asserted below rather than mutated via
+        // an API that is unavailable in Minecraft 26.3.
+        helper.assertTrue(!player.getAbilities().invulnerable
+                && !player.isInvulnerable(),
+            "Attack test requires a genuinely damageable Survival player");
+        String issue=PlayerMobPossession.begin(player,zombie);
+        helper.assertTrue(issue==null,"Zombie possession rejected: "+issue);
+        float initial=player.getHealth();
+        PlayerMobPossession.input(player,new PlayerMobPossession.Input(0,0,false,90,0,1));
+        // A new ServerPlayer may ignore ordinary hostile damage during the
+        // initial spawn-protection window. Attacking at tick 3 tests that
+        // protection, not possession. Wait for ordinary survival damage.
+        helper.runAfterDelay(75,()->{
+            net.minecraft.world.entity.Entity target=
+                PossessionCombat.findValidMeleeTarget(level,zombie,player.getId(),player);
+            helper.assertTrue(target==player,
+                "Authenticated original body was rejected as a melee target"
+                  +" dist="+zombie.distanceTo(player)
+                  +" yaw="+zombie.getYRot()
+                  +" sight="+zombie.hasLineOfSight(player));
+            PlayerMobPossession.attack(player,player.getId(),1);
+            helper.assertTrue(player.getHealth()<initial,
+                "Zombie physical attack caused no damage to mock player"
+                +" id="+player.getId()+" registered="+(level.getEntity(player.getId())==player)
+                +" creative="+player.isCreative()+" spectator="+player.isSpectator()
+                +" invulnerable="+player.isInvulnerable()
+                +" zombieAttack="+zombie.getAttributeValue(
+                    net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE)
+                +" health="+player.getHealth());
+            float damaged=player.getHealth();
+            PlayerMobPossession.attack(player,player.getId(),1);
+            PlayerMobPossession.attack(player,zombie.getId(),2);
+            helper.assertTrue(Float.compare(player.getHealth(),damaged)==0,
+                "Duplicate or self-targeted attack bypassed server checks");
+            helper.assertTrue(PlayerMobPossession.hasSession(player.getUUID()),
+                "Nonfatal attack ended possession");
+            MindSwapSessions.cancel(player);
+            System.out.println("FF-GAMEPLAY mob_origin_attack_original_body PASS");
+            System.out.println("FF-GAMEPLAY invalid_entity_attack_guard PASS");
+            zombie.discard();
+            helper.succeed();
+        });
+    }
+
+    /**
+     * Intentionally manual-only until implemented: the exact user-reported
+     * missing behavior is now a reproducible acceptance gate. Do not count
+     * this as a passed swap unless native behavior actually transfers.
+     */
+    private static void verifyZombieChickenBehaviorAcceptance(GameTestHelper helper) {
+        var level=helper.getLevel();
+        Mob zombie=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
+        Mob chicken=EntityTypes.CHICKEN.create(level,EntitySpawnReason.COMMAND);
+        helper.assertTrue(zombie!=null&&chicken!=null,
+            "Real Zombie and Chicken required");
+        for(int x=1;x<=9;x++)for(int z=1;z<=9;z++)
+            level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,0,z)),
+                net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+        BlockPos a=helper.absolutePos(new BlockPos(3,1,3));
+        BlockPos b=helper.absolutePos(new BlockPos(5,1,3));
+        zombie.setPos(a.getX()+0.5,a.getY(),a.getZ()+0.5);
+        chicken.setPos(b.getX()+0.5,b.getY(),b.getZ()+0.5);
+        helper.assertTrue(level.addFreshEntity(zombie)&&level.addFreshEntity(chicken),
+            "Native mobs were not registered");
+        String failure=NativeBrainSwap.exchange(zombie,chicken);
+        helper.assertTrue(failure==null,
+            "Cross-species whole-mind swap NOT IMPLEMENTED: "+failure);
+        // A successful exchange cannot be certified by swapping two pointers
+        // alone. Future acceptance must prove actual hostile target pursuit
+        // by the chicken and passive chicken-like behavior by the Zombie.
+        helper.fail("Cross-species behavior is not yet certified by native AI execution");
     }
 
 }

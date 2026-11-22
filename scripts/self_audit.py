@@ -12,7 +12,7 @@ for file in sorted(resources.rglob('*.json')):
 mods=tomllib.loads((resources/'META-INF/neoforge.mods.toml').read_text())
 assert mods['mods'][0]['modId']=='freakyfriday'
 assert mods['mods'][0]['version']=='${ff_mod_version}'
-assert "version = '0.15.10-alpha'" in (root/'build.gradle').read_text()
+assert "version = '0.15.11-alpha'" in (root/'build.gradle').read_text()
 assert (root/'src/platform/minecraft-26.2/java/dev/freakyfriday/compat/PlatformHooks.java').exists()
 assert (root/'src/platform/minecraft-26.3/java/dev/freakyfriday/compat/PlatformHooks.java').exists()
 assert 'PlatformHooks::addBookToCreativeTab' in (root/'src/main/java/dev/freakyfriday/FreakyFriday.java').read_text()
@@ -45,6 +45,23 @@ assert 'LAST_INTERACTION.remove(p.getUUID())' in (root/'src/main/java/dev/freaky
 # The public book now enters actual possession, not the old diagnostic branch.
 actual_book = (root/'src/main/java/dev/freakyfriday/mind/MindSwapSessions.java').read_text()
 assert 'PlayerMobPossession.begin(p,mob)' in actual_book
+assert 'SELECTION_TIMEOUT_TICKS = 160L' in actual_book
+assert 'SelectionHudSync.show(p,target.getDisplayName().getString()' in actual_book
+assert 'SelectionHudSync.clear(p)' in actual_book
+assert 'expirePending(ServerPlayer p)' in actual_book
+assert 'onTick(ServerTickEvent.Post event)' in (root/'src/main/java/dev/freakyfriday/mind/SelectionHudSync.java').read_text()
+assert (root/'src/main/java/dev/freakyfriday/ClientSelectionHud.java').exists()
+assert (root/'src/main/java/dev/freakyfriday/SelectionHudPayload.java').exists()
+assert 'SelectionHudPayload.TYPE' in (root/'src/main/java/dev/freakyfriday/PossessionNetwork.java').read_text()
+
+assert 'MindSwapSessions.clearSelectionAfterReturn(account)' in (root/'src/main/java/dev/freakyfriday/mind/PlayerMobPossession.java').read_text()
+client=(root/'src/main/java/dev/freakyfriday/ClientPossession.java').read_text()
+assert 'InputEvent.InteractionKeyMappingTriggered' in client
+assert 'event.setCanceled(true)' in client and 'new PossessionAttackPayload' in client
+assert 'PossessionMotion.step(living' in client
+assert 'PossessionStatePayload.TYPE' in (root/'src/main/java/dev/freakyfriday/PossessionNetwork.java').read_text()
+assert 'PossessionCombat.findValidMeleeTarget' in (root/'src/main/java/dev/freakyfriday/mind/PlayerMobPossession.java').read_text()
+
 assert 'NativeBrainSwap.exchange(mobA,mobB)' in actual_book
 assert 'modBus.addListener(PortableAttributes::addToEntityTypes)' not in (root/'src/main/java/dev/freakyfriday/FreakyFriday.java').read_text()
 

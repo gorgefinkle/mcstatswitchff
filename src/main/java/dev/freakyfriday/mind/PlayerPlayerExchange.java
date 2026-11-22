@@ -1,6 +1,7 @@
 package dev.freakyfriday.mind;
 
 import dev.freakyfriday.PossessionViewPayload;
+import dev.freakyfriday.PossessionStatePayload;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -34,6 +35,8 @@ public final class PlayerPlayerExchange {
         PlayerMobPossession.Input input =
             new PlayerMobPossession.Input(0,0,false,0,0,0);
         long lastInputTick;
+        long lastAttackTick=Long.MIN_VALUE/4;
+        long lastAttackSequence;
         Controller(ServerPlayer account, ServerPlayer occupiedBody) {
             this.account=account;
             this.occupiedBody=occupiedBody;
@@ -151,6 +154,28 @@ public final class PlayerPlayerExchange {
         }
     }
 
+    /** A player controls the OTHER player's actual physical body when striking. */
+    public static synchronized void attack(ServerPlayer sender,int candidateId,long sequence) {
+        Session session=ACTIVE_BY_ACCOUNT.get(sender.getUUID());
+        if(session==null)return;
+        Controller controller=session.first.account==sender?session.first:
+            session.second.account==sender?session.second:null;
+        if(controller==null||sequence<=controller.lastAttackSequence)return;
+        controller.lastAttackSequence=sequence;
+        ServerPlayer body=controller.occupiedBody;
+        if(!valid(sender,body)
+            ||!(body.level() instanceof net.minecraft.server.level.ServerLevel level))return;
+        long now=level.getGameTime();
+        if(now-controller.lastAttackTick<10)return;
+        body.setYRot(controller.input.yaw());
+        body.setXRot(controller.input.pitch());
+        net.minecraft.world.entity.Entity target=
+            PossessionCombat.findValidMeleeTarget(level,body,candidateId);
+        if(target==null)return;
+        controller.lastAttackTick=now;
+        body.attack(target);
+    }
+
     /** Any participant can end the WHOLE reciprocal session. */
     public static synchronized boolean cancel(ServerPlayer player) {
         Session s=ACTIVE_BY_ACCOUNT.get(player.getUUID());
@@ -187,6 +212,8 @@ public final class PlayerPlayerExchange {
     private static void end(Session s, boolean notify) {
         ACTIVE_BY_ACCOUNT.remove(s.first.account.getUUID());
         ACTIVE_BY_ACCOUNT.remove(s.second.account.getUUID());
+        MindSwapSessions.clearSelectionAfterReturn(s.first.account.getUUID());
+        MindSwapSessions.clearSelectionAfterReturn(s.second.account.getUUID());
         PlayerCommandBodyRouting.clearInvolving(s.first.account.getUUID());
         for (ServerPlayer p : new ServerPlayer[] {s.first.account,s.second.account}) {
             if (notify) restoreCamera(p);
@@ -202,26 +229,11 @@ public final class PlayerPlayerExchange {
         if (body.position().distanceToSqr(bodyState.expected)>0.0001) {
             body.setPos(bodyState.expected.x,bodyState.expected.y,bodyState.expected.z);
         }
-        double forward=in.forward(), strafe=in.strafe();
-        double magnitude=Math.sqrt(forward*forward+strafe*strafe);
-        if(magnitude>1.0){forward/=magnitude;strafe/=magnitude;}
-        double speed=body.getAttributeValue(Attributes.MOVEMENT_SPEED);
-        double travel=Double.isFinite(speed)
-            ? Math.max(0.0,Math.min(0.45,speed*0.76)):0.0;
-        double heading=Math.toRadians(in.yaw());
-        double dx=(-Math.sin(heading)*forward + Math.cos(heading)*strafe)*travel;
-        double dz=(Math.cos(heading)*forward + Math.sin(heading)*strafe)*travel;
-        double dy=(in.jump() && body.onGround())
-            ? 0.42
-            : (body.onGround() || body.isNoGravity())
-                ? 0.0 : Math.max(-0.58,bodyState.verticalVelocity-0.08);
-        body.setYRot(in.yaw());
-        body.setXRot(in.pitch());
-        body.setYHeadRot(in.yaw());
-        body.move(MoverType.SELF,new Vec3(dx,dy,dz));
-        bodyState.expected=body.position();
-        bodyState.verticalVelocity=body.onGround()?0:dy*0.98;
         body.setDeltaMovement(new Vec3(0,bodyState.verticalVelocity,0));
+        PossessionMotion.step(body,in.forward(),in.strafe(),in.jump(),
+            in.yaw(),in.pitch());
+        bodyState.expected=body.position();
+        bodyState.verticalVelocity=body.getDeltaMovement().y;
     }
 
     /** Real two-player server ticks apply the opposite player's last input. */
@@ -240,6 +252,16 @@ public final class PlayerPlayerExchange {
             if ((now&1L)==0) {
                 sendCamera(a,b,s.firstBody.expected);
                 sendCamera(b,a,s.secondBody.expected);
+                if(!Boolean.getBoolean("freakyfriday.thirdPartyFixture")) {
+                    net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(
+                        a,new PossessionStatePayload(b.getId(),s.first.input.sequence(),
+                            b.getX(),b.getY(),b.getZ(),b.getYRot(),b.getXRot(),
+                            b.getDeltaMovement().y));
+                    net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(
+                        b,new PossessionStatePayload(a.getId(),s.second.input.sequence(),
+                            a.getX(),a.getY(),a.getZ(),a.getYRot(),a.getXRot(),
+                            a.getDeltaMovement().y));
+                }
             }
         }
     }

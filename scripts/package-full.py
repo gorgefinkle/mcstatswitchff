@@ -12,7 +12,7 @@ import subprocess
 import zipfile
 
 ROOT = Path(__file__).resolve().parent.parent
-TAG = "R0_15_10_OccupiedHealthPreviewFinalP07C"
+TAG = "R0_15_11_P08_PredictedControl_Dev"
 SOURCE_PREFIXES = ("src/", "scripts/", "versions/", "gradle/", "docs/", ".github/")
 SOURCE_FILES = {
     "build.gradle", "settings.gradle", "gradle.properties",

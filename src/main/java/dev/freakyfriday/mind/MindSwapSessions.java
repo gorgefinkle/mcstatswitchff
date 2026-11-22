@@ -22,7 +22,7 @@ import net.minecraft.world.entity.LivingEntity;
 public final class MindSwapSessions {
     private MindSwapSessions() {}
 
-    private record Pending(UUID firstBody, String dimension, long startedNanos) {}
+    private record Pending(UUID firstBody, String dimension, long startedTick) {}
     /** Last selected two-body candidate is a diagnostic, NOT a committed swap. */
     private record Pair(UUID donorBody, UUID recipientBody, String dimension, long createdNanos) {}
     private static final Map<UUID, Pair> PAIRS = new ConcurrentHashMap<>();
@@ -30,6 +30,7 @@ public final class MindSwapSessions {
     private static final Map<UUID, Pending> PENDING = new ConcurrentHashMap<>();
     private static final Map<UUID, Stamp> LAST_INTERACTION = new ConcurrentHashMap<>();
     private static final long TIMEOUT_NANOS = 120_000_000_000L;
+    public static final long SELECTION_TIMEOUT_TICKS = 160L; // 8 seconds
 
     private static boolean hasBook(ServerPlayer p) {
         return p.getMainHandItem().is(FreakyFriday.BOOK.get())
@@ -46,11 +47,37 @@ public final class MindSwapSessions {
     private static Pending current(ServerPlayer p) {
         Pending pending = PENDING.get(p.getUUID());
         if (pending != null && (!pending.dimension.equals(p.level().dimension().identifier().toString())
-                || System.nanoTime() - pending.startedNanos > TIMEOUT_NANOS)) {
+                || p.level().getGameTime() < pending.startedTick()
+                || p.level().getGameTime()-pending.startedTick() >= SELECTION_TIMEOUT_TICKS)) {
             PENDING.remove(p.getUUID());
+            SelectionHudSync.clear(p);
             return null;
         }
         return pending;
+    }
+
+    /** Remaining first-body selection lifetime; read-only for server GameTests. */
+    public static int selectionRemainingTicks(ServerPlayer p) {
+        Pending active=current(p);
+        if(active==null)return 0;
+        return (int)Math.max(0,SELECTION_TIMEOUT_TICKS-
+            (p.level().getGameTime()-active.startedTick()));
+    }
+
+    /** Called by SelectionHudSync each server tick to close an unused selection. */
+    public static void expirePending(ServerPlayer p) {
+        Pending active=current(p);
+        if(active==null)return;
+        if(!p.isAlive()) {
+            PENDING.remove(p.getUUID());
+            SelectionHudSync.clear(p);
+            return;
+        }
+        Entity first=p.level().getEntity(active.firstBody());
+        if(!(first instanceof LivingEntity living)||!living.isAlive()) {
+            PENDING.remove(p.getUUID());
+            SelectionHudSync.clear(p);
+        }
     }
 
     /** Read-only command regression signal; no pair identities are exposed to clients. */
@@ -71,6 +98,7 @@ public final class MindSwapSessions {
     public static void cancel(ServerPlayer p) {
         PENDING.remove(p.getUUID());
         PAIRS.remove(p.getUUID());
+        SelectionHudSync.clear(p);
         // Without clearing this stamp a cancel + immediate reselect of
         // the same mob on the same game tick is silently discarded.
         LAST_INTERACTION.remove(p.getUUID());
@@ -80,6 +108,12 @@ public final class MindSwapSessions {
             ? "Reciprocal player-body control ended for both accounts."
             : returned ? "Returned to your player body; mob AI restored."
             : "Mind swap selection cancelled.");
+    }
+
+    static void clearSelectionAfterReturn(UUID account) {
+        PENDING.remove(account);
+        PAIRS.remove(account);
+        LAST_INTERACTION.remove(account);
     }
 
     /** No static selection state may leak into a newly launched server. */
@@ -259,14 +293,17 @@ public final class MindSwapSessions {
         if (pending==null) {
             PENDING.put(p.getUUID(),new Pending(
                 target.getUUID(),p.level().dimension().identifier().toString(),
-                System.nanoTime()));
+                p.level().getGameTime()));
+            SelectionHudSync.show(p,target.getDisplayName().getString(),
+                (int)SELECTION_TIMEOUT_TICKS);
             message(p,"First body: "+target.getDisplayName().getString()
-                +". Choose the second body.");
+                +". Choose the second body within 8 seconds; no swap until both are selected.");
             return;
         }
         Entity entity=p.level().getEntity(pending.firstBody());
         if (!(entity instanceof LivingEntity first) || !first.isAlive()) {
             PENDING.remove(p.getUUID());
+            SelectionHudSync.clear(p);
             message(p,"First body is no longer available; select again.");
             return;
         }
@@ -288,6 +325,7 @@ public final class MindSwapSessions {
             }
             PENDING.remove(p.getUUID());
             PAIRS.remove(p.getUUID());
+            SelectionHudSync.clear(p);
             message(p,"You and "+other.getDisplayName().getString()
                 +" exchanged physical control immediately. Either may /freakyfriday cancel.");
             return;
@@ -309,6 +347,7 @@ public final class MindSwapSessions {
             }
             PENDING.remove(p.getUUID());
             PAIRS.remove(p.getUUID());
+            SelectionHudSync.clear(p);
             message(p,"Controlling "+mob.getDisplayName().getString()
                 +" (WASD/jump). /freakyfriday cancel returns you. "
                 +"The NPC mind is not yet driving your original body.");
@@ -319,6 +358,7 @@ public final class MindSwapSessions {
                 && target instanceof net.minecraft.world.entity.Mob mobB) {
             String error=NativeBrainSwap.exchange(mobA,mobB);
             PENDING.remove(p.getUUID());
+            SelectionHudSync.clear(p);
             if (error!=null) {
                 message(p,"Native mind exchange REJECTED: "+error);
             } else {
@@ -377,8 +417,10 @@ public final class MindSwapSessions {
         Pending pending = current(p);
         if (pending == null) {
             PAIRS.remove(p.getUUID());
+            // The shared Pending/current() expiry clock is world game ticks.
+            // Mixing System.nanoTime here invalidates the diagnostic pair.
             PENDING.put(p.getUUID(), new Pending(target.getUUID(),
-                p.level().dimension().identifier().toString(), System.nanoTime()));
+                p.level().dimension().identifier().toString(), p.level().getGameTime()));
             message(p, "First body: " + target.getDisplayName().getString()
                 + ". Choose the SECOND body for dual-instance host testing. No mind swap yet.");
             return;
