@@ -134,3 +134,13 @@ tasks.register("runNativeAiEffectSurveySelfTest", JavaExec) {
     enableAssertions = true
 }
 tasks.named('check') { dependsOn tasks.named('runNativeAiEffectSurveySelfTest') }
+
+tasks.register("runProbeTimeoutGuardSelfTest", JavaExec) {
+    group = 'verification'
+    description = "Regression test watchdog threshold for stalled physical and detached host probes"
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.freakyfriday.mind.ProbeTimeoutGuardSelfTest'
+    enableAssertions = true
+}
+tasks.named('check') { dependsOn tasks.named('runProbeTimeoutGuardSelfTest') }
