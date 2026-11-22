@@ -135,13 +135,23 @@ public final class PlayerCommandBodyRouting {
             return;
         }
 
-        var dispatcher = original.getServer().getCommands().getDispatcher();
-        event.setParseResults(dispatcher.parse(parsed.getReader().getString(), projected));
+        // Minecraft 26.2/26.3 can finish executing with the ORIGINAL
+        // sender even when CommandEvent#setParseResults has a replacement.
+        // Cancel that invocation and re-enter the normal command pipeline
+        // with the projected source. This is NOT direct dispatcher.execute:
+        // vanilla validation, argument parsing and third-party commands
+        // still run through Commands.performPrefixedCommand.
+        //
+        // The nested event is deliberately not rerouted: its source is
+        // Fred's authenticated connection but its entity is Sally, so
+        // original.source != Sally.commandSource().
+        event.setCanceled(true);
         if (Boolean.getBoolean("freakyfriday.thirdPartyFixture"))
-            System.out.println("FF-PLAYER-ROUTE rewritten"
-                +" actor="+connected.getUUID()
-                +" body="+body.getUUID()
-                +" parsedBody="+event.getParseResults().getContext()
-                    .getSource().getEntity().getUUID());
+            System.out.println("FF-PLAYER-ROUTE redispatch"
+                +" connected="+connected.getUUID()
+                +" occupiedBody="+body.getUUID()
+                +" text="+parsed.getReader().getString());
+        original.getServer().getCommands().performPrefixedCommand(
+            projected, parsed.getReader().getString());
     }
 }
