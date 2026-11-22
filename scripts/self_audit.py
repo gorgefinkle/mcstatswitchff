@@ -46,6 +46,14 @@ assert 'LAST_INTERACTION.remove(p.getUUID())' in (root/'src/main/java/dev/freaky
 actual_book = (root/'src/main/java/dev/freakyfriday/mind/MindSwapSessions.java').read_text()
 assert 'PlayerMobPossession.begin(p,mob)' in actual_book
 assert 'SELECTION_TIMEOUT_TICKS = 160L' in actual_book
+assert 'SelectionHudSync.show(p,target.getDisplayName().getString()' in actual_book
+assert 'SelectionHudSync.clear(p)' in actual_book
+assert 'expirePending(ServerPlayer p)' in actual_book
+assert 'onTick(ServerTickEvent.Post event)' in (root/'src/main/java/dev/freakyfriday/mind/SelectionHudSync.java').read_text()
+assert (root/'src/main/java/dev/freakyfriday/ClientSelectionHud.java').exists()
+assert (root/'src/main/java/dev/freakyfriday/SelectionHudPayload.java').exists()
+assert 'SelectionHudPayload.TYPE' in (root/'src/main/java/dev/freakyfriday/PossessionNetwork.java').read_text()
+
 assert 'MindSwapSessions.clearSelectionAfterReturn(account)' in (root/'src/main/java/dev/freakyfriday/mind/PlayerMobPossession.java').read_text()
 client=(root/'src/main/java/dev/freakyfriday/ClientPossession.java').read_text()
 assert 'InputEvent.InteractionKeyMappingTriggered' in client
