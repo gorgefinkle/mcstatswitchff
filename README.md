@@ -1,6 +1,6 @@
 # Freaky Friday — R0.15.4 Dual-Instance Native Host Feasibility
 
-**Development branch:** `feature/native-mind-host-poc`  
+**Development branch:** `feature/dual-instance-host-poc`  
 **Minecraft targets:** 26.2 and 26.3 / NeoForge / Java 25
 
 ## New R0.15 architecture experiment
@@ -29,12 +29,12 @@ that the original donor AI can safely execute.
 
 See [the R0.15 dual-instance test and safety gate](docs/R0_15_DETACHED_DUAL_INSTANCE_PROOF.md).
 
-## First real-world result and R0.15.4 correction
+## First real-world result and R0.15.3 selection correction
 
 The initial user-validated R0.15.2 session passed the 40-tick
 detached-host lifecycle test, but the final pair was **Cow -> Cow**:
 additional book clicks had silently changed the original Cow -> Zombie
-selection. This is fixed in R0.15.4: two clicks LOCK the donor/recipient
+selection. This was fixed in R0.15.3: two clicks LOCK the donor/recipient
 pair; later clicks cannot change it. Use `/freakyfriday cancel` to pick
 a new pair. This still does not execute native donor AI or swap minds.
 
