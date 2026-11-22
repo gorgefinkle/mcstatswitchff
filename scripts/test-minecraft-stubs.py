@@ -660,12 +660,10 @@ public final class BookInteractionHarness {
     "Chicken then self enters physical player-mob binding code");
   MindSwapSessions.cancel(p);
 
-  var first=new PlayerInteractEvent.EntityInteract(p,chicken);
-  BookInteractions.onInteract(first);
-  world.tick();
-  BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,zombie));
+  MindSwapSessions.select(p,chicken);
+  MindSwapSessions.select(p,zombie);
   ok(received(p,"Native mind exchange REJECTED"),
-    "Mob/Mob invokes real AI exchange method and never reports fake success");
+    "Mob/Mob invokes true AI exchange entrypoint and never reports fake success: "+p.messages);
   MindSwapSessions.cancel(p);
 
   p.setMainHand(new Object());
