@@ -42,11 +42,11 @@ public final class UnseenAddonCommandFixture {
                 return 1;
             }))
             .then(Commands.literal("selector")
-                .then(Commands.argument("target",EntityArgument.player())
+                .then(Commands.argument("target",EntityArgument.entity())
                     .executes(ctx -> {
                         var src=ctx.getSource();
                         ServerPlayer entity=src.getPlayerOrException();
-                        ServerPlayer target=EntityArgument.getPlayer(ctx,"target");
+                        var target=EntityArgument.getEntity(ctx,"target");
                         executions++;
                 last=new Observation(entity.getUUID(),target.getUUID(),
                             src.getTextName(),src.permissions(),src.source);
