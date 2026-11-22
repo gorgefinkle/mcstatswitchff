@@ -257,6 +257,12 @@ public final class PlayerMobGameTests {
     private static void verifyFallProfiles(GameTestHelper helper) {
         var level=helper.getLevel();
         ServerPlayer player=helper.makeMockServerPlayerInLevel();
+        // Keep the GameTest's real physics arena in player simulation range.
+        // Otherwise a COMMAND-spawned Zombie can disappear before tick 57
+        // in a playerless far-away GameTest structure.
+        BlockPos playerAnchor=helper.absolutePos(new BlockPos(1,1,2));
+        player.setPos(playerAnchor.getX()+0.5,playerAnchor.getY(),
+            playerAnchor.getZ()+0.5);
         for (int x=1;x<=9;x++)for (int z=1;z<=6;z++) {
             level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,0,z)),
                 net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
@@ -322,6 +328,7 @@ public final class PlayerMobGameTests {
             // staging guard and is switched off before the session begins.
             zombie.setNoGravity(true);
             zombie.setNoAi(true);
+            zombie.setPersistenceRequired();
             helper.assertTrue(level.addFreshEntity(zombie),"Zombie did not register");
             zombieHealth[0]=zombie.getHealth();
             zombieBody[0]=zombie;
