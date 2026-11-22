@@ -131,6 +131,41 @@ jobs:
             run/logs/**
             run/crash-reports/**
 
+  native-worker-e2e:
+    name: Two-process native AI worker Minecraft ${{ matrix.minecraft }}
+    needs: core
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    strategy:
+      fail-fast: false
+      matrix:
+        minecraft: ['26.2', '26.3']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+      - name: Run native Zombie AI in an independent NeoForge server and dispatch signed actions in receiver
+        shell: bash
+        run: python3 scripts/test-native-worker-e2e.py --minecraft ${{ matrix.minecraft }}
+      - name: Upload isolated worker/receiver diagnostic output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: freakyfriday-mc${{ matrix.minecraft }}-native-worker-e2e
+          retention-days: 30
+          if-no-files-found: warn
+          path: |
+            native-worker-server.log
+            native-worker-receiver.log
+            run-ai-worker/logs/**
+            run/logs/**
+            run/crash-reports/**
+
   build:
     name: NeoForge Minecraft ${{ matrix.minecraft }}
     needs: core
