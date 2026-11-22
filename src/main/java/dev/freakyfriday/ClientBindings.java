@@ -46,7 +46,7 @@ public final class ClientBindings {
         String shownKey = SELECT_SELF.getTranslatedKeyMessage().getString();
         if (holding && mc.gui.screen() == null && (!wasHolding || !shownKey.equals(lastHintKey))) {
             mc.gui.hud.setOverlayMessage(Component.literal("Freaky Friday: right-click mob or "
-                + shownKey + " to select yourself"), true);
+                + shownKey + " (player mind transfer not yet implemented)"), true);
             lastHintKey = shownKey;
         }
         if (!holding) lastHintKey = null;
