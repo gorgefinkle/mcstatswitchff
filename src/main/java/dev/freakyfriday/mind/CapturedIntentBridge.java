@@ -90,7 +90,20 @@ public final class CapturedIntentBridge {
         return assignment.controlling(physicalBody);
     }
 
-    public synchronized Receipt deliver(Frame frame) {
+    /**
+     * Public receiving entrypoint for a future external isolated producer.
+     * HMAC verification, session and SERVER tick admission happen BEFORE the
+     * first physical recipient method is invoked. The raw Frame API below
+     * is package-scoped solely for local tests and trusted internal code.
+     */
+    public synchronized Receipt deliverAuthenticated(byte[] message, byte[] secret,
+                                                      UUID session, long serverTick) {
+        var decoded = CapturedIntentWireCodec.decode(
+            message, secret, session, serverTick);
+        return deliver(decoded.frame());
+    }
+
+    synchronized Receipt deliver(Frame frame) {
         Objects.requireNonNull(frame, "frame");
         BodyActionGate.BodyPort recipient = bodies.get(frame.bodyId());
         if (recipient == null)
