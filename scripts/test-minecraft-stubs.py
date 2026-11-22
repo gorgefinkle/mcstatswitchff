@@ -10,6 +10,31 @@ DEST=ROOT/'build'/'stub-harness'; STUB=DEST/'stubs'; OUT=DEST/'classes'
 if DEST.exists(): shutil.rmtree(DEST)
 STUB.mkdir(parents=True,exist_ok=True); OUT.mkdir(parents=True,exist_ok=True)
 S={
+# Actual Minecraft-controlled possession, client camera and networking are
+# compiled/verified by the real NeoForge jobs, not old fake API classes.
+'dev/freakyfriday/PossessionNetwork.java':'''package dev.freakyfriday;
+public final class PossessionNetwork {
+ public static void register(Object ignored){}
+}
+''',
+'dev/freakyfriday/mind/PlayerMobPossession.java':'''package dev.freakyfriday.mind;
+import java.util.UUID;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Mob;
+public final class PlayerMobPossession {
+ public static boolean hasSession(UUID id){return false;}
+ public static String begin(ServerPlayer p,Mob body){return "synthetic harness"; }
+ public static boolean end(ServerPlayer p){return false;}
+ public static void clearOnLogout(UUID id){}
+ public static void clearOnServerStop(){}
+}
+''',
+'dev/freakyfriday/mind/NativeBrainSwap.java':'''package dev.freakyfriday.mind;
+import net.minecraft.world.entity.Mob;
+public final class NativeBrainSwap {
+ public static String exchange(Mob a,Mob b){return "synthetic harness"; }
+}
+''',
 'dev/freakyfriday/FFServerSmoke.java':'''package dev.freakyfriday;
 public final class FFServerSmoke {}
 ''',
@@ -363,6 +388,12 @@ subprocess.run(['java','-ea','-cp',str(OUT),'dev.freakyfriday.BridgeHarness'],ch
 # This catches missing internal references and most Java source errors, but API signatures
 # are synthetic and must NOT be represented as a real NeoForge compile.
 FULL={
+'dev/freakyfriday/mind/PlayerMobGameTests.java':'''package dev.freakyfriday.mind;
+public final class PlayerMobGameTests {
+ public static final net.neoforged.neoforge.registries.DeferredRegister.Items FUNCTIONS =
+   net.neoforged.neoforge.registries.DeferredRegister.createItems("stub-player-mob-tests");
+}
+''',
 # These components exercise real Brigadier/NeoForge command events and
 # two-player GameTest APIs, rather than the old synthetic Minecraft stubs.
 'dev/freakyfriday/mind/PlayerCommandBodyRouting.java':'''package dev.freakyfriday.mind;
@@ -577,7 +608,7 @@ public static void main(String[] args){
 # They must not be passed to the legacy headless harness whose fake APIs do not
 # implement actual packet serialization, GUI rendering or client registration.
 real_api_only = {'NativeBrainSwap.java', 'GoalMindRuntime.java', 'MinecraftBodyPort.java', 'MinecraftHostProbe.java', 'LiveBodyProbe.java', 'DetachedMindHostProbe.java', 'ProbeBodySnapshot.java', 'ProbeTelemetry.java', 'DetachedHostMirrorProbe.java', 'DetachedProbeGameTests.java', 'NativeAiSurfaceAudit.java', 'CategoryPickerPayload.java','CategoryPickerNetworking.java',
-                 'CategoryPickerScreen.java','ClientCategoryPickerNetworking.java', 'FFDiagnosticAutoTest.java', 'FFServerSmoke.java', 'NativeAiWorkerServer.java', 'PlayerCommandBodyRouting.java', 'PlayerCommandRouteGameTests.java', 'UnseenAddonCommandFixture.java'}
+                 'CategoryPickerScreen.java','ClientCategoryPickerNetworking.java', 'FFDiagnosticAutoTest.java', 'FFServerSmoke.java', 'NativeAiWorkerServer.java', 'PlayerCommandBodyRouting.java', 'PlayerCommandRouteGameTests.java', 'UnseenAddonCommandFixture.java', 'PlayerMobGameTests.java', 'PlayerMobPossession.java', 'PossessionNetwork.java', 'PossessionInputPayload.java', 'PossessionViewPayload.java', 'ClientPossession.java'}
 all_prod=[p for p in (ROOT/'src/main/java').rglob('*.java') if p.name not in real_api_only] + list((ROOT/'src/platform/minecraft-26.2/java').rglob('*.java'))
 full_cmd=['javac','-d',str(OUT)]+list(map(str,STUB.rglob('*.java')))+list(map(str,all_prod))
 subprocess.run(full_cmd,check=True)
