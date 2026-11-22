@@ -57,8 +57,11 @@ assert 'ProbeTelemetry.info' in (root/'src/main/java/dev/freakyfriday/mind/Detac
 assert 'ProbeTelemetry.info' in (root/'src/main/java/dev/freakyfriday/mind/DetachedHostMirrorProbe.java').read_text()
 assert 'ProbeTelemetry.info' in (root/'src/main/java/dev/freakyfriday/mind/LiveBodyProbe.java').read_text()
 diagnostic_commands = (root/'src/main/java/dev/freakyfriday/FFCommands.java').read_text()
-assert diagnostic_commands.count('requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))') == 5, "Experimental host/debug commands must require game-master access"
+assert diagnostic_commands.count('requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))') == 6, "Experimental host/debug commands must require game-master access"
 
+assert 'FFDiagnosticAutoTest.runPair(' in diagnostic_commands
+assert 'FFDiagnosticAutoTest.runSuite(' in diagnostic_commands
+assert (root/'src/main/java/dev/freakyfriday/FFDiagnosticAutoTest.java').exists()
 assert 'NeoForge.EVENT_BUS.register(dev.freakyfriday.mind.DetachedHostMirrorProbe.class)' in (root/'src/main/java/dev/freakyfriday/FreakyFriday.java').read_text()
 assert 'NeoForge.EVENT_BUS.register(dev.freakyfriday.mind.LiveBodyProbe.class)' in (root/'src/main/java/dev/freakyfriday/FreakyFriday.java').read_text()
 assert (root/'src/test/java/dev/freakyfriday/mind/NativeAiEffectSurveySelfTest.java').exists()
