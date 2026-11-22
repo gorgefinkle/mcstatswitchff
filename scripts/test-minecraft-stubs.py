@@ -29,6 +29,19 @@ public final class PlayerMobPossession {
  public static void clearOnServerStop(){}
 }
 ''',
+'dev/freakyfriday/mind/PlayerPlayerExchange.java':'''package dev.freakyfriday.mind;
+import java.util.UUID;
+import net.minecraft.server.level.ServerPlayer;
+/** Stand-in for legacy source harness. Real player physics compile and
+ * execute in REQUIRED dedicated NeoForge GameTests on both versions. */
+public final class PlayerPlayerExchange {
+ public static boolean active(UUID id){return false;}
+ public static String begin(ServerPlayer p,ServerPlayer target){return null;}
+ public static boolean cancel(ServerPlayer p){return false;}
+ public static void clearOnLogout(UUID id){}
+ public static void clearOnServerStop(){}
+}
+''',
 'dev/freakyfriday/mind/NativeBrainSwap.java':'''package dev.freakyfriday.mind;
 import net.minecraft.world.entity.Mob;
 public final class NativeBrainSwap {
