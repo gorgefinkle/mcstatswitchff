@@ -12,7 +12,7 @@ import subprocess
 import zipfile
 
 ROOT = Path(__file__).resolve().parent.parent
-TAG = "R0_15_4_PlayerCommandsP02"
+TAG = "R0_15_5_PlayerMobPossessionP03"
 SOURCE_PREFIXES = ("src/", "scripts/", "versions/", "gradle/", "docs/")
 SOURCE_FILES = {
     "build.gradle", "settings.gradle", "gradle.properties",
@@ -42,6 +42,9 @@ def main():
         "build.gradle", "settings.gradle", "gradlew",
         "src/main/java/dev/freakyfriday/FreakyFriday.java",
         "src/main/java/dev/freakyfriday/mind/NativeAiWorkerServer.java",
+        "src/main/java/dev/freakyfriday/mind/PlayerMobPossession.java",
+        "src/main/java/dev/freakyfriday/ClientPossession.java",
+        "src/main/java/dev/freakyfriday/mind/PlayerMobGameTests.java",
         "src/main/java/dev/freakyfriday/mind/CapturedIntentWireCodec.java",
         "src/main/java/dev/freakyfriday/mind/DetachedProbeGameTests.java",
         "scripts/test-native-worker-e2e.py",
