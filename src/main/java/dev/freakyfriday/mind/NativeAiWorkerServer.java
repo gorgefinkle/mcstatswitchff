@@ -95,6 +95,7 @@ public final class NativeAiWorkerServer {
         final double startX, startZ;
         int age, targetTicks, navigationTicks;
         boolean produced;
+        boolean spawned;
         boolean genericStimulusApplied;
         NativeMindObservation.NativeNavigation observedMovement;
         UUID attackedTarget;
@@ -196,19 +197,19 @@ public final class NativeAiWorkerServer {
             stimulus.setUUID(request.stimulusId());
             donor.setPos(0.5,121,0.5);
             stimulus.setPos(8.5,121,0.5);
+            donor.setPersistenceRequired();
             stimulus.setNoAi(true); // Stationary target; donor uses its OWN vanilla AI.
             stimulus.setPersistenceRequired();
-            if (!level.addFreshEntity(donor) || !level.addFreshEntity(stimulus))
-                throw new IllegalStateException("Worker failed to spawn native NPCs");
-            // addFreshEntity schedules registration during server startup.
-            // Entity lookup can legitimately return null until subsequent
-            // full server ticks, so verify after startup, not in this event.
+            // ServerStartedEvent is still inside the startup lifecycle on
+            // 26.2. Defer entity insertion to a normal server tick so the
+            // EntityManager and chunk tracker are fully online first.
             active=new State(level,request,donor,stimulus,anchor);
             started=true;
             System.out.println("FF-NATIVE-WORKER READY donor="+request.donor()
                 +" stimulus="+request.stimulus()+" requireAttack="+request.requireAttack()
                 +" ownWorld=true"
                 +" nativeAiEnabled="+!donor.isNoAi()
+                +" deferredEntityRegistration=true"
                 +" liveWorldAccess=false");
         } catch (Exception failure) {
             System.err.println("FF-NATIVE-WORKER START_FAILURE "
@@ -237,14 +238,39 @@ public final class NativeAiWorkerServer {
         State state=active;
         state.age++;
         Mob donor=state.donor, stimulus=state.stimulus;
+        if(!state.spawned) {
+            if(state.age<5)return;
+            boolean donorAdded=state.level.addFreshEntity(donor);
+            boolean stimulusAdded=state.level.addFreshEntity(stimulus);
+            if(!donorAdded || !stimulusAdded) {
+                state.produced=true;
+                System.err.println("FF-NATIVE-WORKER WORLD_REGISTRATION_FAILED"
+                    +" addDonor="+donorAdded+" addStimulus="+stimulusAdded
+                    +" donorUUID="+donor.getUUID()
+                    +" stimulusUUID="+stimulus.getUUID());
+                return;
+            }
+            state.spawned=true;
+            System.out.println("FF-NATIVE-WORKER ENTITIES_SPAWNED PASS"
+                +" donor="+donor.getUUID()+" stimulus="+stimulus.getUUID());
+            return;
+        }
         if (state.age < 8) return;
         if (state.level.getEntity(donor.getUUID())!=donor
                 || state.level.getEntity(stimulus.getUUID())!=stimulus) {
-            if (state.age>=30) {
+            if (state.age>=100) {
                 System.err.println("FF-NATIVE-WORKER WORLD_REGISTRATION_FAILED"
                     +" age="+state.age
                     +" donorFound="+(state.level.getEntity(donor.getUUID())==donor)
-                    +" stimulusFound="+(state.level.getEntity(stimulus.getUUID())==stimulus));
+                    +" stimulusFound="+(state.level.getEntity(stimulus.getUUID())==stimulus)
+                    +" donorRemoved="+donor.isRemoved()
+                    +" donorRemovalReason="+donor.getRemovalReason()
+                    +" stimulusRemoved="+stimulus.isRemoved()
+                    +" stimulusRemovalReason="+stimulus.getRemovalReason()
+                    +" donorUUID="+donor.getUUID()
+                    +" stimulusUUID="+stimulus.getUUID()
+                    +" donorPos="+donor.position()
+                    +" stimulusPos="+stimulus.position());
                 state.produced=true;
             }
             return;
