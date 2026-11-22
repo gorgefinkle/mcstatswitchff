@@ -28,6 +28,12 @@ public final class NativeMindObservationSelfTest {
         assert frame.actions().get(0).actionId().equals(BodyActionGate.LOOK_OFFSET)
             && frame.actions().get(1).actionId().equals(BodyActionGate.MOVE_OFFSET); checks++;
         assert "3.5".equals(frame.actions().get(1).arguments().get("dx")); checks++;
+        UUID targetEntity=UUID.randomUUID();
+        var attackFrame=NativeMindObservation.frame(target,mind,100,n,targetEntity);
+        assert attackFrame.actions().size()==3
+            && attackFrame.actions().get(2).actionId().equals(BodyActionGate.ATTACK_ENTITY)
+            && targetEntity.toString().equals(
+                attackFrame.actions().get(2).arguments().get("targetId")); checks++;
         boolean rejected=false;
         try{new NativeMindObservation.NativeNavigation(Double.NaN,0,0,1);}
         catch(IllegalArgumentException expected){rejected=true;}
