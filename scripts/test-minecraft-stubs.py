@@ -444,6 +444,9 @@ public final class RegisterTicketControllersEvent {}
 public final class NativeAiWorkerServer {
  public static void registerChunkTickets(
   net.neoforged.neoforge.common.world.chunk.RegisterTicketControllersEvent event){}
+ public static void setEntityTickingChunk(
+  net.minecraft.server.level.ServerLevel level,java.util.UUID owner,
+  int chunkX,int chunkZ,boolean forced){}
 }
 ''',
 # Real GameTest APIs belong to the actual Minecraft server build and are not
