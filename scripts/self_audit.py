@@ -45,6 +45,15 @@ assert 'LAST_INTERACTION.remove(p.getUUID())' in (root/'src/main/java/dev/freaky
 # The public book now enters actual possession, not the old diagnostic branch.
 actual_book = (root/'src/main/java/dev/freakyfriday/mind/MindSwapSessions.java').read_text()
 assert 'PlayerMobPossession.begin(p,mob)' in actual_book
+assert 'SELECTION_TIMEOUT_TICKS = 160L' in actual_book
+assert 'MindSwapSessions.clearSelectionAfterReturn(account)' in (root/'src/main/java/dev/freakyfriday/mind/PlayerMobPossession.java').read_text()
+client=(root/'src/main/java/dev/freakyfriday/ClientPossession.java').read_text()
+assert 'InputEvent.InteractionKeyMappingTriggered' in client
+assert 'event.setCanceled(true)' in client and 'new PossessionAttackPayload' in client
+assert 'PossessionMotion.step(living' in client
+assert 'PossessionStatePayload.TYPE' in (root/'src/main/java/dev/freakyfriday/PossessionNetwork.java').read_text()
+assert 'PossessionCombat.findValidMeleeTarget' in (root/'src/main/java/dev/freakyfriday/mind/PlayerMobPossession.java').read_text()
+
 assert 'NativeBrainSwap.exchange(mobA,mobB)' in actual_book
 assert 'modBus.addListener(PortableAttributes::addToEntityTypes)' not in (root/'src/main/java/dev/freakyfriday/FreakyFriday.java').read_text()
 
