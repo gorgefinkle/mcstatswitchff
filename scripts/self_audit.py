@@ -40,6 +40,9 @@ assert 'mirror_body_mutation' in (root/'src/main/java/dev/freakyfriday/mind/Deta
 assert 'constructor_body_mutation' in (root/'src/main/java/dev/freakyfriday/mind/DetachedMindHostProbe.java').read_text()
 assert 'physical_probe_watchdog_timeout' in (root/'src/main/java/dev/freakyfriday/mind/LiveBodyProbe.java').read_text()
 assert 'LAST_INTERACTION.remove(p.getUUID())' in (root/'src/main/java/dev/freakyfriday/mind/MindSwapSessions.java').read_text()
+assert 'Player mind transfer is not implemented' in (root/'src/main/java/dev/freakyfriday/mind/MindSwapSessions.java').read_text()
+assert 'modBus.addListener(PortableAttributes::addToEntityTypes)' not in (root/'src/main/java/dev/freakyfriday/FreakyFriday.java').read_text()
+
 assert (root/'src/main/java/dev/freakyfriday/mind/ProbeTelemetry.java').exists()
 assert 'Diagnostic pair is LOCKED' in (root/'src/main/java/dev/freakyfriday/mind/MindSwapSessions.java').read_text()
 probe_source = (root/'src/main/java/dev/freakyfriday/mind/DetachedHostMirrorProbe.java').read_text()
