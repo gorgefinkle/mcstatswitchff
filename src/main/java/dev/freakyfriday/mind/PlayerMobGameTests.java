@@ -260,7 +260,10 @@ public final class PlayerMobGameTests {
         for (int i=0;i<bodies.length;i++) {
             BlockPos origin=helper.absolutePos(new BlockPos(2+2*i,12,2));
             bodies[i].setPos(origin.getX()+0.5,origin.getY(),origin.getZ()+0.5);
-            bodies[i].setNoAi(true); // Inactive comparison mobs cannot fall early
+            bodies[i].setNoAi(true); // Freeze ordinary wandering
+            // NoAI does not disable gravity; hold comparison body up until
+            // it actually becomes possessed to measure a fresh fall.
+            if(i>0)bodies[i].setNoGravity(true);
             helper.assertTrue(level.addFreshEntity(bodies[i]),
                 "Native fall test could not register entity "+i);
         }
@@ -275,6 +278,8 @@ public final class PlayerMobGameTests {
             helper.assertTrue(chickenDrop[0]>0.2 && chickenDrop[0]<2.75,
                 "Possessed chicken did not flap slowly: distance="+chickenDrop[0]);
             helper.assertTrue(PlayerMobPossession.end(player),"Cannot end chicken session");
+            ocelot.setNoGravity(false);
+            ocelot.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
             String next=PlayerMobPossession.begin(player,ocelot);
             helper.assertTrue(next==null,"Ocelot fall session rejected: "+next);
         });
@@ -295,13 +300,28 @@ public final class PlayerMobGameTests {
             BlockPos zombieOrigin=helper.absolutePos(new BlockPos(6,12,2));
             zombie.setPos(zombieOrigin.getX()+0.5,zombieOrigin.getY(),
                 zombieOrigin.getZ()+0.5);
+            // Let the world manager actually register the body before the
+            // physical possession/fall starts. NoGravity is a test-only
+            // staging guard and is switched off before the session begins.
+            zombie.setNoGravity(true);
+            zombie.setNoAi(true);
             helper.assertTrue(level.addFreshEntity(zombie),"Zombie did not register");
             zombieHealth[0]=zombie.getHealth();
             zombieBody[0]=zombie;
+        });
+        helper.runAfterDelay(57,()->{
+            Mob zombie=zombieBody[0];
+            helper.assertTrue(zombie!=null && level.getEntity(zombie.getUUID())==zombie,
+                "Zombie is not registered in real world before possession");
+            BlockPos zombieOrigin=helper.absolutePos(new BlockPos(6,12,2));
+            zombie.setPos(zombieOrigin.getX()+0.5,zombieOrigin.getY(),
+                zombieOrigin.getZ()+0.5);
+            zombie.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
+            zombie.setNoGravity(false);
             String next=PlayerMobPossession.begin(player,zombie);
             helper.assertTrue(next==null,"Zombie fall session rejected: "+next);
         });
-        helper.runAfterDelay(55,()->{
+        helper.runAfterDelay(87,()->{
             Mob zombie=zombieBody[0];
             helper.assertTrue(zombie!=null,"Zombie not constructed for fall test");
             double drop=startY-zombie.getY();
@@ -309,7 +329,7 @@ public final class PlayerMobGameTests {
                 "Zombie acquired chicken glide: chicken="+chickenDrop[0]
                     +" zombie="+drop);
         });
-        helper.runAfterDelay(75,()->{
+        helper.runAfterDelay(115,()->{
             Mob zombie=zombieBody[0];
             helper.assertTrue(zombie!=null,"Missing zombie when checking landing");
             // Entity.move may clear onGround after a zero-Y horizontal
