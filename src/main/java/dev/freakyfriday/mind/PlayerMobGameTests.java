@@ -60,6 +60,10 @@ public final class PlayerMobGameTests {
 
     private static void verifyPlayerControlsChicken(GameTestHelper helper) {
         var level=helper.getLevel();
+        UUID ticketOwner=UUID.randomUUID();
+        int[] ticketBounds=arenaChunkBounds(helper,1,9,1,6);
+        setArenaChunks(level,ticketOwner,ticketBounds,true);
+        helper.runAfterDelay(120,()->setArenaChunks(level,ticketOwner,ticketBounds,false));
         ServerPlayer player=helper.makeMockServerPlayerInLevel();
         player.setItemInHand(InteractionHand.MAIN_HAND,
             new ItemStack(FreakyFriday.BOOK.get()));
@@ -254,6 +258,33 @@ public final class PlayerMobGameTests {
      * normally without damage; zombie falls normally and IS damaged.
      * Distinct native body type behavior must never leak between sessions.
      */
+
+    private static int[] arenaChunkBounds(GameTestHelper helper,
+            int minX,int maxX,int minZ,int maxZ) {
+        BlockPos[] corners={
+            helper.absolutePos(new BlockPos(minX,1,minZ)),
+            helper.absolutePos(new BlockPos(minX,1,maxZ)),
+            helper.absolutePos(new BlockPos(maxX,1,minZ)),
+            helper.absolutePos(new BlockPos(maxX,6,maxZ))
+        };
+        int minCx=Integer.MAX_VALUE,maxCx=Integer.MIN_VALUE;
+        int minCz=Integer.MAX_VALUE,maxCz=Integer.MIN_VALUE;
+        for(BlockPos p:corners) {
+            int cx=p.getX()>>4, cz=p.getZ()>>4;
+            minCx=Math.min(minCx,cx); maxCx=Math.max(maxCx,cx);
+            minCz=Math.min(minCz,cz); maxCz=Math.max(maxCz,cz);
+        }
+        return new int[]{minCx,maxCx,minCz,maxCz};
+    }
+
+    private static void setArenaChunks(net.minecraft.server.level.ServerLevel level,
+            UUID owner,int[] bounds,boolean forced) {
+        if(bounds==null)return;
+        for(int cx=bounds[0];cx<=bounds[1];cx++)
+            for(int cz=bounds[2];cz<=bounds[3];cz++)
+                NativeAiWorkerServer.setEntityTickingChunk(level,owner,cx,cz,forced);
+    }
+
     private static void verifyFallProfiles(GameTestHelper helper) {
         var level=helper.getLevel();
         ServerPlayer player=helper.makeMockServerPlayerInLevel();
@@ -377,6 +408,7 @@ public final class PlayerMobGameTests {
                 +" noCrossBodyGlide=true");
             for (Mob mob:bodies)mob.discard();
             zombie.discard();
+            setArenaChunks(level,ticketOwner,ticketBounds,false);
             helper.succeed();
         });
     }
