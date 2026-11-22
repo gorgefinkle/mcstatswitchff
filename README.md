@@ -245,3 +245,27 @@ full behavior outputs is needed; do not use species-by-species fake goal rules.
 This release source is NOT a verified JAR: GitHub Actions has a billing gate
 that prevents all runner allocation and the local environment lacks Java 25
 and NeoForge dependencies. Never rebrand older P07B JARs as P08.
+
+
+### P08.2 first-body selection HUD (development source)
+
+After right-clicking the first Mob with the Freaky Friday book (or selecting
+your own body first), a compact `First: Chicken  8.0s` countdown is shown
+**above the vanilla health hearts**. The selected body name comes from the
+server, not a client-chosen entity ID. The timer decreases over the same
+160-game-tick (eight-second) selection window already enforced by the server.
+It includes a shrinking progress bar and safely truncates very long names.
+
+The server sends a definitive clear when the pairing completes, the selection
+is cancelled, the first body is lost/dies, the player dies, their dimension
+changes, or the selection expires. The client also locally expires the display
+and clears it when the camera transfers, on death, or on logout. Expiration
+does not execute a swap; a fresh two-body pairing is still required.
+
+The two existing physical GameTests now assert that selection begins with a
+160-tick lifetime, that completion/cancel removes pending state, and that an
+expired first selection cannot silently pair with a later Mob. These prove
+server-state lifecycle only. The HUD placement and rendering have **not**
+been visually tested with a connected Minecraft client because GitHub Actions
+billing currently blocks NeoForge compilation. The P08.2 package is therefore
+source-only, NOT a new playable JAR.
