@@ -43,7 +43,11 @@ public final class FFDiagnosticAutoTest {
     private static EntityType<?> resolve(String input) {
         String id = input.indexOf(':') == -1 ? "minecraft:" + input : input;
         Identifier key = Identifier.tryParse(id);
-        return key == null ? null : BuiltInRegistries.ENTITY_TYPE.getValue(key);
+        // ENTITY_TYPE is a defaulted registry: getValue(missing_id) may
+        // return a fallback entity, creating a dangerous false PASS.
+        // Require an exact registered key before asking for its value.
+        return key == null || !BuiltInRegistries.ENTITY_TYPE.containsKey(key)
+            ? null : BuiltInRegistries.ENTITY_TYPE.getValue(key);
     }
 
     public static Result checkPair(ServerLevel level, String donorId, String recipientId) {
