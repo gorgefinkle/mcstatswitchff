@@ -709,6 +709,12 @@ public final class BookInteractionHarness {
   ok(p.messages.stream().filter(x->x.contains("First body: Chicken")).count()==count+1,
     "cancel and reselect refreshes the gameplay book stamp");
   MindSwapSessions.cancel(p);
+  // Shared Pending stores game ticks in BOTH gameplay and diagnostic paths.
+  MindSwapSessions.selectDiagnosticForTest(p,chicken);
+  MindSwapSessions.selectDiagnosticForTest(p,zombie);
+  ok(MindSwapSessions.diagnosticPairMatches(p.getUUID(),chicken.getUUID(),zombie.getUUID()),
+    "diagnostic first-body timestamp invalidated fresh two-mob pairing");
+  MindSwapSessions.cancel(p);
   System.out.println("PASS BookInteractionHarness: "+checks
     +" synthetic selection assertions; real movement tested by NeoForge");
  }
