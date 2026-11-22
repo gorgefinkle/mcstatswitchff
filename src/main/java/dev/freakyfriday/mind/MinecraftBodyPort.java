@@ -18,6 +18,9 @@ import net.minecraft.world.entity.monster.Creeper;
  */
 public final class MinecraftBodyPort implements BodyActionGate.BodyPort {
     public static final String MOVE_TO = "freakyfriday:move_to";
+    /** Worker-world-independent native movement relative to THIS body. */
+    public static final String MOVE_OFFSET = "freakyfriday:move_offset";
+    public static final String LOOK_OFFSET = "freakyfriday:look_offset";
     public static final String LOOK_AT = "freakyfriday:look_at";
     public static final String JUMP = "freakyfriday:jump";
     public static final String DETONATE = "freakyfriday:detonate";
@@ -40,6 +43,32 @@ public final class MinecraftBodyPort implements BodyActionGate.BodyPort {
         CAPABILITIES.register(LOOK_AT, capability(Mob.class, (body, intent) -> {
             double[] destination = target(intent.arguments());
             body.getLookControl().setLookAt(destination[0], destination[1], destination[2]);
+            return BodyActionGate.Result.executed();
+        }));
+        // Generic native-UI actions. An isolated donor AI can navigate in
+        // its OWN world, then transmit a relative direction without exposing
+        // disposable-worker coordinates to the live recipient world.
+        // The recipient uses its actual navigation and physical attributes.
+        CAPABILITIES.register(MOVE_OFFSET, capability(Mob.class, (body, intent) -> {
+            double dx=parse(intent.arguments(),"dx",Double.NaN);
+            double dy=parse(intent.arguments(),"dy",Double.NaN);
+            double dz=parse(intent.arguments(),"dz",Double.NaN);
+            double speed=parse(intent.arguments(),"speed",1.0);
+            if(speed<=0 || speed>2 || dx*dx+dy*dy+dz*dz>144)
+                return BodyActionGate.Result.blocked("Invalid relative movement request");
+            if(!body.getNavigation().moveTo(
+                    body.getX()+dx,body.getY()+dy,body.getZ()+dz,speed))
+                return BodyActionGate.Result.blocked("Recipient cannot navigate to requested offset");
+            return BodyActionGate.Result.executed();
+        }));
+        CAPABILITIES.register(LOOK_OFFSET, capability(Mob.class, (body, intent) -> {
+            double dx=parse(intent.arguments(),"dx",Double.NaN);
+            double dy=parse(intent.arguments(),"dy",Double.NaN);
+            double dz=parse(intent.arguments(),"dz",Double.NaN);
+            if(dx*dx+dy*dy+dz*dz>144)
+                return BodyActionGate.Result.blocked("Invalid relative look request");
+            body.getLookControl().setLookAt(
+                body.getX()+dx,body.getY()+dy,body.getZ()+dz);
             return BodyActionGate.Result.executed();
         }));
         CAPABILITIES.register(JUMP, capability(Mob.class, (body, intent) -> {
