@@ -22,6 +22,7 @@ public final class FreakyFriday {
         dev.freakyfriday.mind.PlayerPlayerGameTests.FUNCTIONS.register(modBus);
         modBus.addListener(PlatformHooks::addBookToCreativeTab);
         modBus.addListener(PossessionNetwork::register);
+        modBus.addListener(dev.freakyfriday.mind.NativeAiWorkerServer::registerChunkTickets);
         NeoForge.EVENT_BUS.register(FFCommands.class);
         NeoForge.EVENT_BUS.register(dev.freakyfriday.mind.PlayerCommandBodyRouting.class);
         NeoForge.EVENT_BUS.register(dev.unseenaddon.UnseenAddonCommandFixture.class);
