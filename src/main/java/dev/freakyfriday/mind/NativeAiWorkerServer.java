@@ -295,7 +295,8 @@ public final class NativeAiWorkerServer {
                     donor.getZ()-state.startZ)
                 +" hasPath="+(donor.getNavigation().getPath()!=null)
                 +" workerChunkLoaded="+state.level.hasChunkAt(donor.blockPosition())
-                +" chunkX="+donor.chunkPosition().x+" chunkZ="+donor.chunkPosition().z);
+                +" chunkX="+(donor.blockPosition().getX()>>4)
+                +" chunkZ="+(donor.blockPosition().getZ()>>4));
         }
     }
 
