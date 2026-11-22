@@ -11,6 +11,8 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -624,26 +626,101 @@ public final class PlayerMobGameTests {
      */
     private static void verifyZombieChickenBehaviorAcceptance(GameTestHelper helper) {
         var level=helper.getLevel();
+        UUID owner=UUID.randomUUID();
+        UUID ticketOwner=UUID.randomUUID();
+        int[] ticketBounds=arenaChunkBounds(helper,1,14,1,12);
+        setArenaChunks(level,ticketOwner,ticketBounds,true);
+
+        ServerPlayer temptPlayer=helper.makeMockServerPlayerInLevel();
+        temptPlayer.setPos(helper.absolutePos(new BlockPos(3,1,9)).getX()+0.5,
+            helper.absolutePos(new BlockPos(3,1,9)).getY(),
+            helper.absolutePos(new BlockPos(3,1,9)).getZ()+0.5);
+        temptPlayer.setGameMode(GameType.CREATIVE);
+        temptPlayer.setItemInHand(InteractionHand.MAIN_HAND,new ItemStack(Items.WHEAT_SEEDS));
+        temptPlayer.setItemInHand(InteractionHand.OFF_HAND,
+            new ItemStack(FreakyFriday.BOOK.get()));
+
         Mob zombie=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
         Mob chicken=EntityTypes.CHICKEN.create(level,EntitySpawnReason.COMMAND);
-        helper.assertTrue(zombie!=null&&chicken!=null,
-            "Real Zombie and Chicken required");
-        for(int x=1;x<=9;x++)for(int z=1;z<=9;z++)
+        Mob villager=EntityTypes.VILLAGER.create(level,EntitySpawnReason.COMMAND);
+        helper.assertTrue(zombie!=null&&chicken!=null&&villager!=null,
+            "Real Zombie, Chicken and Villager factories required");
+
+        for(int x=1;x<=14;x++)for(int z=1;z<=12;z++)
             level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,0,z)),
                 net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
-        BlockPos a=helper.absolutePos(new BlockPos(3,1,3));
-        BlockPos b=helper.absolutePos(new BlockPos(5,1,3));
-        zombie.setPos(a.getX()+0.5,a.getY(),a.getZ()+0.5);
-        chicken.setPos(b.getX()+0.5,b.getY(),b.getZ()+0.5);
-        helper.assertTrue(level.addFreshEntity(zombie)&&level.addFreshEntity(chicken),
-            "Native mobs were not registered");
-        String failure=NativeBrainSwap.exchange(zombie,chicken);
+        for(int x=1;x<=14;x++)for(int z=1;z<=12;z++)
+            level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,8,z)),
+                net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+
+        BlockPos zombiePos=helper.absolutePos(new BlockPos(3,1,3));
+        BlockPos chickenPos=helper.absolutePos(new BlockPos(6,1,3));
+        BlockPos villagerPos=helper.absolutePos(new BlockPos(10,1,3));
+        zombie.setPos(zombiePos.getX()+0.5,zombiePos.getY(),zombiePos.getZ()+0.5);
+        chicken.setPos(chickenPos.getX()+0.5,chickenPos.getY(),chickenPos.getZ()+0.5);
+        villager.setPos(villagerPos.getX()+0.5,villagerPos.getY(),villagerPos.getZ()+0.5);
+        zombie.setPersistenceRequired();
+        chicken.setPersistenceRequired();
+        villager.setPersistenceRequired();
+        villager.setNoAi(true);
+        helper.assertTrue(level.addFreshEntity(zombie)
+                && level.addFreshEntity(chicken)
+                && level.addFreshEntity(villager),
+            "Real Zombie/Chicken/Villager entities did not register");
+
+        UUID zombieId=zombie.getUUID(),chickenId=chicken.getUUID();
+        float zombieHealth=zombie.getHealth(),chickenHealth=chicken.getHealth();
+        double zombieStartZ=zombie.getZ(),chickenStartX=chicken.getX();
+        String failure=NativeMindProxySessions.begin(owner,zombie,chicken);
         helper.assertTrue(failure==null,
-            "Cross-species whole-mind swap NOT IMPLEMENTED: "+failure);
-        // A successful exchange cannot be certified by swapping two pointers
-        // alone. Future acceptance must prove actual hostile target pursuit
-        // by the chicken and passive chicken-like behavior by the Zombie.
-        helper.fail("Cross-species behavior is not yet certified by native AI execution");
+            "Species-independent native proxy creation rejected Zombie/Chicken: "+failure);
+        Mob zombieMind=NativeMindProxySessions.proxyForBody(owner,chickenId);
+        Mob chickenMind=NativeMindProxySessions.proxyForBody(owner,zombieId);
+        helper.assertTrue(zombieMind!=null&&chickenMind!=null
+                && zombieMind.getType()==EntityTypes.ZOMBIE
+                && chickenMind.getType()==EntityTypes.CHICKEN
+                && zombie.isNoAi()&&chicken.isNoAi(),
+            "Native donor proxies were not installed over the original physical bodies");
+
+        helper.runAfterDelay(120,()->{
+            try {
+                double chickenTowardVillager=chicken.getX()-chickenStartX;
+                double zombieTowardSeeds=zombie.getZ()-zombieStartZ;
+                helper.assertTrue(chickenTowardVillager>0.35,
+                    "Zombie native pursuit did not move the physical Chicken body"
+                    +" deltaX="+chickenTowardVillager
+                    +" proxyTarget="+zombieMind.getTarget());
+                helper.assertTrue(zombieTowardSeeds>0.35,
+                    "Chicken native temptation did not move the physical Zombie body"
+                    +" deltaZ="+zombieTowardSeeds);
+                helper.assertTrue(level.getEntity(zombieId)==zombie
+                        && level.getEntity(chickenId)==chicken
+                        && Float.compare(zombie.getHealth(),zombieHealth)==0
+                        && Float.compare(chicken.getHealth(),chickenHealth)==0,
+                    "Native proxy runtime replaced a body or changed its health");
+                helper.assertTrue(zombieMind.isInvisible()&&chickenMind.isInvisible()
+                        && zombieMind.noPhysics&&chickenMind.noPhysics,
+                    "Native AI hosts must remain hidden and non-physical");
+                helper.assertTrue(NativeMindProxySessions.end(owner),
+                    "Native proxy session did not end cleanly");
+                helper.assertTrue(!zombie.isNoAi()&&!chicken.isNoAi()
+                        && zombieMind.isRemoved()&&chickenMind.isRemoved(),
+                    "Ending the swap did not restore both original bodies and remove both hosts");
+                System.out.println("FF-GAMEPLAY NATIVE_PROXY_ZOMBIE_CHICKEN PASS"
+                    +" zombieMindMovedChicken="+chickenTowardVillager
+                    +" chickenMindMovedZombie="+zombieTowardSeeds
+                    +" originalBodiesPreserved=true"
+                    +" hiddenNativeHostsRemoved=true");
+                helper.succeed();
+            } finally {
+                if(NativeMindProxySessions.active(owner))
+                    NativeMindProxySessions.end(owner);
+                zombie.discard();
+                chicken.discard();
+                villager.discard();
+                setArenaChunks(level,ticketOwner,ticketBounds,false);
+            }
+        });
     }
 
 }
