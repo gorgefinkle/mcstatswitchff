@@ -188,7 +188,7 @@ The vanilla HUD/inventory continue to reference the authenticated player's
 own body after P05/P06 camera possession. P07 renders a separate occupied-body
 health indicator using the actual client-tracked LivingEntity health and
 maximum health, and draws the currently occupied entity's model over the
-vanilla player portrait in the survival inventory. It does NOT transfer player
+vanilla player portrait in the survival inventory and the Creative\nmode survival-equipment inventory tab. It does NOT transfer player
 identity, inventory, or health onto an arbitrary mob.
 
 An Ocelot is vanilla immune to *fall damage*, but can take damage and die
