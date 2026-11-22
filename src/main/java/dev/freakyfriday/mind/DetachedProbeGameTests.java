@@ -17,6 +17,7 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.entity.ai.goal.Goal;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
@@ -287,6 +288,133 @@ public final class DetachedProbeGameTests {
                 MindSwapSessions.clearOnLogout(player.getUUID());
             }
         });
+    }
+
+    /**
+     * Read-only inspection of REAL Goal/Brain classes on the real server.
+     * Factory constructors may still have side effects; this is only run on
+     * an ephemeral CI world. No native AI is executed by this test.
+     */
+    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>>
+        NATIVE_AI_INVENTORY = FUNCTIONS.register(
+            "native_ai_inventory", () -> DetachedProbeGameTests::testNativeAiInventory);
+
+    private static void testNativeAiInventory(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        var types = List.of(
+            EntityTypes.CHICKEN, EntityTypes.COW,
+            EntityTypes.ZOMBIE, EntityTypes.VILLAGER, EntityTypes.ENDER_DRAGON);
+        int scanned = 0;
+        int candidateCount = 0;
+        for (var type : types) {
+            Mob mob = type.create(level, EntitySpawnReason.COMMAND);
+            helper.assertTrue(mob != null, "Native AI inventory factory returned null");
+            NativeAiSurfaceAudit.Report report = NativeAiSurfaceAudit.inspect(mob);
+            helper.assertTrue(report.entityType().equals(mob.getType().toString()),
+                "Native AI report assigned the wrong Mob identity");
+            helper.assertTrue(level.getEntity(mob.getUUID()) == null,
+                "Read-only inspection unexpectedly world-registered an entity");
+            helper.assertTrue(!report.goals().isEmpty()
+                    || !report.targeting().isEmpty()
+                    || !report.nativeOverrides().isEmpty(),
+                "Native AI surface inventory was empty for " + type);
+            scanned++;
+            candidateCount += report.effectCandidates().size();
+            System.out.println("FF-NATIVE-PROBE inventory"
+                + " type=" + mob.getType() + " class=" + mob.getClass().getName()
+                + " goals=" + report.goals().size()
+                + " targetGoals=" + report.targeting().size()
+                + " overrides=" + report.nativeOverrides().size()
+                + " effectCandidates=" + report.effectCandidates().size()
+                + " brainActive=" + report.brainActive()
+                + " nativeAiTicked=false isolationCertified=false");
+        }
+        helper.assertTrue(scanned == 5 && candidateCount > 0,
+            "Real classfile/Goal inventory did not report expected candidates");
+        System.out.println("FF-NATIVE-PROBE inventory PASS"
+            + " types=5 candidates=" + candidateCount
+            + " runtimeWorldEffectIsolation=UNVERIFIED");
+        helper.succeed();
+    }
+
+    /**
+     * An adversarial third-party Goal is invoked on a REAL unregistered host.
+     * It deliberately writes a real level block. We EXPECT to detect the
+     * escape and restore the block, proving that 'not registered' is not a
+     * world effect sandbox. This does not execute a vanilla donor's native AI.
+     */
+    public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>>
+        HOST_WORLD_EFFECT_ESCAPE = FUNCTIONS.register(
+            "host_world_effect_escape", () -> DetachedProbeGameTests::testHostWorldEscape);
+
+    private static void testHostWorldEscape(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos sentinel = helper.absolutePos(new BlockPos(1, 1, 1));
+        var originalState = level.getBlockState(sentinel);
+        Mob donor = EntityTypes.CHICKEN.create(level, EntitySpawnReason.COMMAND);
+        Mob body = EntityTypes.COW.create(level, EntitySpawnReason.COMMAND);
+        helper.assertTrue(donor != null && body != null,
+            "Native isolation negative test needs actual vanilla actors");
+
+        // If any assertion fails after the mutation, finally still restores
+        // the world. This intentionally dangerous Goal is never callable by
+        // a player/command, only the disposable GameTest server.
+        try {
+            helper.assertTrue(level.setBlockAndUpdate(sentinel,
+                    Blocks.GOLD_BLOCK.defaultBlockState()),
+                "Cannot initialize real-world sentinel block");
+            ProbeBodySnapshot donorBefore = ProbeBodySnapshot.take(donor);
+            ProbeBodySnapshot bodyBefore = ProbeBodySnapshot.take(body);
+            DetachedMindHostProbe.Creation result =
+                DetachedMindHostProbe.construct(donor, body,
+                    "real-gametest-adversarial-goal");
+            helper.assertTrue(result.host() != null,
+                "Could not create actual detached host for isolation test: "
+                    + result.problem());
+            Mob host = result.host();
+            helper.assertTrue(level.getEntity(host.getUUID()) == null,
+                "Test host unexpectedly world-registered before adversarial goal");
+            helper.assertTrue(host.level() == level,
+                "Detached host has no real world pointer; test premise invalid");
+
+            Goal adversarial = new Goal() {
+                @Override public boolean canUse() { return true; }
+                @Override public void tick() {
+                    // This is a real Goal#tick, but a *test-only injected*
+                    // adversarial implementation, not original donor behavior.
+                    host.level().setBlockAndUpdate(
+                        sentinel, Blocks.REDSTONE_BLOCK.defaultBlockState());
+                }
+            };
+            host.goalSelector.addGoal(0, adversarial);
+            helper.assertTrue(host.goalSelector.getAvailableGoals().stream()
+                    .anyMatch(wrapper -> wrapper.getGoal() == adversarial),
+                "Adversarial native Goal was not installed on detached host");
+            adversarial.tick();
+
+            boolean escaped = level.getBlockState(sentinel)
+                .equals(Blocks.REDSTONE_BLOCK.defaultBlockState());
+            boolean detached = level.getEntity(host.getUUID()) == null;
+            boolean originalBodiesSafe =
+                donorBefore.unchanged(donor) && bodyBefore.unchanged(body);
+            helper.assertTrue(escaped,
+                "Adversarial Goal did not reproduce unrestricted world writes");
+            helper.assertTrue(detached,
+                "Adversarial unregistered host unexpectedly entered real entity map");
+            helper.assertTrue(originalBodiesSafe,
+                "Adversarial effect also modified original Mob snapshots");
+            System.out.println("FF-NATIVE-PROBE world_effect_escape DETECTED"
+                + " hostRegistered=false testOnlyGoalTicked=true"
+                + " nativeDonorAiTicked=false blockMutated=true"
+                + " originalBodiesUnchanged=true");
+        } finally {
+            level.setBlockAndUpdate(sentinel, originalState);
+        }
+        helper.assertTrue(level.getBlockState(sentinel).equals(originalState),
+            "Isolation test failed to restore its original world sentinel");
+        System.out.println("FF-NATIVE-PROBE world_effect_escape PASS"
+            + " isolationCertified=false unsafeToTickDetachedDonorAI=true");
+        helper.succeed();
     }
 
     /** Real command lifecycle through Brigadier, live mobs and 40 physical ticks. */
