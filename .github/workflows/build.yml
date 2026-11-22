@@ -94,6 +94,8 @@ jobs:
           grep -Fq 'FF-GAMEPLAY occupied_ocelot_attack_death_returns PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY stale_self_selection_cannot_swap PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY explicit_two_body_selection PASS' gametest.log
+          grep -Fq 'FF-GAMEPLAY selection_hud_completed_pair_clears PASS' gametest.log
+          grep -Fq 'FF-GAMEPLAY selection_hud_expire_and_cancel PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY mob_origin_attack_original_body PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY invalid_entity_attack_guard PASS' gametest.log
           grep -Fq 'FF-NATIVE-PROBE inventory PASS' gametest.log
