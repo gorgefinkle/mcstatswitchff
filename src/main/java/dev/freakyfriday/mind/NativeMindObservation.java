@@ -60,9 +60,10 @@ public final class NativeMindObservation {
 
     /**
      * Append an observed native attack only when the donor actually reached
-     * Minecraft's damage pipeline. The target UUID is a cross-world identity
-     * supplied by the authenticated snapshot mapping, never a guessed nearby
-     * entity or a species-specific target rule.
+     * Minecraft's damage pipeline. The target UUID must come from an
+     * authenticated cross-world identity mapping, never a guessed nearby
+     * entity or a species-specific target rule. The CI fixture assigns the
+     * same UUID to its worker target and receiver-world copy.
      */
     public static CapturedIntentBridge.Frame frame(UUID recipientBody,UUID donorMind,
             long serverTick,NativeNavigation movement,UUID attackedTarget) {
