@@ -132,9 +132,15 @@ public final class NativeAiWorkerServer {
             // A disposable fully loaded, clear-sight stone test arena.
             // No original donor or recipient from the LIVE world exists here.
             BlockPos anchor=new BlockPos(0, 120, 0);
-            // A playerless worker has no simulation-distance tickets.
-            // Force the single arena chunk so the REAL native AI ticks.
-            level.setChunkForced(0,0,true);
+            // This arena straddles chunk boundaries at x/z zero. Forcing
+            // ONLY (0,0) leaves three quarters of its navigation area
+            // outside entity-ticking range in a playerless worker. Force
+            // every chunk containing arena ground, not only the spawn chunk.
+            // This is a generic Minecraft simulation ticket, NOT a Mob patch.
+            for (int cx=-1;cx<=0;cx++) for (int cz=-1;cz<=0;cz++) {
+                level.setChunkForced(cx,cz,true);
+                level.getChunk(cx,cz);
+            }
             for(int x=-12;x<=12;x++) for(int z=-12;z<=12;z++) {
                 level.setBlockAndUpdate(new BlockPos(x,120,z),Blocks.STONE.defaultBlockState());
                 // Roof guards daylight-sensitive native mobs without touching
@@ -269,7 +275,8 @@ public final class NativeAiWorkerServer {
                 +" displacement="+Math.hypot(donor.getX()-state.startX,
                     donor.getZ()-state.startZ)
                 +" hasPath="+(donor.getNavigation().getPath()!=null)
-                +" workerChunkLoaded="+state.level.hasChunkAt(donor.blockPosition()));
+                +" workerChunkLoaded="+state.level.hasChunkAt(donor.blockPosition())
+                +" chunkX="+donor.chunkPosition().x+" chunkZ="+donor.chunkPosition().z);
         }
     }
 
