@@ -685,7 +685,7 @@ public final class DetachedProbeGameTests {
                 && java.nio.file.Files.isRegularFile(packetPath),
             "A partially present worker fixture must never be accepted");
         ServerLevel level=helper.getLevel();
-        Mob receiverBody=null, originalDonorBody=null;
+        Mob receiverBody=null, originalDonorBody=null, targetBody=null;
         UUID ticketOwner=UUID.randomUUID();
         int[] ticketBounds=arenaChunkBounds(helper,1,12,1,12);
         setArenaChunks(level,ticketOwner,ticketBounds,true);
@@ -697,11 +697,15 @@ public final class DetachedProbeGameTests {
             try(var in=java.nio.file.Files.newInputStream(requestPath)){request.load(in);}
             String donorType=request.getProperty("donor");
             String recipientType=request.getProperty("recipient");
-            helper.assertTrue(donorType!=null && recipientType!=null,
-                "A native worker must identify both donor and recipient mob types");
+            String stimulusType=request.getProperty("stimulus");
+            boolean requireAttack=Boolean.parseBoolean(
+                request.getProperty("requireAttack","false"));
+            helper.assertTrue(donorType!=null && recipientType!=null && stimulusType!=null,
+                "A native worker must identify donor, recipient and mapped target types");
             java.util.UUID session=java.util.UUID.fromString(request.getProperty("session"));
             java.util.UUID recipientId=java.util.UUID.fromString(request.getProperty("recipientBody"));
             java.util.UUID donorMind=java.util.UUID.fromString(request.getProperty("sourceMind"));
+            java.util.UUID stimulusId=java.util.UUID.fromString(request.getProperty("stimulusId"));
             long tick=Long.parseLong(request.getProperty("recipientTick"));
             byte[] secret=java.util.HexFormat.of().parseHex(System.getenv("FF_WORKER_KEY_HEX"));
             helper.assertTrue(secret.length==CapturedIntentWireCodec.KEY_BYTES,
@@ -713,18 +717,25 @@ public final class DetachedProbeGameTests {
                 net.minecraft.resources.Identifier.tryParse(recipientType);
             net.minecraft.resources.Identifier dId=
                 net.minecraft.resources.Identifier.tryParse(donorType);
-            helper.assertTrue(rId!=null && dId!=null
+            net.minecraft.resources.Identifier tId=
+                net.minecraft.resources.Identifier.tryParse(stimulusType);
+            helper.assertTrue(rId!=null && dId!=null && tId!=null
                     && net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.containsKey(rId)
-                    && net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.containsKey(dId),
-                "Native donor or recipient entity type not registered");
+                    && net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.containsKey(dId)
+                    && net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.containsKey(tId),
+                "Native donor, recipient or mapped target entity type not registered");
             var factoryR=net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getValue(rId);
             var factoryD=net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getValue(dId);
+            var factoryT=net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getValue(tId);
             var entityR=factoryR.create(level,EntitySpawnReason.COMMAND);
             var entityD=factoryD.create(level,EntitySpawnReason.COMMAND);
-            helper.assertTrue(entityR instanceof Mob && entityD instanceof Mob,
-                "Native donor and recipient must be genuine Mob entities");
+            var entityT=factoryT.create(level,EntitySpawnReason.COMMAND);
+            helper.assertTrue(entityR instanceof Mob && entityD instanceof Mob
+                    && entityT instanceof Mob,
+                "Native donor, recipient and target must be genuine Mob entities");
             receiverBody=(Mob)entityR;
             originalDonorBody=(Mob)entityD;
+            targetBody=(Mob)entityT;
             var start=helper.absolutePos(new BlockPos(6,1,6));
             for(int x=1;x<=12;x++)for(int z=1;z<=12;z++) {
                 level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,0,z)),
@@ -734,7 +745,12 @@ public final class DetachedProbeGameTests {
             }
             receiverBody.setPos(start.getX()+0.5,start.getY(),start.getZ()+0.5);
             originalDonorBody.setPos(start.getX()+4.5,start.getY(),start.getZ()+4.5);
+            targetBody.setPos(start.getX()+2.5,start.getY(),start.getZ()+0.5);
             receiverBody.setUUID(recipientId);
+            targetBody.setUUID(stimulusId);
+            targetBody.setNoAi(true);
+            targetBody.setNoGravity(true);
+            targetBody.setPersistenceRequired();
             // This is an isolated GameTest, not a normal mob spawn. Keep
             // the actual Mob bodies alive while the server registers their
             // chunks; the native AI action must then move THAT same entity.
@@ -756,8 +772,11 @@ public final class DetachedProbeGameTests {
             receiverBody.setNoGravity(false);
             originalDonorBody.setNoGravity(true);
             helper.assertTrue(level.addFreshEntity(receiverBody)
-                    && level.addFreshEntity(originalDonorBody),
-                "Genuine receiver Mob entities not registered");
+                    && level.addFreshEntity(originalDonorBody)
+                    && level.addFreshEntity(targetBody),
+                "Genuine receiver/target Mob entities not registered");
+            helper.assertTrue(level.getEntity(stimulusId)==targetBody,
+                "Mapped native attack target did not register in receiver world");
             helper.assertTrue(level.getEntity(recipientId)==receiverBody,
                 "Signed frame must refer to the actual physical recipient");
             float healthBefore=receiverBody.getHealth();
@@ -775,14 +794,21 @@ public final class DetachedProbeGameTests {
                     && packet.length<=CapturedIntentWireCodec.MAX_WIRE_BYTES,
                 "Worker packet invalid");
             var decoded=CapturedIntentWireCodec.decode(packet,secret,session,tick);
+            int expectedActions=requireAttack?3:2;
             helper.assertTrue(decoded.frame().bodyId().equals(recipientId)
                     && decoded.frame().mindId().equals(donorMind)
-                    && decoded.frame().actions().size()==2
+                    && decoded.frame().actions().size()==expectedActions
                     && decoded.frame().actions().get(0).actionId()
                         .equals(MinecraftBodyPort.LOOK_OFFSET)
                     && decoded.frame().actions().get(1).actionId()
                         .equals(MinecraftBodyPort.MOVE_OFFSET),
                 "Native worker did not emit portable recipient-relative actions");
+            if(requireAttack) {
+                var attack=decoded.frame().actions().get(2);
+                helper.assertTrue(attack.actionId().equals(MinecraftBodyPort.ATTACK_ENTITY)
+                        && stimulusId.toString().equals(attack.arguments().get("targetId")),
+                    "Native worker attack did not retain mapped target identity");
+            }
             var pos=decoded.frame().actions().get(1).arguments();
             double dx=Double.parseDouble(pos.get("dx"));
             double dz=Double.parseDouble(pos.get("dz"));
@@ -796,8 +822,10 @@ public final class DetachedProbeGameTests {
             try{bridge.deliverAuthenticated(corrupt,secret,session,tick);}
             catch(IllegalArgumentException expected){tamperRejected=true;}
             helper.assertTrue(tamperRejected,"Receiver admitted tampered native worker frame");
-            final Mob recipient=receiverBody, donor=originalDonorBody;
+            final Mob recipient=receiverBody, donor=originalDonorBody,
+                mappedTarget=targetBody;
             final double originalX=recipient.getX(), originalZ=recipient.getZ();
+            final float mappedTargetHealthBefore=mappedTarget.getHealth();
             final String donorName=donorType, recipientName=recipientType;
             // Minecraft entity/nav initialization runs in subsequent server
             // ticks after addFreshEntity. Do NOT dispatch at construction
@@ -808,10 +836,10 @@ public final class DetachedProbeGameTests {
                     "Real recipient not registered/alive at native dispatch tick");
                 var result=bridge.deliverAuthenticated(packet,secret,session,tick);
                 helper.assertTrue(result.status()==CapturedIntentBridge.Status.DISPATCHED
-                        && result.outcomes().size()==2
-                        && result.outcomes().get(0).status()==BodyActionGate.Status.EXECUTED
-                        && result.outcomes().get(1).status()==BodyActionGate.Status.EXECUTED,
-                    "Recipient native pathfinder rejected true donor AI movement"
+                        && result.outcomes().size()==expectedActions
+                        && result.outcomes().stream().allMatch(o->
+                            o.status()==BodyActionGate.Status.EXECUTED),
+                    "Recipient body rejected captured native movement/attack actions"
                     +" donor="+donorName+" recipient="+recipientName
                     +" path="+recipient.getNavigation().getPath()
                     +" onGround="+recipient.onGround()
@@ -822,8 +850,16 @@ public final class DetachedProbeGameTests {
                     "Signed native worker frame replay not rejected");
                 helper.assertTrue(recipient.getUUID().equals(recipientId)
                         && Float.compare(recipient.getHealth(),healthBefore)==0
-                        && Float.compare(donor.getHealth(),donorHealthBefore)==0,
-                    "Worker frame replaced physical body or modified health");
+                        && Float.compare(donor.getHealth(),donorHealthBefore)==0
+                        && mappedTarget.isAlive(),
+                    "Worker frame replaced physical body or modified its mapped target");
+                if(requireAttack)
+                    System.out.println("FF-NATIVE-WORKER RECIPIENT_ATTACK_DISPATCH PASS"
+                        +" recipient="+recipientName
+                        +" mappedTarget="+stimulusId
+                        +" targetHealthBefore="+mappedTargetHealthBefore
+                        +" targetHealthAfter="+mappedTarget.getHealth()
+                        +" outcome="+result.outcomes().get(2).reason());
 
                 helper.runAfterDelay(50,()->{
                     try {
@@ -850,6 +886,7 @@ public final class DetachedProbeGameTests {
                     } finally {
                         recipient.discard();
                         donor.discard();
+                        mappedTarget.discard();
                         setArenaChunks(level,ticketOwner,ticketBounds,false);
                     }
                 });
@@ -857,6 +894,7 @@ public final class DetachedProbeGameTests {
         } catch(Exception failure) {
             if(receiverBody!=null)receiverBody.discard();
             if(originalDonorBody!=null)originalDonorBody.discard();
+            if(targetBody!=null)targetBody.discard();
             setArenaChunks(level,ticketOwner,ticketBounds,false);
             throw new AssertionError("External native AI worker receiver failure",failure);
         }
