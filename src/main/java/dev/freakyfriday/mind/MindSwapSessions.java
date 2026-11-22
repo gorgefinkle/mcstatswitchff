@@ -65,6 +65,7 @@ public final class MindSwapSessions {
         LAST_INTERACTION.remove(playerId);
         PAIRS.remove(playerId);
         PlayerMobPossession.clearOnLogout(playerId);
+        PlayerPlayerExchange.clearOnLogout(playerId);
     }
 
     public static void cancel(ServerPlayer p) {
@@ -74,8 +75,10 @@ public final class MindSwapSessions {
         // the same mob on the same game tick is silently discarded.
         LAST_INTERACTION.remove(p.getUUID());
         boolean returned=PlayerMobPossession.end(p);
-        message(p, returned
-            ? "Returned to your player body; mob AI restored."
+        boolean players=PlayerPlayerExchange.cancel(p);
+        message(p, players
+            ? "Reciprocal player-body control ended for both accounts."
+            : returned ? "Returned to your player body; mob AI restored."
             : "Mind swap selection cancelled.");
     }
 
@@ -85,6 +88,7 @@ public final class MindSwapSessions {
         PAIRS.clear();
         LAST_INTERACTION.clear();
         PlayerMobPossession.clearOnServerStop();
+        PlayerPlayerExchange.clearOnServerStop();
     }
 
     /**
@@ -246,7 +250,8 @@ public final class MindSwapSessions {
             message(p,"Both bodies must be in the same dimension.");
             return;
         }
-        if (PlayerMobPossession.hasSession(p.getUUID())) {
+        if (PlayerMobPossession.hasSession(p.getUUID())
+                || PlayerPlayerExchange.active(p.getUUID())) {
             message(p,"You are already controlling a mob. Use /freakyfriday cancel to return.");
             return;
         }
@@ -269,9 +274,27 @@ public final class MindSwapSessions {
             message(p,"Choose a different second body.");
             return;
         }
+        if (first instanceof ServerPlayer firstPlayer
+                && target instanceof ServerPlayer secondPlayer) {
+            if (firstPlayer!=p && secondPlayer!=p) {
+                message(p,"A player-player exchange must include your own body.");
+                return;
+            }
+            ServerPlayer other=firstPlayer==p?secondPlayer:firstPlayer;
+            String issue=PlayerPlayerExchange.begin(p,other);
+            if (issue!=null) {
+                message(p,"Player exchange rejected: "+issue);
+                return;
+            }
+            PENDING.remove(p.getUUID());
+            PAIRS.remove(p.getUUID());
+            message(p,"You and "+other.getName().getString()
+                +" exchanged physical control immediately. Either may /freakyfriday cancel.");
+            return;
+        }
         if (first instanceof ServerPlayer firstPlayer && firstPlayer!=p
                 || target instanceof ServerPlayer secondPlayer && secondPlayer!=p) {
-            message(p,"Two-account player mind swapping is not playable yet.");
+            message(p,"The selected two-body pairing must include your own player.");
             return;
         }
 
