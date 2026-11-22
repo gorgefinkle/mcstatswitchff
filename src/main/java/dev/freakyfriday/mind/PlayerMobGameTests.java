@@ -84,6 +84,9 @@ public final class PlayerMobGameTests {
             // Same entrypoint as a real book right-click, then the actual
             // Brigadier command that Ctrl+S sends from the player's client.
             MindSwapSessions.selectFromInteraction(player,chicken);
+            helper.assertTrue(MindSwapSessions.selectionRemainingTicks(player)
+                    ==MindSwapSessions.SELECTION_TIMEOUT_TICKS,
+                "Selecting first mob did not start 8-second HUD selection countdown");
             var commandSource=level.getServer().createCommandSourceStack().withEntity(player);
             try {
                 helper.assertTrue(level.getServer().getCommands().getDispatcher().execute(
@@ -92,6 +95,9 @@ public final class PlayerMobGameTests {
             } catch (com.mojang.brigadier.exceptions.CommandSyntaxException e) {
                 throw new AssertionError("Real self selection command failed",e);
             }
+            helper.assertTrue(MindSwapSessions.selectionRemainingTicks(player)==0,
+                "Completing mob/player pairing did not clear first-body HUD");
+            System.out.println("FF-GAMEPLAY selection_hud_completed_pair_clears PASS");
             helper.assertTrue(PlayerMobPossession.hasSession(ownerId)
                     && id.equals(PlayerMobPossession.possessedBody(ownerId)),
                 "Book pair did NOT activate genuine server-side Chicken control");
@@ -476,9 +482,17 @@ public final class PlayerMobGameTests {
         helper.assertTrue(level.addFreshEntity(skeleton),"No Skeleton in actual world");
         UUID owner=player.getUUID();
         MindSwapSessions.select(player,player);
+        helper.assertTrue(MindSwapSessions.selectionRemainingTicks(player)
+                ==MindSwapSessions.SELECTION_TIMEOUT_TICKS,
+            "First selected body failed to enter HUD countdown state");
         helper.assertTrue(!PlayerMobPossession.hasSession(owner),"First self was interpreted as completed swap");
         helper.runAfterDelay((int)MindSwapSessions.SELECTION_TIMEOUT_TICKS+2,()->{
+            helper.assertTrue(MindSwapSessions.selectionRemainingTicks(player)==0,
+                "Timed-out first selection remained active after eight seconds");
             MindSwapSessions.selectFromInteraction(player,skeleton);
+            helper.assertTrue(MindSwapSessions.selectionRemainingTicks(player)
+                    ==MindSwapSessions.SELECTION_TIMEOUT_TICKS,
+                "Next first selected mob did not restart HUD countdown");
             helper.assertTrue(!PlayerMobPossession.hasSession(owner),
                 "Stale self unexpectedly caused an automatic swap");
             System.out.println("FF-GAMEPLAY stale_self_selection_cannot_swap PASS");
@@ -486,7 +500,10 @@ public final class PlayerMobGameTests {
             helper.assertTrue(skeleton.getUUID().equals(PlayerMobPossession.possessedBody(owner)),
                 "Explicit second body did not start playable possession");
             MindSwapSessions.cancel(player);
+            helper.assertTrue(MindSwapSessions.selectionRemainingTicks(player)==0,
+                "Cancel failed to dismiss first-body selection");
             helper.assertTrue(!PlayerMobPossession.hasSession(owner),"Cancel failed");
+            System.out.println("FF-GAMEPLAY selection_hud_expire_and_cancel PASS");
             System.out.println("FF-GAMEPLAY explicit_two_body_selection PASS");
             skeleton.discard();
             helper.succeed();
