@@ -25,7 +25,19 @@ public final class PossessionNetwork {
                     // Bad client movement is dropped before touching the physical Mob.
                 }
             });
+        registrar.playToServer(
+            PossessionAttackPayload.TYPE,PossessionAttackPayload.STREAM_CODEC,
+            (packet, context)-> {
+                if (!(context.player() instanceof ServerPlayer connected)) return;
+                if (dev.freakyfriday.mind.PlayerPlayerExchange.active(connected.getUUID()))
+                    dev.freakyfriday.mind.PlayerPlayerExchange.attack(
+                        connected,packet.lookedAtEntityId(),packet.sequence());
+                else PlayerMobPossession.attack(
+                    connected,packet.lookedAtEntityId(),packet.sequence());
+            });
         registrar.playToClient(
             PossessionViewPayload.TYPE,PossessionViewPayload.STREAM_CODEC);
+        registrar.playToClient(
+            PossessionStatePayload.TYPE,PossessionStatePayload.STREAM_CODEC);
     }
 }
