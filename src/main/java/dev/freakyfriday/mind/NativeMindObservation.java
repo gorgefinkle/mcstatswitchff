@@ -76,7 +76,7 @@ public final class NativeMindObservation {
             Map.of("dx",offset.get("dx"),"dy",offset.get("dy"),
                    "dz",offset.get("dz"),"speed","0.65")));
         if(attackedTarget!=null)
-            actions.add(new BodyActionGate.Intent(MinecraftBodyPort.ATTACK_ENTITY,
+            actions.add(new BodyActionGate.Intent(BodyActionGate.ATTACK_ENTITY,
                 Map.of("targetId",attackedTarget.toString())));
         return new CapturedIntentBridge.Frame(recipientBody,donorMind,serverTick,actions);
     }
