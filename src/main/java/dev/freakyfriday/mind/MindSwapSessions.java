@@ -238,7 +238,7 @@ public final class MindSwapSessions {
             message(p,"Hold the Freaky Friday book first.");
             return;
         }
-        if (!target.isAlive() || target.isRemoved()) {
+        if (!target.isAlive()) {
             message(p,"The selected body is no longer alive or active.");
             return;
         }
