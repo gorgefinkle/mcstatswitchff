@@ -658,10 +658,10 @@ public final class PlayerMobGameTests {
         Mob chicken=EntityTypes.CHICKEN.create(level,EntitySpawnReason.COMMAND);
         helper.assertTrue(zombie!=null&&chicken!=null,
             "Fail-closed swap regression needs real Zombie and Chicken entities");
-        zombie.setPos(helper.absolutePos(new BlockPos(2,1,2)).getX()+0.5,1.0,
-            helper.absolutePos(new BlockPos(2,1,2)).getZ()+0.5);
-        chicken.setPos(helper.absolutePos(new BlockPos(5,1,2)).getX()+0.5,1.0,
-            helper.absolutePos(new BlockPos(5,1,2)).getZ()+0.5);
+        BlockPos zombiePos=helper.absolutePos(new BlockPos(2,1,2));
+        BlockPos chickenPos=helper.absolutePos(new BlockPos(5,1,2));
+        zombie.setPos(zombiePos.getX()+0.5,zombiePos.getY(),zombiePos.getZ()+0.5);
+        chicken.setPos(chickenPos.getX()+0.5,chickenPos.getY(),chickenPos.getZ()+0.5);
         helper.assertTrue(level.addFreshEntity(zombie)&&level.addFreshEntity(chicken),
             "Fail-closed swap actors did not register");
         var zombieBrain=zombie.getBrain();
