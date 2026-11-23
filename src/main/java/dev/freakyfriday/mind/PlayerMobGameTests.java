@@ -156,7 +156,15 @@ public final class PlayerMobGameTests {
         var bridge=new CapturedIntentBridge();
         bridge.register(port,playerMind);
         bridge.register(mobPort,mobMind);
-        bridge.exchange(player.getUUID(),target.getUUID());
+        try {
+            try {
+            bridge.exchange(player.getUUID(),target.getUUID());
+        } catch (Exception failure) {
+            throw new AssertionError("Reverse reciprocal controller exchange failed", failure);
+        }
+        } catch (Exception failure) {
+            throw new AssertionError("Initial reciprocal controller exchange failed", failure);
+        }
         helper.assertTrue(bridge.controlling(player.getUUID()).equals(mobMind)
                 && bridge.controlling(target.getUUID()).equals(playerMind),
             "Reciprocal controller ownership did not assign mob mind to original player body");
