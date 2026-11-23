@@ -160,7 +160,7 @@ jobs:
             run/crash-reports/**
 
   native-worker-e2e:
-    name: Two-process native AI worker Minecraft ${{ matrix.minecraft }}
+    name: Two-process bounded native intent capture Minecraft ${{ matrix.minecraft }}
     needs: core
     runs-on: ubuntu-latest
     timeout-minutes: 18
@@ -177,7 +177,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.2.1'
-      - name: Run native Zombie AI in an independent NeoForge server and dispatch signed actions in receiver
+      - name: Capture bounded native navigation/attack intents in an independent NeoForge server
         shell: bash
         run: python3 scripts/test-native-worker-e2e.py --minecraft ${{ matrix.minecraft }}
       - name: Upload isolated worker/receiver diagnostic output
