@@ -12,8 +12,9 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.HitResult;
 
 /**
  * Captures real recipient-world senses for a remote/native mind.
@@ -39,7 +40,9 @@ public final class MinecraftMindSenseCapture {
         var velocity = body.getDeltaMovement();
         String bodyType = BuiltInRegistries.ENTITY_TYPE.getKey(body.getType()).toString();
         var self = new NativeMindSenseFrame.BodySense(
-            bodyType, body.getX(), body.getY(), body.getZ(),
+            // The worker receives a body-local frame, never absolute live-world
+            // coordinates. Its mirror origin is always (0,0,0).
+            bodyType, 0.0, 0.0, 0.0,
             velocity.x, velocity.y, velocity.z,
             body.getYRot(), body.getXRot(),
             body.getHealth(), body.getMaxHealth(),
@@ -55,7 +58,13 @@ public final class MinecraftMindSenseCapture {
             var motion = entity.getDeltaMovement();
             float health = entity instanceof LivingEntity living ? living.getHealth() : 0;
             float maxHealth = entity instanceof LivingEntity living ? living.getMaxHealth() : 0;
-            boolean visible = body instanceof Mob mob && mob.getSensing().hasLineOfSight(entity);
+            // Use the actual recipient world's block ray for every LivingEntity.
+            // A ServerPlayer body has no Mob.Sensing object; marking every target
+            // invisible there would starve a mob mind after a reciprocal swap.
+            boolean visible = level.clip(new ClipContext(
+                body.getEyePosition(), entity.getEyePosition(),
+                ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, body))
+                .getType() == HitResult.Type.MISS;
             entities.add(new NativeMindSenseFrame.EntitySense(
                 entity.getUUID(),
                 BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).toString(),
