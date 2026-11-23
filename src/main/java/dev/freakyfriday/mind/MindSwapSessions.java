@@ -14,9 +14,9 @@ import net.minecraft.world.entity.LivingEntity;
  * server; the client never provides a target UUID in a command.
  *
  * The book uses one select-first/select-second interaction sequence.
- * Player + Mob enters the PLAYABLE possession runtime (one-way control,
- * not a complete mind transplant). Mob + Mob only reports actual results
- * from the native Goal/Brain runtime; unsupported species fail visibly.
+ * Player + Mob and Mob + Mob both require the same complete reciprocal
+ * mind runtime. Until that exists, both routes reject without mutating either
+ * controller. Player + Player remains a separate, supported feature.
  * Diagnostic-only pair selection is retained solely for old developer tests.
  */
 public final class MindSwapSessions {
@@ -267,9 +267,9 @@ public final class MindSwapSessions {
     }
 
     /**
-     * Actual book workflow, not diagnostic pair locking. A Player/Mob
-     * pairing begins server-authoritative possession. NPC/NPC attempts a
-     * real native goal/brain exchange and reports rejection honestly.
+     * Actual book workflow, not diagnostic pair locking. Player/Mob and
+     * NPC/NPC requests share the reciprocal-runtime gate; neither may fall
+     * back to one-way possession or partial Brain/Goal rebinding.
      */
     public static void select(ServerPlayer p, LivingEntity target) {
         if (!hasBook(p)) {
@@ -338,19 +338,10 @@ public final class MindSwapSessions {
 
         if ((first==p && target instanceof net.minecraft.world.entity.Mob)
                 || (target==p && first instanceof net.minecraft.world.entity.Mob)) {
-            net.minecraft.world.entity.Mob mob=(net.minecraft.world.entity.Mob)(
-                first==p?target:first);
-            String problem=PlayerMobPossession.begin(p,mob);
-            if (problem!=null) {
-                message(p,"Cannot control that body: "+problem);
-                return;
-            }
             PENDING.remove(p.getUUID());
-            PAIRS.remove(p.getUUID());
             SelectionHudSync.clear(p);
-            message(p,"Controlling "+mob.getDisplayName().getString()
-                +" (WASD/jump). /freakyfriday cancel returns you. "
-                +"The NPC mind is not yet driving your original body.");
+            message(p,"Reciprocal player/mob mind transfer is not implemented yet. "
+                +"No possession, AI, or body state was changed.");
             return;
         }
 
