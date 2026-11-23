@@ -38,10 +38,6 @@ public final class PlayerMobGameTests {
             "native_speed_collision",()->PlayerMobGameTests::verifyNativeSpeedCollision);
 
     public static final DeferredHolder<Consumer<GameTestHelper>,Consumer<GameTestHelper>>
-        PLAYER_BODY_ACTION_PORT=FUNCTIONS.register(
-            "player_body_action_port",()->PlayerMobGameTests::verifyPlayerBodyActionPort);
-
-    public static final DeferredHolder<Consumer<GameTestHelper>,Consumer<GameTestHelper>>
         FALL_PROFILES=FUNCTIONS.register(
             "native_fall_profiles",()->PlayerMobGameTests::verifyFallProfiles);
     public static final DeferredHolder<Consumer<GameTestHelper>,Consumer<GameTestHelper>>
@@ -102,6 +98,7 @@ public final class PlayerMobGameTests {
             +" oneWayPossessionStarted=false originalBodyAndAiUnchanged=true");
         chicken.discard();
         MindSwapSessions.clearOnLogout(ownerId);
+        verifyPlayerBodyActionPort(helper);
         helper.succeed();
     }
 
@@ -161,7 +158,6 @@ public final class PlayerMobGameTests {
         System.out.println("FF-GAMEPLAY player_body_action_port PASS"
             +" nativeMove=true nativeLook=true nativeAttack=true originalPlayerPreserved=true");
         target.discard();
-        helper.succeed();
     }
 
     /**
