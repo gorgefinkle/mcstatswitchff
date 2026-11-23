@@ -864,7 +864,7 @@ public final class DetachedProbeGameTests {
                         && mappedTarget.isAlive(),
                     "Worker frame replaced physical body or modified its mapped target");
                 if(requireAttack)
-                    System.out.println("FF-NATIVE-WORKER RECIPIENT_ATTACK_DISPATCH PASS"
+                    System.out.println("FF-NATIVE-WORKER RECIPIENT_ATTACK_CAPABILITY_RESULT PASS"
                         +" recipient="+recipientName
                         +" mappedTarget="+stimulusId
                         +" targetHealthAtDispatchBefore="+targetHealthImmediatelyBeforeDispatch
