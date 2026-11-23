@@ -120,7 +120,12 @@ public final class PlayerMobGameTests {
         target.setPos(player.getX()+0.75,player.getY(),player.getZ());
         helper.assertTrue(level.addFreshEntity(target),"Player-body attack target did not register");
 
-        MinecraftPlayerBodyPort port=new MinecraftPlayerBodyPort(player);
+        BodyActionGate.BodyPort port=MinecraftBodyPortFactory.create(player);
+        BodyActionGate.BodyPort mobPort=MinecraftBodyPortFactory.create(target);
+        helper.assertTrue(port instanceof MinecraftPlayerBodyPort
+                && mobPort instanceof MinecraftBodyPort
+                && mobPort.supports(BodyActionGate.MOVE_OFFSET),
+            "Body adapter factory did not dispatch solely by physical body type");
         helper.assertTrue(port.id().equals(player.getUUID()),
             "Player body adapter changed physical identity");
         helper.assertTrue(port.supports(BodyActionGate.MOVE_OFFSET)
