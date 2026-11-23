@@ -682,8 +682,8 @@ public final class BookInteractionHarness {
   ok(received(p,"First body: Player"),
     "Ctrl+S self must become a selectable gameplay body, not be rejected");
   MindSwapSessions.select(p,chicken);
-  ok(received(p,"Cannot control that body: synthetic harness"),
-    "Book pair reaches actual possession backend rather than locking fake probe");
+  ok(received(p,"Reciprocal player/mob mind transfer is not implemented yet"),
+    "Book pair rejects one-way possession until reciprocal mind transfer exists");
   MindSwapSessions.cancel(p);
 
   var one=new PlayerInteractEvent.EntityInteract(p,chicken);
@@ -692,8 +692,8 @@ public final class BookInteractionHarness {
     "Book consumes actual mob interaction instead of feeding/trading");
   ok(received(p,"First body: Chicken"),"Mob selected in gameplay mode");
   MindSwapSessions.select(p,p);
-  ok(received(p,"Cannot control that body: synthetic harness"),
-    "Chicken then self enters physical player-mob binding code");
+  ok(received(p,"Reciprocal player/mob mind transfer is not implemented yet"),
+    "Chicken then self rejects one-way possession until reciprocal runtime exists");
   MindSwapSessions.cancel(p);
 
   MindSwapSessions.select(p,chicken);
