@@ -104,7 +104,8 @@ public final class MinecraftBodyPort implements BodyActionGate.BodyPort {
             // possess ATTACK_DAMAGE at all. That is a body capability limit,
             // not a reason to reject the mind exchange or crash the session:
             // execute the native swing animation without inventing damage.
-            if(body.getAttribute(Attributes.ATTACK_DAMAGE)==null) {
+            var physicalDamage=body.getAttribute(Attributes.ATTACK_DAMAGE);
+            if(physicalDamage==null || physicalDamage.getValue()<=0.0) {
                 swingBody(body);
                 return new BodyActionGate.Result(BodyActionGate.Status.EXECUTED,
                     "Physical body has no attack-damage attribute; native swing executed without damage");
