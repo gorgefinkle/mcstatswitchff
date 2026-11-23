@@ -65,17 +65,17 @@ jobs:
           set -o pipefail
           bash ./gradlew runGameTestServer -PtargetMinecraft=${{ matrix.minecraft }} --no-daemon --stacktrace 2>&1 | tee gametest.log
           grep -Fq 'FF-GAMETEST detached_cross_species PASS' gametest.log
-          grep -Fq 'FF-GAMETEST pair zombie_to_cow PASS' gametest.log
-          grep -Fq 'FF-GAMETEST pair cow_to_zombie PASS' gametest.log
-          grep -Fq 'FF-GAMETEST pair villager_to_cow PASS' gametest.log
-          grep -Fq 'FF-GAMETEST pair creeper_to_cow PASS' gametest.log
-          grep -Fq 'FF-GAMETEST pair cow_to_creeper PASS' gametest.log
-          grep -Fq 'FF-GAMETEST pair zombie_to_villager PASS' gametest.log
-          grep -Fq 'FF-GAMETEST pair ender_dragon_to_chicken PASS' gametest.log
-          grep -Fq 'FF-GAMETEST pair chicken_to_ender_dragon PASS' gametest.log
+          grep -Fq 'FF-GAMETEST detached_host_construction zombie_to_cow PASS' gametest.log
+          grep -Fq 'FF-GAMETEST detached_host_construction cow_to_zombie PASS' gametest.log
+          grep -Fq 'FF-GAMETEST detached_host_construction villager_to_cow PASS' gametest.log
+          grep -Fq 'FF-GAMETEST detached_host_construction creeper_to_cow PASS' gametest.log
+          grep -Fq 'FF-GAMETEST detached_host_construction cow_to_creeper PASS' gametest.log
+          grep -Fq 'FF-GAMETEST detached_host_construction zombie_to_villager PASS' gametest.log
+          grep -Fq 'FF-GAMETEST detached_host_construction ender_dragon_to_chicken PASS' gametest.log
+          grep -Fq 'FF-GAMETEST detached_host_construction chicken_to_ender_dragon PASS' gametest.log
           grep -Fq 'FF-GAMETEST detached_dragon_chicken PASS' gametest.log
-          grep -Fq 'FF-COMMANDTEST pair ender_dragon chicken PASS' gametest.log
-          grep -Fq 'FF-COMMANDTEST pair chicken ender_dragon PASS' gametest.log
+          grep -Fq 'FF-COMMANDTEST diagnostic_pair ender_dragon chicken PASS' gametest.log
+          grep -Fq 'FF-COMMANDTEST diagnostic_pair chicken ender_dragon PASS' gametest.log
           grep -Fq 'FF-COMMANDTEST invalid_type PASS' gametest.log
           grep -Fq 'FF-COMMANDTEST suite PASS' gametest.log
           grep -Fq 'FF-COMMANDTEST cancel PASS' gametest.log
