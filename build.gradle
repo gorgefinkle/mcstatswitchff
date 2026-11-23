@@ -175,3 +175,14 @@ tasks.register("runCapturedIntentWireCodecSelfTest", JavaExec) {
     enableAssertions = true
 }
 tasks.named('check') { dependsOn tasks.named('runCapturedIntentWireCodecSelfTest') }
+
+tasks.register("runNativeMindSessionChannelSelfTest", JavaExec) {
+    group = 'verification'
+    description = 'Verify sequential authenticated per-tick worker sessions, deadlines and fail-closed retirement'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.freakyfriday.mind.NativeMindSessionChannelSelfTest'
+    enableAssertions = true
+}
+tasks.named('check') { dependsOn tasks.named('runNativeMindSessionChannelSelfTest') }
+
