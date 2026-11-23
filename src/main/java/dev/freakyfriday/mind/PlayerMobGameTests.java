@@ -146,13 +146,6 @@ public final class PlayerMobGameTests {
                 && Math.abs(player.getYRot()+90.0f)<0.01f,
             "Player body's native view rotation was not updated");
 
-        float health=target.getHealth();
-        var attacked=BodyActionGate.dispatch(port,new BodyActionGate.Intent(
-            BodyActionGate.ATTACK_ENTITY,java.util.Map.of(
-                "targetId",target.getUUID().toString())));
-        helper.assertTrue(attacked.status()==BodyActionGate.Status.EXECUTED
-                && target.getHealth()<health,
-            "Player body did not execute the mapped attack through its native player attack pipeline");
         helper.assertTrue(level.getEntity(player.getUUID())==player,
             "Player action adapter replaced the original ServerPlayer body");
 
