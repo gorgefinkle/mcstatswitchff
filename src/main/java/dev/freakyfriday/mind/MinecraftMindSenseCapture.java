@@ -86,6 +86,6 @@ public final class MinecraftMindSenseCapture {
         }
         return new NativeMindSenseFrame(
             body.getUUID(), mindId, serverTick,
-            level.dimension().location().toString(), self, entities, blocks);
+            level.dimension().identifier().toString(), self, entities, blocks);
     }
 }
