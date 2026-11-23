@@ -195,11 +195,11 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
         run_until_markers(
             cmd_base + ["runGameTestServer"] + arguments,
             ROOT / "native-worker-receiver.log",
-            ("FF-NATIVE-WORKER TWO_JVM_E2E PASS",
+            ("FF-NATIVE-WORKER TWO_JVM_LIMITED_INTENT_CAPTURE PASS",
              "ALL_REQUIRED_GAME_TESTS_PASSED"),
             env,
         )
-        print("FF-NATIVE-WORKER TWO_PROCESS_CI PASS"
+        print("FF-NATIVE-WORKER TWO_PROCESS_LIMITED_CAPTURE_CI PASS"
             " minecraft=" + opts.minecraft +
             " donor="+donor+" recipient="+recipient+
             " nativeAttackCaptured="+str(require_attack).lower()+
