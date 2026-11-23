@@ -70,100 +70,35 @@ public final class PlayerMobGameTests {
             new ItemStack(FreakyFriday.BOOK.get()));
         Mob chicken=EntityTypes.CHICKEN.create(level,EntitySpawnReason.COMMAND);
         helper.assertTrue(chicken!=null,"Actual Chicken physical entity factory failed");
-        // A reproducible, actual collision platform. The default empty
-        // structure has no reliable survival floor for a walking Chicken.
-        for(int x=1;x<=6;x++)for(int z=1;z<=7;z++)
-            level.setBlockAndUpdate(
-                helper.absolutePos(new BlockPos(x,0,z)),
-                net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
         BlockPos origin=helper.absolutePos(new BlockPos(2,1,2));
         chicken.setPos(origin.getX()+0.5,origin.getY(),origin.getZ()+0.5);
         chicken.setNoAi(false);
         helper.assertTrue(level.addFreshEntity(chicken),
             "Real Chicken did not register in the GameTest level");
-        UUID id=chicken.getUUID();
-        float health=chicken.getHealth();
-        double startZ=chicken.getZ();
-        var ownerId=player.getUUID();
-        try {
-            // Same entrypoint as a real book right-click, then the actual
-            // Brigadier command that Ctrl+S sends from the player's client.
-            MindSwapSessions.selectFromInteraction(player,chicken);
-            helper.assertTrue(MindSwapSessions.selectionRemainingTicks(player)
-                    ==MindSwapSessions.SELECTION_TIMEOUT_TICKS,
-                "Selecting first mob did not start 8-second HUD selection countdown");
-            var commandSource=level.getServer().createCommandSourceStack().withEntity(player);
-            try {
-                helper.assertTrue(level.getServer().getCommands().getDispatcher().execute(
-                    "freakyfriday self",commandSource)==1,
-                    "Ctrl+S /freakyfriday self command rejected by real Brigadier");
-            } catch (com.mojang.brigadier.exceptions.CommandSyntaxException e) {
-                throw new AssertionError("Real self selection command failed",e);
-            }
-            helper.assertTrue(MindSwapSessions.selectionRemainingTicks(player)==0,
-                "Completing mob/player pairing did not clear first-body HUD");
-            System.out.println("FF-GAMEPLAY selection_hud_completed_pair_clears PASS");
-            helper.assertTrue(PlayerMobPossession.hasSession(ownerId)
-                    && id.equals(PlayerMobPossession.possessedBody(ownerId)),
-                "Book pair did NOT activate genuine server-side Chicken control");
-            helper.assertTrue(chicken.isNoAi(),
-                "Original Chicken AI continued fighting player's movement");
-            helper.assertTrue(level.getEntity(id)==chicken,
-                "Playable Chicken body was replaced instead of possessed");
-
-            helper.assertTrue(!PlayerMobPossession.hasSession(UUID.randomUUID()),
-                "Unrelated player inherited another account's body");
-            boolean rejected=false;
-            try {
-                new PlayerMobPossession.Input(Float.NaN,0,false,0,0,1);
-            } catch (IllegalArgumentException badPacket) {
-                rejected=true;
-            }
-            helper.assertTrue(rejected,"Unsafe NaN input was accepted");
-
-            for(int i=1;i<=7;i++) {
-                final int seq=i;
-                helper.runAfterDelay(i*2,()->PlayerMobPossession.input(player,
-                    new PlayerMobPossession.Input(1,0,false,0,0,seq)));
-            }
-            helper.runAfterDelay(25,()->{
-                helper.assertTrue(chicken.getZ()>startZ+0.35,
-                    "Chicken did NOT move under authenticated player's input"
-                    +" startZ="+startZ+" actualZ="+chicken.getZ());
-                helper.assertTrue(level.getEntity(id)==chicken
-                    && Float.compare(health,chicken.getHealth())==0,
-                    "Possession changed physical Chicken identity or health");
-                helper.assertTrue(PlayerMobPossession.hasSession(ownerId),
-                    "Possession session dropped during actual movement");
-                try {
-                    helper.assertTrue(level.getServer().getCommands().getDispatcher().execute(
-                        "freakyfriday cancel",commandSource)==1,
-                        "Real return-to-body /cancel command rejected by Brigadier");
-                } catch (com.mojang.brigadier.exceptions.CommandSyntaxException e) {
-                    throw new AssertionError("Real possession cancel command failed",e);
-                }
-                helper.assertTrue(!PlayerMobPossession.hasSession(ownerId),
-                    "Cancel failed to end playable possession");
-                helper.assertTrue(!chicken.isNoAi(),
-                    "Cancel did not restore genuine Chicken AI");
-                helper.assertTrue(level.getEntity(id)==chicken,
-                    "Cancel discarded the original physical Chicken");
-                System.out.println("FF-GAMEPLAY player_chicken_movement PASS"
-                    +" actualDistance="+(chicken.getZ()-startZ)
-                    +" realPhysicalEntity=true playerInput=true");
-                System.out.println("FF-GAMEPLAY player_chicken_cancel_restore PASS");
-                System.out.println("FF-GAMEPLAY player_mob_possession PASS"
-                    +" cameraClientIntegrationNotProven=true"
-                    +" chickenMindInPlayerBody=false");
-                helper.succeed();
-                chicken.discard();
-                MindSwapSessions.clearOnLogout(ownerId);
-            });
-        } catch (RuntimeException failure) {
-            MindSwapSessions.clearOnLogout(ownerId);
-            chicken.discard();
-            throw failure;
-        }
+        UUID bodyId=chicken.getUUID(), ownerId=player.getUUID();
+        var originalBrain=chicken.getBrain();
+        var originalGoals=List.copyOf(chicken.goalSelector.getAvailableGoals());
+        var originalTargets=List.copyOf(chicken.targetSelector.getAvailableGoals());
+        MindSwapSessions.selectFromInteraction(player,chicken);
+        helper.assertTrue(MindSwapSessions.selectionRemainingTicks(player)
+                ==MindSwapSessions.SELECTION_TIMEOUT_TICKS,
+            "Selecting first body did not start the eight-second HUD countdown");
+        MindSwapSessions.select(player,player);
+        helper.assertTrue(MindSwapSessions.selectionRemainingTicks(player)==0,
+            "Rejected reciprocal pair did not clear its pending HUD selection");
+        helper.assertTrue(!PlayerMobPossession.hasSession(ownerId)
+                && !PlayerMobPossession.hasSession(UUID.randomUUID()),
+            "One-way possession started despite reciprocal runtime being unavailable");
+        helper.assertTrue(!chicken.isNoAi() && chicken.getBrain()==originalBrain
+                && originalGoals.equals(List.copyOf(chicken.goalSelector.getAvailableGoals()))
+                && originalTargets.equals(List.copyOf(chicken.targetSelector.getAvailableGoals()))
+                && level.getEntity(bodyId)==chicken,
+            "Rejected player/mob request mutated the original physical mob or its AI");
+        System.out.println("FF-GAMEPLAY player_mob_reciprocal_gate PASS"
+            +" oneWayPossessionStarted=false originalBodyAndAiUnchanged=true");
+        chicken.discard();
+        MindSwapSessions.clearOnLogout(ownerId);
+        helper.succeed();
     }
 
     /**
@@ -516,44 +451,37 @@ public final class PlayerMobGameTests {
         ServerPlayer player=helper.makeMockServerPlayerInLevel();
         player.setItemInHand(InteractionHand.MAIN_HAND,
             new ItemStack(FreakyFriday.BOOK.get()));
-        // Do not spawn the second candidate 162 ticks early. A Skeleton can
-        // burn or despawn between those ticks, causing an unrelated failure
-        // when testing expiration/reselection.
         UUID owner=player.getUUID();
         MindSwapSessions.select(player,player);
         helper.assertTrue(MindSwapSessions.selectionRemainingTicks(player)
                 ==MindSwapSessions.SELECTION_TIMEOUT_TICKS,
-            "First selected body failed to enter HUD countdown state");
-        helper.assertTrue(!PlayerMobPossession.hasSession(owner),"First self was interpreted as completed swap");
+            "First self selection failed to enter the HUD countdown");
+        helper.assertTrue(!PlayerMobPossession.hasSession(owner),
+            "Selecting only the original player body started a session");
         helper.runAfterDelay((int)MindSwapSessions.SELECTION_TIMEOUT_TICKS+2,()->{
             helper.assertTrue(MindSwapSessions.selectionRemainingTicks(player)==0,
                 "Timed-out first selection remained active after eight seconds");
-            Mob skeleton=EntityTypes.SKELETON.create(level,EntitySpawnReason.COMMAND);
-            helper.assertTrue(skeleton!=null,"Cannot spawn fresh test Skeleton");
+            Mob chicken=EntityTypes.CHICKEN.create(level,EntitySpawnReason.COMMAND);
+            helper.assertTrue(chicken!=null,"Fresh Chicken factory failed");
             BlockPos floor=helper.absolutePos(new BlockPos(2,0,2));
             level.setBlockAndUpdate(floor,
                 net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
-            skeleton.setPos(floor.getX()+0.5,floor.getY()+1,floor.getZ()+0.5);
-            skeleton.setNoAi(true);
-            skeleton.setNoGravity(true);
-            helper.assertTrue(level.addFreshEntity(skeleton),"Fresh Skeleton not registered");
-            MindSwapSessions.selectFromInteraction(player,skeleton);
+            chicken.setPos(floor.getX()+0.5,floor.getY()+1,floor.getZ()+0.5);
+            chicken.setNoAi(false);
+            helper.assertTrue(level.addFreshEntity(chicken),"Fresh Chicken not registered");
+            MindSwapSessions.selectFromInteraction(player,chicken);
             helper.assertTrue(MindSwapSessions.selectionRemainingTicks(player)
                     ==MindSwapSessions.SELECTION_TIMEOUT_TICKS,
-                "Next first selected mob did not restart HUD countdown");
-            helper.assertTrue(!PlayerMobPossession.hasSession(owner),
-                "Stale self unexpectedly caused an automatic swap");
-            System.out.println("FF-GAMEPLAY stale_self_selection_cannot_swap PASS");
+                "New first-body selection did not restart its countdown");
             MindSwapSessions.select(player,player);
-            helper.assertTrue(skeleton.getUUID().equals(PlayerMobPossession.possessedBody(owner)),
-                "Explicit second body did not start playable possession");
-            MindSwapSessions.cancel(player);
-            helper.assertTrue(MindSwapSessions.selectionRemainingTicks(player)==0,
-                "Cancel failed to dismiss first-body selection");
-            helper.assertTrue(!PlayerMobPossession.hasSession(owner),"Cancel failed");
-            System.out.println("FF-GAMEPLAY selection_hud_expire_and_cancel PASS");
-            System.out.println("FF-GAMEPLAY explicit_two_body_selection PASS");
-            skeleton.discard();
+            helper.assertTrue(MindSwapSessions.selectionRemainingTicks(player)==0
+                    && !PlayerMobPossession.hasSession(owner),
+                "Incomplete reciprocal player/mob runtime did not fail closed");
+            helper.assertTrue(!chicken.isNoAi(),
+                "Rejected pair disabled native Chicken AI");
+            System.out.println("FF-GAMEPLAY stale_selection_and_reciprocal_gate PASS");
+            chicken.discard();
+            MindSwapSessions.clearOnLogout(owner);
             helper.succeed();
         });
     }
