@@ -4,7 +4,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.LivingEntity;
@@ -84,8 +83,16 @@ public final class MinecraftBodyPort implements BodyActionGate.BodyPort {
         // The ORIGINAL recipient Mob performs it, so its real reach, damage,
         // cooldowns, equipment and physical attack capabilities remain in
         // charge. No donor attack is replayed against the wrong world UUID.
-        CAPABILITIES.register(ATTACK_ENTITY, capability(Mob.class, (body, intent) -> {
-            String raw=intent.arguments().get("targetId");
+        CAPABILITIES.register(ATTACK_ENTITY, new BodyCapabilityRegistry.Executor<>() {
+            @Override public boolean supports(LivingEntity candidate) {
+                if (!(candidate instanceof Mob)) return false;
+                var damage = candidate.getAttribute(Attributes.ATTACK_DAMAGE);
+                return damage != null && damage.getValue() > 0.0;
+            }
+            @Override public BodyActionGate.Result perform(LivingEntity candidate,
+                    BodyActionGate.Intent intent) {
+                Mob body = (Mob) candidate;
+                String raw=intent.arguments().get("targetId");
             if(raw==null)
                 return BodyActionGate.Result.blocked("Missing mapped attack target");
             final UUID targetId;
@@ -100,21 +107,12 @@ public final class MinecraftBodyPort implements BodyActionGate.BodyPort {
                 return BodyActionGate.Result.blocked("Mapped attack target is not alive in this world");
             if(body.distanceToSqr(target)>16.0)
                 return BodyActionGate.Result.blocked("Mapped target is outside physical melee reach");
-            // Some real bodies (Chicken is the regression case) do not
-            // possess ATTACK_DAMAGE at all. That is a body capability limit,
-            // not a reason to reject the mind exchange or crash the session:
-            // execute the native swing animation without inventing damage.
-            var physicalDamage=body.getAttribute(Attributes.ATTACK_DAMAGE);
-            if(physicalDamage==null || physicalDamage.getValue()<=0.0) {
-                swingBody(body);
-                return new BodyActionGate.Result(BodyActionGate.Status.EXECUTED,
-                    "Physical body has no attack-damage attribute; native swing executed without damage");
-            }
             boolean hit=body.doHurtTarget(level,target);
             return new BodyActionGate.Result(BodyActionGate.Status.EXECUTED,
                 hit ? "Physical body attack accepted" :
                     "Physical body executed attack intent; damage was not confirmed");
-        }));
+            }
+        });
         // This is a physical mechanism on a CREEPER BODY, not a creeper-mind
         // donor-recipient pair. Modded explosion-capable bodies can register
         // additional implementation(s) for this same action ID.
@@ -136,33 +134,6 @@ public final class MinecraftBodyPort implements BodyActionGate.BodyPort {
         CAPABILITIES.register(actionId, executor);
     }
 
-
-    /**
-     * Minecraft 26.2 exposes swing(hand, sendToSwingingEntity), while
-     * 26.3 exposes swing(hand, SwingAnimation). Resolve the version-specific
-     * native overload at runtime so the shared source compiles for both
-     * supported targets without emulating the animation.
-     */
-    private static void swingBody(LivingEntity body) {
-        try {
-            try {
-                var legacy = LivingEntity.class.getMethod(
-                    "swing", InteractionHand.class, boolean.class);
-                legacy.invoke(body, InteractionHand.MAIN_HAND, true);
-                return;
-            } catch (NoSuchMethodException ignored) {
-                var modern = LivingEntity.class.getMethod(
-                    "swing", InteractionHand.class,
-                    net.minecraft.world.item.component.SwingAnimation.class);
-                modern.invoke(body, InteractionHand.MAIN_HAND,
-                    net.minecraft.world.item.component.SwingAnimation.DEFAULT);
-            }
-        } catch (ReflectiveOperationException failure) {
-            throw new IllegalStateException(
-                "No supported native LivingEntity swing API for this Minecraft version",
-                failure);
-        }
-    }
 
     private interface TypedAction<T extends LivingEntity> {
         BodyActionGate.Result perform(T body, BodyActionGate.Intent intent);
