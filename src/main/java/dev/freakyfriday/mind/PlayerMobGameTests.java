@@ -2,6 +2,7 @@ package dev.freakyfriday.mind;
 
 import dev.freakyfriday.FreakyFriday;
 import java.util.UUID;
+import java.util.List;
 import java.util.function.Consumer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -57,6 +58,10 @@ public final class PlayerMobGameTests {
         ZOMBIE_CHICKEN_BEHAVIOR=FUNCTIONS.register(
             "zombie_chicken_behavior_acceptance",
             ()->PlayerMobGameTests::verifyZombieChickenBehaviorAcceptance);
+
+    public static final DeferredHolder<Consumer<GameTestHelper>,Consumer<GameTestHelper>>
+        PARTIAL_SWAP_REJECTED=FUNCTIONS.register(
+            "partial_native_swap_fails_closed",()->PlayerMobGameTests::verifyPartialSwapRejected);
 
     private static void verifyPlayerControlsChicken(GameTestHelper helper) {
         var level=helper.getLevel();
@@ -644,6 +649,41 @@ public final class PlayerMobGameTests {
         // alone. Future acceptance must prove actual hostile target pursuit
         // by the chicken and passive chicken-like behavior by the Zombie.
         helper.fail("Cross-species behavior is not yet certified by native AI execution");
+    }
+
+    /** A non-universal experimental path must never mutate either real mob. */
+    private static void verifyPartialSwapRejected(GameTestHelper helper) {
+        var level=helper.getLevel();
+        Mob zombie=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
+        Mob chicken=EntityTypes.CHICKEN.create(level,EntitySpawnReason.COMMAND);
+        helper.assertTrue(zombie!=null&&chicken!=null,
+            "Fail-closed swap regression needs real Zombie and Chicken entities");
+        zombie.setPos(helper.absolutePos(new BlockPos(2,1,2)).getX()+0.5,1.0,
+            helper.absolutePos(new BlockPos(2,1,2)).getZ()+0.5);
+        chicken.setPos(helper.absolutePos(new BlockPos(5,1,2)).getX()+0.5,1.0,
+            helper.absolutePos(new BlockPos(5,1,2)).getZ()+0.5);
+        helper.assertTrue(level.addFreshEntity(zombie)&&level.addFreshEntity(chicken),
+            "Fail-closed swap actors did not register");
+        var zombieBrain=zombie.getBrain();
+        var chickenBrain=chicken.getBrain();
+        var zombieGoals=List.copyOf(zombie.goalSelector.getAvailableGoals());
+        var chickenGoals=List.copyOf(chicken.goalSelector.getAvailableGoals());
+        var zombieTargets=List.copyOf(zombie.targetSelector.getAvailableGoals());
+        var chickenTargets=List.copyOf(chicken.targetSelector.getAvailableGoals());
+        String rejection=NativeBrainSwap.exchange(zombie,chicken);
+        helper.assertTrue(rejection!=null&&rejection.contains("Universal reciprocal native mind transfer"),
+            "Incomplete native AI runtime was reported as a successful exchange: "+rejection);
+        helper.assertTrue(zombie.getBrain()==zombieBrain&&chicken.getBrain()==chickenBrain,
+            "Rejected exchange changed a physical body's Brain reference");
+        helper.assertTrue(zombieGoals.equals(List.copyOf(zombie.goalSelector.getAvailableGoals()))
+                && chickenGoals.equals(List.copyOf(chicken.goalSelector.getAvailableGoals()))
+                && zombieTargets.equals(List.copyOf(zombie.targetSelector.getAvailableGoals()))
+                && chickenTargets.equals(List.copyOf(chicken.targetSelector.getAvailableGoals())),
+            "Rejected exchange mutated a native goal or target selector");
+        System.out.println("FF-GAMEPLAY partial_native_swap_fails_closed PASS");
+        zombie.discard();
+        chicken.discard();
+        helper.succeed();
     }
 
 }
