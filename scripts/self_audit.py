@@ -42,9 +42,14 @@ assert 'mirror_body_mutation' in (root/'src/main/java/dev/freakyfriday/mind/Deta
 assert 'constructor_body_mutation' in (root/'src/main/java/dev/freakyfriday/mind/DetachedMindHostProbe.java').read_text()
 assert 'physical_probe_watchdog_timeout' in (root/'src/main/java/dev/freakyfriday/mind/LiveBodyProbe.java').read_text()
 assert 'LAST_INTERACTION.remove(p.getUUID())' in (root/'src/main/java/dev/freakyfriday/mind/MindSwapSessions.java').read_text()
-# The public book now enters actual possession, not the old diagnostic branch.
+# The public book must reject one-way possession until the reciprocal
+# player/mob native mind runtime is implemented.
 actual_book = (root/'src/main/java/dev/freakyfriday/mind/MindSwapSessions.java').read_text()
-assert 'PlayerMobPossession.begin(p,mob)' in actual_book
+assert 'Reciprocal player/mob mind transfer is not implemented yet' in actual_book
+assert 'PlayerMobPossession.begin(p,mob)' not in actual_book
+native_swap = (root/'src/main/java/dev/freakyfriday/mind/NativeBrainSwap.java').read_text()
+assert 'freakyfriday.allowExperimentalPartialMindTransfer' not in native_swap
+assert 'Universal reciprocal native mind transfer is not implemented' in native_swap
 assert 'SELECTION_TIMEOUT_TICKS = 160L' in actual_book
 assert 'SelectionHudSync.show(p,target.getDisplayName().getString()' in actual_book
 assert 'SelectionHudSync.clear(p)' in actual_book
