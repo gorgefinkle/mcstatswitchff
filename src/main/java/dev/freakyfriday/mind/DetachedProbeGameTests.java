@@ -840,6 +840,7 @@ public final class DetachedProbeGameTests {
                         && result.outcomes().stream().allMatch(o->
                             o.status()==BodyActionGate.Status.EXECUTED),
                     "Recipient body rejected captured native movement/attack actions"
+                    +" receiptStatus="+result.status()+" diagnostic="+result.diagnostic()
                     +" donor="+donorName+" recipient="+recipientName
                     +" path="+recipient.getNavigation().getPath()
                     +" onGround="+recipient.onGround()
