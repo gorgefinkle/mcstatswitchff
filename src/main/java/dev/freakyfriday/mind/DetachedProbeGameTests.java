@@ -825,7 +825,6 @@ public final class DetachedProbeGameTests {
             final Mob recipient=receiverBody, donor=originalDonorBody,
                 mappedTarget=targetBody;
             final double originalX=recipient.getX(), originalZ=recipient.getZ();
-            final float mappedTargetHealthBefore=mappedTarget.getHealth();
             final String donorName=donorType, recipientName=recipientType;
             // Minecraft entity/nav initialization runs in subsequent server
             // ticks after addFreshEntity. Do NOT dispatch at construction
@@ -834,7 +833,15 @@ public final class DetachedProbeGameTests {
                 helper.assertTrue(level.getEntity(recipientId)==recipient
                         && recipient.isAlive(),
                     "Real recipient not registered/alive at native dispatch tick");
+                float targetHealthImmediatelyBeforeDispatch=mappedTarget.getHealth();
                 var result=bridge.deliverAuthenticated(packet,secret,session,tick);
+                float targetHealthImmediatelyAfterDispatch=mappedTarget.getHealth();
+                if(requireAttack && result.outcomes().size()>2
+                        && result.outcomes().get(2).status()==BodyActionGate.Status.UNAVAILABLE) {
+                    helper.assertTrue(Float.compare(targetHealthImmediatelyBeforeDispatch,
+                            targetHealthImmediatelyAfterDispatch)==0,
+                        "An unavailable recipient attack unexpectedly damaged its mapped target");
+                }
                 helper.assertTrue(result.status()==CapturedIntentBridge.Status.DISPATCHED
                         && result.outcomes().size()==expectedActions
                         && result.outcomes().get(0).status()==BodyActionGate.Status.EXECUTED
@@ -860,8 +867,8 @@ public final class DetachedProbeGameTests {
                     System.out.println("FF-NATIVE-WORKER RECIPIENT_ATTACK_DISPATCH PASS"
                         +" recipient="+recipientName
                         +" mappedTarget="+stimulusId
-                        +" targetHealthBefore="+mappedTargetHealthBefore
-                        +" targetHealthAfter="+mappedTarget.getHealth()
+                        +" targetHealthAtDispatchBefore="+targetHealthImmediatelyBeforeDispatch
+                        +" targetHealthAtDispatchAfter="+targetHealthImmediatelyAfterDispatch
                         +" outcome="+result.outcomes().get(2).status()
                         +" reason="+result.outcomes().get(2).reason());
 
