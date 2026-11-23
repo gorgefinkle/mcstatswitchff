@@ -879,7 +879,7 @@ public final class DetachedProbeGameTests {
                                 && Float.compare(recipient.getHealth(),healthBefore)==0
                                 && Float.compare(donor.getHealth(),donorHealthBefore)==0,
                             "Native host moved substitute or altered physical body");
-                        System.out.println("FF-NATIVE-WORKER TWO_JVM_E2E PASS"
+                        System.out.println("FF-NATIVE-WORKER TWO_JVM_LIMITED_INTENT_CAPTURE PASS"
                             +" donor="+donorName+" recipient="+recipientName
                             +" nativeAIExecutedInSeparateNeoForgeProcess=true"
                             +" authenticatedRelativeMovement=true"
