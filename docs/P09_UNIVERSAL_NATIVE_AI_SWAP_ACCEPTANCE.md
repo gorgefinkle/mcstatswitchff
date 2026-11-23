@@ -97,3 +97,35 @@ engine capability and improve the generic runtime; never label the whole
 system complete. No software can honestly guarantee compatibility with every
 unknown future mod's arbitrary Java behavior without appropriate interception
 and isolation, so claims must be based on passing real-world tests.
+
+
+## Continuous sensory transport groundwork (not yet an integrated runtime)
+
+The current P09 branch now contains:
+
+- `NativeMindSenseFrame`: bounded immutable data describing the recipient
+  body's real physical state, nearby entity UUIDs/types/relative positions,
+  velocities, health/visibility, and a sparse block/fluid neighborhood.
+- `MinecraftMindSenseCapture`: captures those facts from the occupied
+  body's actual server level. It skips unloaded block positions rather than
+  force-loading chunks just to feed a remote mind.
+- `NativeMindSenseWireCodec`: HMAC-SHA256 authenticated binary transport,
+  bounded frame sizes/counts, strict UTF-8, exact body/mind/tick binding,
+  tamper detection and stale/replay rejection.
+- Pure Java regression tests for the immutable frame and authenticated codec.
+
+This is an input contract and capture/transport foundation only. It is not
+yet connected to a persistent worker process, a per-tick server scheduler,
+a mirrored donor-class world, native Brain/Goal state continuity, or a
+complete side-effect interception layer. In particular, a snapshot of nearby
+entities and blocks is not yet a full Minecraft world replica: pathfinding,
+senses, memory modules, POIs, chunk state, mod capabilities and arbitrary
+world queries still need a generic, bounded mirror strategy.
+
+Do not remove the known-failing Zombie/Chicken behavior acceptance test,
+and do not promote the branch to a playable release until the live book flow
+uses continuous observations and passes the reciprocal physical behavior
+tests above. The first synthetic-stub CI attempt after adding the capture
+class failed because the legacy stub harness tried compiling a Minecraft API
+class without Minecraft stubs; the class has now been excluded from that
+legacy harness and remains subject to the real NeoForge 26.2/26.3 builds.
