@@ -182,6 +182,45 @@ public final class PlayerMobGameTests {
                 && target.getHealth()<bridgeTargetHealth,
             "Mob controller frame did not drive the original player body's native action adapter");
 
+        // Exercise the actual recipient-world sensory capture and the new
+        // authenticated per-tick worker-session contract before reversing the
+        // controller exchange. The response producer is deliberately a test
+        // fixture; this does not pretend the external AI worker is streaming yet.
+        UUID streamSession=UUID.randomUUID();
+        byte[] streamKey=CapturedIntentWireCodec.generateKey();
+        long streamTick=tick+1;
+        var stream=new NativeMindSessionChannel(streamSession,player.getUUID(),
+            mobMind.identity(),streamKey,streamTick,2);
+        for(int sample=0;sample<3;sample++) {
+            long currentTick=streamTick+sample;
+            var senses=MinecraftMindSenseCapture.capture(
+                player,mobMind.identity(),currentTick);
+            var request=stream.begin(senses);
+            helper.assertTrue(request.tick()==currentTick
+                    && request.sensoryWire().length>32,
+                "Live recipient sensory snapshot was not packaged for worker tick");
+            var workerFrame=new CapturedIntentBridge.Frame(player.getUUID(),
+                mobMind.identity(),currentTick,List.of(new BodyActionGate.Intent(
+                    BodyActionGate.LOOK_OFFSET,java.util.Map.of(
+                        "dx","0","dy","0","dz","1"))));
+            byte[] workerReply=CapturedIntentWireCodec.encode(
+                new CapturedIntentWireCodec.Envelope(streamSession,workerFrame),streamKey);
+            var admitted=stream.complete(workerReply,currentTick+1);
+            byte[] bodyDispatch=CapturedIntentWireCodec.encode(
+                new CapturedIntentWireCodec.Envelope(streamSession,admitted),streamKey);
+            var receipt=bridge.deliverAuthenticated(
+                bodyDispatch,streamKey,streamSession,currentTick);
+            helper.assertTrue(receipt.status()==CapturedIntentBridge.Status.DISPATCHED
+                    && receipt.outcomes().size()==1
+                    && receipt.outcomes().get(0).status()==BodyActionGate.Status.EXECUTED
+                    && stream.nextTick()==currentTick+1
+                    && !stream.hasOutstandingRequest(),
+                "Sequential authenticated worker tick did not reach original player body");
+        }
+        stream.close();
+        helper.assertTrue(stream.state()==NativeMindSessionChannel.State.CLOSED,
+            "Native worker session did not retire cleanly");
+
         try {
             bridge.exchange(player.getUUID(),target.getUUID());
         } catch (Exception failure) {
@@ -202,6 +241,8 @@ public final class PlayerMobGameTests {
         System.out.println("FF-GAMEPLAY player_body_action_port PASS"
             +" nativeMove=true nativeLook=true nativeAttack=true"
             +" mobFrameDrivesPlayerBody=true reverseFrameDrivesMobBody=true"
+            +" authenticatedContinuousSenseTicks=3"
+            +" externalWorkerStreaming=not_claimed"
             +" originalPlayerPreserved=true");
         target.discard();
     }
