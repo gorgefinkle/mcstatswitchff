@@ -58,7 +58,15 @@ public final class NativeBrainSwap {
      * Returns null ONLY after both Brain references and mind identities exchange.
      */
     public static synchronized String exchange(LivingEntity a, LivingEntity b) {
-        if (!(a instanceof Mob first) || !(b instanceof Mob second))
+        // The graph-copy and Brain-pointer paths below are experiments, not a
+        // complete native mind runtime. Never expose them through the player
+        // book workflow as a successful exchange. The opt-in is deliberately
+        // development-only and is not enabled by normal mod configuration.
+        if (!Boolean.getBoolean("freakyfriday.allowExperimentalPartialMindTransfer"))
+            return "Universal reciprocal native mind transfer is not implemented yet; "
+                + "no partial Brain/Goal swap was performed.";
+
+        if (!(a instanceof Mob first) || !(b instanceof Mob second)))
             return "Player control exchange is not implemented yet; choose two NPC mobs.";
         // Complete, recipient-bound goal packages are used where available.
         // Do not copy Goal references: those are bound to their original mob.
