@@ -837,8 +837,10 @@ public final class DetachedProbeGameTests {
                 var result=bridge.deliverAuthenticated(packet,secret,session,tick);
                 helper.assertTrue(result.status()==CapturedIntentBridge.Status.DISPATCHED
                         && result.outcomes().size()==expectedActions
-                        && result.outcomes().stream().allMatch(o->
-                            o.status()==BodyActionGate.Status.EXECUTED),
+                        && result.outcomes().get(0).status()==BodyActionGate.Status.EXECUTED
+                        && result.outcomes().get(1).status()==BodyActionGate.Status.EXECUTED
+                        && (!requireAttack || result.outcomes().get(2).status()
+                            ==BodyActionGate.Status.UNAVAILABLE),
                     "Recipient body rejected captured native movement/attack actions"
                     +" receiptStatus="+result.status()+" diagnostic="+result.diagnostic()
                     +" donor="+donorName+" recipient="+recipientName
@@ -860,7 +862,8 @@ public final class DetachedProbeGameTests {
                         +" mappedTarget="+stimulusId
                         +" targetHealthBefore="+mappedTargetHealthBefore
                         +" targetHealthAfter="+mappedTarget.getHealth()
-                        +" outcome="+result.outcomes().get(2).reason());
+                        +" outcome="+result.outcomes().get(2).status()
+                        +" reason="+result.outcomes().get(2).reason());
 
                 helper.runAfterDelay(50,()->{
                     try {
