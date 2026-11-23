@@ -129,7 +129,7 @@ public final class CapturedIntentBridge {
                 return receipt(frame, Status.PARTIAL_DISPATCH_FAILURE, outcomes,
                     "Execution stopped after " + outcomes.size() +
                     " completed actions; no rollback claimed: " +
-                    failure.getClass().getSimpleName());
+                    failure.getClass().getSimpleName()+": "+String.valueOf(failure.getMessage()));
             }
         }
         return receipt(frame, Status.DISPATCHED, outcomes, "");
