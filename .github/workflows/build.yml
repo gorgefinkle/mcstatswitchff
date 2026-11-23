@@ -88,6 +88,7 @@ jobs:
           grep -Fq 'FF-WORLDTEST original_entities_and_blocks PASS' gametest.log
           grep -Fq 'FF-WORLDTEST all PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY player_chicken_movement PASS' gametest.log
+          grep -Fq 'FF-GAMEPLAY partial_native_swap_fails_closed PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY player_chicken_cancel_restore PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY native_body_speed PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY solid_wall_collision PASS' gametest.log
