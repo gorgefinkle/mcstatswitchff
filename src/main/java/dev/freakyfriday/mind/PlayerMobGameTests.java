@@ -155,8 +155,53 @@ public final class PlayerMobGameTests {
             "Player body did not execute the mapped attack through its native player attack pipeline");
         helper.assertTrue(level.getEntity(player.getUUID())==player,
             "Player action adapter replaced the original ServerPlayer body");
+
+        var playerMind=new MindLedger.Mind(UUID.randomUUID(),
+            MindLedger.Kind.PLAYER,"player-native-controller");
+        var mobMind=new MindLedger.Mind(UUID.randomUUID(),
+            MindLedger.Kind.NPC,"mob-native-controller");
+        var bridge=new CapturedIntentBridge();
+        bridge.register(port,playerMind);
+        bridge.register(mobPort,mobMind);
+        bridge.exchange(player.getUUID(),target.getUUID());
+        helper.assertTrue(bridge.controlling(player.getUUID()).equals(mobMind)
+                && bridge.controlling(target.getUUID()).equals(playerMind),
+            "Reciprocal controller ownership did not assign mob mind to original player body");
+        long tick=level.getGameTime()+1;
+        float bridgeTargetHealth=target.getHealth();
+        var incomingMobFrame=new CapturedIntentBridge.Frame(player.getUUID(),
+            mobMind.identity(),tick,List.of(
+                new BodyActionGate.Intent(BodyActionGate.LOOK_OFFSET,
+                    java.util.Map.of("dx","0","dy","0","dz","1")),
+                new BodyActionGate.Intent(BodyActionGate.MOVE_OFFSET,
+                    java.util.Map.of("dx","0","dz","3","speed","1")),
+                new BodyActionGate.Intent(BodyActionGate.ATTACK_ENTITY,
+                    java.util.Map.of("targetId",target.getUUID().toString()))));
+        var incomingMobResult=bridge.deliver(incomingMobFrame);
+        helper.assertTrue(incomingMobResult.status()==CapturedIntentBridge.Status.DISPATCHED
+                && incomingMobResult.outcomes().size()==3
+                && incomingMobResult.outcomes().stream().allMatch(
+                    result->result.status()==BodyActionGate.Status.EXECUTED)
+                && target.getHealth()<bridgeTargetHealth,
+            "Mob controller frame did not drive the original player body's native action adapter");
+
+        bridge.exchange(player.getUUID(),target.getUUID());
+        helper.assertTrue(bridge.controlling(player.getUUID()).equals(playerMind)
+                && bridge.controlling(target.getUUID()).equals(mobMind),
+            "Reverse controller exchange did not restore both original minds");
+        var incomingPlayerFrame=new CapturedIntentBridge.Frame(target.getUUID(),
+            mobMind.identity(),tick+1,List.of(new BodyActionGate.Intent(
+                BodyActionGate.LOOK_OFFSET,java.util.Map.of(
+                    "dx","1","dy","0","dz","0"))));
+        var incomingPlayerResult=bridge.deliver(incomingPlayerFrame);
+        helper.assertTrue(incomingPlayerResult.status()==CapturedIntentBridge.Status.DISPATCHED
+                && incomingPlayerResult.outcomes().get(0).status()==BodyActionGate.Status.EXECUTED,
+            "Reverse controller frame did not route through the original Mob body adapter");
+
         System.out.println("FF-GAMEPLAY player_body_action_port PASS"
-            +" nativeMove=true nativeLook=true nativeAttack=true originalPlayerPreserved=true");
+            +" nativeMove=true nativeLook=true nativeAttack=true"
+            +" mobFrameDrivesPlayerBody=true reverseFrameDrivesMobBody=true"
+            +" originalPlayerPreserved=true");
         target.discard();
     }
 
