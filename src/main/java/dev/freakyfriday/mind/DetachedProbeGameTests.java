@@ -105,7 +105,7 @@ public final class DetachedProbeGameTests {
                 label + ": host world-registered after setPos");
             helper.assertTrue(donorBefore.unchanged(donor) && bodyBefore.unchanged(recipient),
                 label + ": host setPos mutated original bodies");
-            System.out.println("FF-GAMETEST pair " + label + " PASS"
+            System.out.println("FF-GAMETEST detached_host_construction " + label + " PASS"
                 + " donorHealth=" + donor.getHealth()
                 + " recipientHealth=" + recipient.getHealth()
                 + " hostType=" + host.getType()
@@ -159,8 +159,8 @@ public final class DetachedProbeGameTests {
             helper.assertTrue(cancel == 1,
                 "Existing cancel command regressed");
 
-            System.out.println("FF-COMMANDTEST pair ender_dragon chicken PASS");
-            System.out.println("FF-COMMANDTEST pair chicken ender_dragon PASS");
+            System.out.println("FF-COMMANDTEST diagnostic_pair ender_dragon chicken PASS");
+            System.out.println("FF-COMMANDTEST diagnostic_pair chicken ender_dragon PASS");
             System.out.println("FF-COMMANDTEST invalid_type PASS");
             System.out.println("FF-COMMANDTEST suite PASS");
             System.out.println("FF-COMMANDTEST cancel PASS");
@@ -1045,7 +1045,7 @@ public final class DetachedProbeGameTests {
             helper.assertTrue(donorBefore.unchanged(donor) && bodyBefore.unchanged(body),
                 pair.label() + ": positioning host mutated physical bodies");
 
-            System.out.println("FF-GAMETEST pair "+pair.label()+" PASS");
+            System.out.println("FF-GAMETEST detached_host_construction "+pair.label()+" PASS");
             donor.discard();
             body.discard();
             index++;
