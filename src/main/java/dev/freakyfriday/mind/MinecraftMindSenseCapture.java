@@ -70,6 +70,9 @@ public final class MinecraftMindSenseCapture {
             for (int dy=-VERTICAL_BLOCK_RADIUS; dy<=VERTICAL_BLOCK_RADIUS; dy++) {
                 for (int dz=-HORIZONTAL_BLOCK_RADIUS; dz<=HORIZONTAL_BLOCK_RADIUS; dz++) {
                     BlockPos pos = origin.offset(dx,dy,dz);
+                    // Never force-load a neighboring chunk just to observe it.
+                    // Missing samples remain unknown to the remote mind.
+                    if (!level.hasChunkAt(pos)) continue;
                     BlockState state = level.getBlockState(pos);
                     String blockType = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
                     String fluidType = BuiltInRegistries.FLUID.getKey(
