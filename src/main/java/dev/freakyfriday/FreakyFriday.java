@@ -17,7 +17,6 @@ public final class FreakyFriday {
     public FreakyFriday(IEventBus modBus) {
         ITEMS.register(modBus);
         dev.freakyfriday.mind.DetachedProbeGameTests.FUNCTIONS.register(modBus);
-        dev.freakyfriday.mind.NativeMindTransferGameTests.FUNCTIONS.register(modBus);
         dev.freakyfriday.mind.PlayerCommandRouteGameTests.FUNCTIONS.register(modBus);
         dev.freakyfriday.mind.PlayerMobGameTests.FUNCTIONS.register(modBus);
         dev.freakyfriday.mind.PlayerPlayerGameTests.FUNCTIONS.register(modBus);
