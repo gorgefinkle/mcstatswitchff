@@ -38,6 +38,10 @@ public final class PlayerMobGameTests {
             "native_speed_collision",()->PlayerMobGameTests::verifyNativeSpeedCollision);
 
     public static final DeferredHolder<Consumer<GameTestHelper>,Consumer<GameTestHelper>>
+        PLAYER_BODY_ACTION_PORT=FUNCTIONS.register(
+            "player_body_action_port",()->PlayerMobGameTests::verifyPlayerBodyActionPort);
+
+    public static final DeferredHolder<Consumer<GameTestHelper>,Consumer<GameTestHelper>>
         FALL_PROFILES=FUNCTIONS.register(
             "native_fall_profiles",()->PlayerMobGameTests::verifyFallProfiles);
     public static final DeferredHolder<Consumer<GameTestHelper>,Consumer<GameTestHelper>>
@@ -98,6 +102,60 @@ public final class PlayerMobGameTests {
             +" oneWayPossessionStarted=false originalBodyAndAiUnchanged=true");
         chicken.discard();
         MindSwapSessions.clearOnLogout(ownerId);
+        helper.succeed();
+    }
+
+    /** Exercise the separate player-body adapter against a real GameTest world. */
+    private static void verifyPlayerBodyActionPort(GameTestHelper helper) {
+        var level=helper.getLevel();
+        ServerPlayer player=helper.makeMockServerPlayerInLevel();
+        BlockPos floor=helper.absolutePos(new BlockPos(2,0,2));
+        for(int x=0;x<5;x++)for(int z=0;z<5;z++)
+            level.setBlockAndUpdate(floor.offset(x,0,z),
+                net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+        BlockPos start=helper.absolutePos(new BlockPos(3,1,3));
+        player.setPos(start.getX()+0.5,start.getY(),start.getZ()+0.5);
+        Mob target=EntityTypes.COW.create(level,EntitySpawnReason.COMMAND);
+        helper.assertTrue(target!=null,"Player-body attack target factory failed");
+        target.setPos(player.getX()+0.75,player.getY(),player.getZ());
+        helper.assertTrue(level.addFreshEntity(target),"Player-body attack target did not register");
+
+        MinecraftPlayerBodyPort port=new MinecraftPlayerBodyPort(player);
+        helper.assertTrue(port.id().equals(player.getUUID()),
+            "Player body adapter changed physical identity");
+        helper.assertTrue(port.supports(BodyActionGate.MOVE_OFFSET)
+                && port.supports(BodyActionGate.LOOK_OFFSET)
+                && port.supports(BodyActionGate.ATTACK_ENTITY)
+                && !port.supports(MinecraftBodyPort.DETONATE),
+            "Player body capabilities are not independent from Mob-only abilities");
+
+        double startZ=player.getZ();
+        var moved=BodyActionGate.dispatch(port,new BodyActionGate.Intent(
+            BodyActionGate.MOVE_OFFSET,java.util.Map.of(
+                "dx","0","dz","3","speed","1")));
+        helper.assertTrue(moved.status()==BodyActionGate.Status.EXECUTED
+                && player.getZ()>startZ,
+            "Player body did not move through its own collision-resolved entity movement");
+
+        var looked=BodyActionGate.dispatch(port,new BodyActionGate.Intent(
+            BodyActionGate.LOOK_OFFSET,java.util.Map.of(
+                "dx","1","dy","0","dz","0")));
+        helper.assertTrue(looked.status()==BodyActionGate.Status.EXECUTED
+                && Math.abs(player.getYRot()+90.0f)<0.01f,
+            "Player body's native view rotation was not updated");
+
+        float health=target.getHealth();
+        var attacked=BodyActionGate.dispatch(port,new BodyActionGate.Intent(
+            BodyActionGate.ATTACK_ENTITY,java.util.Map.of(
+                "targetId",target.getUUID().toString())));
+        helper.assertTrue(attacked.status()==BodyActionGate.Status.EXECUTED
+                && target.getHealth()<health,
+            "Player body did not execute the mapped attack through its native player attack pipeline");
+        helper.assertTrue(level.getEntity(player.getUUID())==player,
+            "Player action adapter replaced the original ServerPlayer body");
+        System.out.println("FF-GAMEPLAY player_body_action_port PASS"
+            +" nativeMove=true nativeLook=true nativeAttack=true originalPlayerPreserved=true");
+        target.discard();
         helper.succeed();
     }
 
