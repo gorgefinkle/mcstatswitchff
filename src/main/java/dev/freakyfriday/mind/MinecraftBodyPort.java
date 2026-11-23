@@ -105,8 +105,7 @@ public final class MinecraftBodyPort implements BodyActionGate.BodyPort {
             // not a reason to reject the mind exchange or crash the session:
             // execute the native swing animation without inventing damage.
             if(body.getAttribute(Attributes.ATTACK_DAMAGE)==null) {
-                body.swing(InteractionHand.MAIN_HAND,
-                    net.minecraft.world.item.component.SwingAnimation.DEFAULT);
+                swingBody(body);
                 return new BodyActionGate.Result(BodyActionGate.Status.EXECUTED,
                     "Physical body has no attack-damage attribute; native swing executed without damage");
             }
@@ -134,6 +133,34 @@ public final class MinecraftBodyPort implements BodyActionGate.BodyPort {
     public static void registerCapability(String actionId,
             BodyCapabilityRegistry.Executor<LivingEntity> executor) {
         CAPABILITIES.register(actionId, executor);
+    }
+
+
+    /**
+     * Minecraft 26.2 exposes swing(hand, sendToSwingingEntity), while
+     * 26.3 exposes swing(hand, SwingAnimation). Resolve the version-specific
+     * native overload at runtime so the shared source compiles for both
+     * supported targets without emulating the animation.
+     */
+    private static void swingBody(LivingEntity body) {
+        try {
+            try {
+                var legacy = LivingEntity.class.getMethod(
+                    "swing", InteractionHand.class, boolean.class);
+                legacy.invoke(body, InteractionHand.MAIN_HAND, true);
+                return;
+            } catch (NoSuchMethodException ignored) {
+                var modern = LivingEntity.class.getMethod(
+                    "swing", InteractionHand.class,
+                    net.minecraft.world.item.component.SwingAnimation.class);
+                modern.invoke(body, InteractionHand.MAIN_HAND,
+                    net.minecraft.world.item.component.SwingAnimation.DEFAULT);
+            }
+        } catch (ReflectiveOperationException failure) {
+            throw new IllegalStateException(
+                "No supported native LivingEntity swing API for this Minecraft version",
+                failure);
+        }
     }
 
     private interface TypedAction<T extends LivingEntity> {
