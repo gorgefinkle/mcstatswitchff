@@ -157,11 +157,7 @@ public final class PlayerMobGameTests {
         bridge.register(port,playerMind);
         bridge.register(mobPort,mobMind);
         try {
-            try {
             bridge.exchange(player.getUUID(),target.getUUID());
-        } catch (Exception failure) {
-            throw new AssertionError("Reverse reciprocal controller exchange failed", failure);
-        }
         } catch (Exception failure) {
             throw new AssertionError("Initial reciprocal controller exchange failed", failure);
         }
@@ -186,7 +182,11 @@ public final class PlayerMobGameTests {
                 && target.getHealth()<bridgeTargetHealth,
             "Mob controller frame did not drive the original player body's native action adapter");
 
-        bridge.exchange(player.getUUID(),target.getUUID());
+        try {
+            bridge.exchange(player.getUUID(),target.getUUID());
+        } catch (Exception failure) {
+            throw new AssertionError("Reverse reciprocal controller exchange failed", failure);
+        }
         helper.assertTrue(bridge.controlling(player.getUUID()).equals(playerMind)
                 && bridge.controlling(target.getUUID()).equals(mobMind),
             "Reverse controller exchange did not restore both original minds");
