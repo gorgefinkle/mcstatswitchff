@@ -64,6 +64,7 @@ jobs:
         run: |
           set -o pipefail
           bash ./gradlew runGameTestServer -PtargetMinecraft=${{ matrix.minecraft }} --no-daemon --stacktrace 2>&1 | tee gametest.log
+          grep -Fq 'FF-NATIVE-MIND zombie_chicken_reciprocal PASS' gametest.log
           grep -Fq 'FF-GAMETEST detached_cross_species PASS' gametest.log
           grep -Fq 'FF-GAMETEST pair zombie_to_cow PASS' gametest.log
           grep -Fq 'FF-GAMETEST pair cow_to_zombie PASS' gametest.log
