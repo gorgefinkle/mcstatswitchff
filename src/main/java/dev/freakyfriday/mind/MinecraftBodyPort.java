@@ -105,7 +105,8 @@ public final class MinecraftBodyPort implements BodyActionGate.BodyPort {
             // not a reason to reject the mind exchange or crash the session:
             // execute the native swing animation without inventing damage.
             if(body.getAttribute(Attributes.ATTACK_DAMAGE)==null) {
-                body.swing(InteractionHand.MAIN_HAND);
+                body.swing(InteractionHand.MAIN_HAND,
+                    net.minecraft.world.item.component.SwingAnimation.DEFAULT);
                 return new BodyActionGate.Result(BodyActionGate.Status.EXECUTED,
                     "Physical body has no attack-damage attribute; native swing executed without damage");
             }
