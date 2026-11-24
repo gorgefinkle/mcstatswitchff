@@ -28,7 +28,7 @@ public final class NativeMindSenseWireCodec {
     public static final int MAX_WIRE_BYTES=262144;
     private static final int SIGNATURE_BYTES=32;
     private static final int MAGIC=0x46464d53; // FFMS
-    private static final int VERSION=1;
+    private static final int VERSION=2;
     private static final int MAX_STRING_BYTES=NativeMindSenseFrame.MAX_IDENTIFIER_CHARS;
 
     public static byte[] encode(NativeMindSenseFrame frame, byte[] key) {
@@ -63,6 +63,12 @@ public final class NativeMindSenseWireCodec {
                 out.writeByte(block.dx()); out.writeByte(block.dy()); out.writeByte(block.dz());
                 writeString(out,block.blockType()); writeString(out,block.fluidType());
                 out.writeBoolean(block.sturdyTop()); out.writeBoolean(block.collisionEmpty());
+                var properties = new java.util.TreeMap<>(block.properties());
+                out.writeByte(properties.size());
+                for (var property : properties.entrySet()) {
+                    writeString(out, property.getKey());
+                    writeString(out, property.getValue());
+                }
             }
             out.flush();
             byte[] payload=memory.toByteArray();
@@ -122,8 +128,18 @@ public final class NativeMindSenseWireCodec {
             for(int i=0;i<blockCount;i++) {
                 int dx=in.readByte(),dy=in.readByte(),dz=in.readByte();
                 String block=readString(in),fluid=readString(in);
+                boolean sturdyTop=in.readBoolean(), collisionEmpty=in.readBoolean();
+                int propertyCount=in.readUnsignedByte();
+                if (propertyCount > NativeMindSenseFrame.MAX_BLOCK_PROPERTIES)
+                    throw new IllegalArgumentException("Block property count exceeds sensory bound");
+                java.util.Map<String,String> properties=new java.util.TreeMap<>();
+                for(int p=0;p<propertyCount;p++) {
+                    String name=readString(in), value=readString(in);
+                    if(properties.put(name,value)!=null)
+                        throw new IllegalArgumentException("Duplicate block property in sensory frame");
+                }
                 blocks.add(new NativeMindSenseFrame.BlockSense(dx,dy,dz,block,fluid,
-                    in.readBoolean(),in.readBoolean()));
+                    sturdyTop,collisionEmpty,properties));
             }
             if(in.available()!=0) throw new IllegalArgumentException("Trailing sensory frame bytes");
             return new NativeMindSenseFrame(bodyId,mindId,tick,dimension,body,entities,blocks);
