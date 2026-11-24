@@ -48,8 +48,25 @@ public final class NativeAiWorkerServer {
     private NativeAiWorkerServer() {}
 
     private static final String WORKER_PROP = "freakyfriday.aiWorker";
-    private static final Path REQUEST = Path.of("ff-worker-request.properties");
-    private static final Path OUTPUT = Path.of("ff-worker-frame.bin");
+    private static Path workerRoot() {
+        String configured=System.getProperty("freakyfriday.workerRoot");
+        if(configured==null || configured.isBlank())
+            return Path.of("").toAbsolutePath().normalize();
+        Path root=Path.of(configured).toAbsolutePath().normalize();
+        Path base=Path.of(System.getProperty("user.dir","."))
+            .toAbsolutePath().normalize().resolve("freakyfriday-workers").normalize();
+        if(!root.startsWith(base) || root.equals(base))
+            throw new IllegalStateException("Native worker root must be an owned child of freakyfriday-workers");
+        return root;
+    }
+
+    private static Path requestFile() {
+        return workerRoot().resolve("ff-worker-request.properties");
+    }
+
+    private static Path outputFile() {
+        return workerRoot().resolve("ff-worker-frame.bin");
+    }
 
     // NeoForge's UUID owner ticking ticket explicitly enables full entity
     // ticks in a playerless worker dimension. Vanilla setChunkForced alone
@@ -141,18 +158,25 @@ public final class NativeAiWorkerServer {
     }
 
     private static void checkWorkerPath() {
-        String directory=Path.of("").toAbsolutePath().normalize().getFileName().toString();
-        if (!directory.equals("run-ai-worker")
-                && !directory.equals("run-ai-worker-reverse"))
-            throw new IllegalStateException(
-                "Refusing worker mode outside a dedicated native-worker directory");
-        if (!Files.exists(REQUEST))
-            throw new IllegalStateException("Missing disposable worker request fixture");
+        Path root=workerRoot();
+        if(System.getProperty("freakyfriday.workerRoot")==null) {
+            String directory=root.getFileName().toString();
+            if(!directory.equals("run-ai-worker")
+                    && !directory.equals("run-ai-worker-reverse"))
+                throw new IllegalStateException(
+                    "Refusing worker mode outside a dedicated native-worker directory");
+        }
+        if(!Files.isDirectory(root))
+            throw new IllegalStateException("Native worker root does not exist: "+root);
+        if(!Files.exists(requestFile(),java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                || Files.isSymbolicLink(requestFile())
+                || !Files.isRegularFile(requestFile(),java.nio.file.LinkOption.NOFOLLOW_LINKS))
+            throw new IllegalStateException("Missing safe disposable worker request fixture");
     }
 
     private static Request readRequest() throws IOException {
         Properties config=new Properties();
-        try (InputStream in=Files.newInputStream(REQUEST)) {
+        try (InputStream in=Files.newInputStream(requestFile())) {
             config.load(in);
         }
         String hex=Objects.requireNonNull(System.getenv("FF_WORKER_KEY_HEX"),
@@ -243,8 +267,8 @@ public final class NativeAiWorkerServer {
             NativeMindSenseFrame previousSense=null;
             Path sensesInbox=null;
             if(request.sensesFile()!=null) {
-                Path sensePath=Path.of(request.sensesFile()).toAbsolutePath().normalize();
-                Path workerRoot=Path.of("").toAbsolutePath().normalize();
+                Path sensePath=workerRoot().resolve(request.sensesFile()).toAbsolutePath().normalize();
+                Path workerRoot=workerRoot();
                 if(!sensePath.getParent().equals(workerRoot)
                         || Files.isSymbolicLink(sensePath)
                         || !Files.isRegularFile(sensePath,
@@ -551,13 +575,14 @@ public final class NativeAiWorkerServer {
                 byte[] signed=CapturedIntentWireCodec.encode(
                     new CapturedIntentWireCodec.Envelope(
                         state.request.session(),frame),state.request.secret());
-                Path tmp=Path.of("ff-worker-frame.bin.tmp");
+                Path output=outputFile();
+                Path tmp=output.resolveSibling(output.getFileName().toString()+".tmp");
                 Files.write(tmp,signed);
                 try {
-                    Files.move(tmp,OUTPUT,StandardCopyOption.REPLACE_EXISTING,
+                    Files.move(tmp,output,StandardCopyOption.REPLACE_EXISTING,
                         StandardCopyOption.ATOMIC_MOVE);
                 } catch (java.nio.file.AtomicMoveNotSupportedException unsupported) {
-                    Files.move(tmp,OUTPUT,StandardCopyOption.REPLACE_EXISTING);
+                    Files.move(tmp,output,StandardCopyOption.REPLACE_EXISTING);
                 }
                 state.produced=true;
                 if(state.mirrorWorld!=null && state.sensesInbox!=null
