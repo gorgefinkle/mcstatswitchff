@@ -126,7 +126,7 @@ def main():
         ("minecraft:zombie","minecraft:chicken","minecraft:villager",True),
         ("minecraft:chicken","minecraft:zombie","minecraft:villager",False),
         ("minecraft:zombie","minecraft:piglin","minecraft:villager",True),
-        ("minecraft:zombie","minecraft:player","minecraft:player",True),
+        ("minecraft:zombie","minecraft:player","minecraft:villager",True),
     ):
         run_case(opts,donor,recipient,stimulus,require_attack)
     run_reciprocal_mob_pair(opts)
