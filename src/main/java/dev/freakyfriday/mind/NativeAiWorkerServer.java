@@ -172,11 +172,14 @@ public final class NativeAiWorkerServer {
     public static void onServerStart(ServerStartedEvent event) {
         if (!Boolean.getBoolean(WORKER_PROP)) return;
         if (active != null) throw new IllegalStateException("Only one native worker session");
+        NativeMindMirrorWorld startupMirror=null;
+        ServerLevel startupLevel=null;
         try {
             checkWorkerPath();
             Request request=readRequest();
             ServerLevel level=event.getServer().overworld();
             if (level==null) throw new IllegalStateException("No worker overworld");
+            startupLevel=level;
             // A disposable fully loaded, clear-sight stone test arena.
             // No original donor or recipient from the LIVE world exists here.
             BlockPos anchor=new BlockPos(0, 120, 0);
@@ -226,6 +229,7 @@ public final class NativeAiWorkerServer {
                 var seed=NativeMindMirrorDelta.between(null,senses);
                 var mirrorSnapshot=mirrorState.apply(seed);
                 mirrorWorld=new NativeMindMirrorWorld();
+                startupMirror=mirrorWorld;
                 NativeMindMirrorWorld.Report report=mirrorWorld.reconcile(level,donor,mirrorSnapshot);
                 Entity mirroredStimulus=mirrorWorld.managedEntity(request.stimulusId());
                 if(!(mirroredStimulus instanceof Mob mob)
@@ -258,6 +262,10 @@ public final class NativeAiWorkerServer {
                 +" deferredEntityRegistration=true"
                 +" liveWorldAccess=false");
         } catch (Exception failure) {
+            if(startupMirror!=null && startupLevel!=null) {
+                try { startupMirror.close(startupLevel); }
+                catch(RuntimeException cleanupFailure) { failure.addSuppressed(cleanupFailure); }
+            }
             System.err.println("FF-NATIVE-WORKER START_FAILURE "
                 +failure.getClass().getName()+": "+failure.getMessage());
             throw new IllegalStateException("Native worker must fail closed",failure);

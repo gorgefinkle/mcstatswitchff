@@ -161,10 +161,31 @@ public final class NativeMindMirrorWorld implements AutoCloseable {
             }
             BlockState previous=appliedBlocks.get(pos);
             if(previous==null || !previous.equals(state)) {
-                level.setBlockAndUpdate(pos,state);
+                // The worker arena often already contains the same air/stone.
+                // Preserve the ownership ledger without firing needless
+                // neighbor-update hooks for an unchanged physical state.
+                if(!level.getBlockState(pos).equals(state)) {
+                    level.setBlockAndUpdate(pos,state);
+                    changed++;
+                }
                 appliedBlocks.put(pos,state);
-                changed++;
             }
+        }
+
+        // State IDs/properties alone do not guarantee the worker's actual
+        // collision topology matches the recipient when shape depends on
+        // adjacent blocks. Verify the two collision facts captured by the
+        // sensory contract only after the full local terrain is applied.
+        for(var block:snapshot.blocks().values()) {
+            if(!block.known()) continue;
+            BlockPos pos=anchor.blockPosition().offset(block.dx(),block.dy(),block.dz());
+            BlockState actual=level.getBlockState(pos);
+            boolean sturdy=actual.isFaceSturdy(level,pos,net.minecraft.core.Direction.UP);
+            boolean empty=actual.getCollisionShape(level,pos).isEmpty();
+            if(sturdy!=block.sturdyTop() || empty!=block.collisionEmpty())
+                throw new IllegalStateException("Mirrored terrain collision facts differ at "+pos
+                    +" sturdyTop="+sturdy+"/"+block.sturdyTop()
+                    +" collisionEmpty="+empty+"/"+block.collisionEmpty());
         }
 
         // Restore coordinates that left the bounded neighborhood. Unknown

@@ -22,8 +22,29 @@ public final class NativeMindMirrorState {
             Objects.requireNonNull(mindId);
             Objects.requireNonNull(dimension);
             Objects.requireNonNull(body);
-            entities = Map.copyOf(entities);
-            blocks = Map.copyOf(blocks);
+            Objects.requireNonNull(entities,"entities");
+            Objects.requireNonNull(blocks,"blocks");
+            if(tick<0) throw new IllegalArgumentException("Negative mirror snapshot tick");
+            if(!dimension.matches("[a-z0-9_.-]+:[a-z0-9_./-]+")
+                    || dimension.length()>NativeMindSenseFrame.MAX_IDENTIFIER_CHARS)
+                throw new IllegalArgumentException("Invalid mirror snapshot dimension");
+            Map<UUID,NativeMindSenseFrame.EntitySense> entityCopy=Map.copyOf(entities);
+            for(var entry:entityCopy.entrySet()) {
+                if(!entry.getKey().equals(entry.getValue().id())
+                        || entry.getKey().equals(bodyId))
+                    throw new IllegalArgumentException("Mirror entity map key/identity mismatch");
+            }
+            Map<NativeMindMirrorDelta.BlockPosition,NativeMindSenseFrame.BlockSense> blockCopy=
+                Map.copyOf(blocks);
+            for(var entry:blockCopy.entrySet()) {
+                var block=entry.getValue();
+                if(entry.getKey().dx()!=block.dx()
+                        || entry.getKey().dy()!=block.dy()
+                        || entry.getKey().dz()!=block.dz())
+                    throw new IllegalArgumentException("Mirror block map key/position mismatch");
+            }
+            entities=entityCopy;
+            blocks=blockCopy;
         }
     }
 
