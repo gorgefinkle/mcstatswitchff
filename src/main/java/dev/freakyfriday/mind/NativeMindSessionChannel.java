@@ -109,13 +109,13 @@ public final class NativeMindSessionChannel implements AutoCloseable {
         requireActive();
         if (outstandingTick < 0)
             throw new IllegalStateException("No native-AI request is outstanding");
-        if (receivedAtTick < requestHostTick)
-            throw new IllegalArgumentException("Response receipt tick moved backwards");
-        if (receivedAtTick > deadlineTick) {
-            fault("Native-AI response missed deadline at tick " + deadlineTick);
-            throw new IllegalStateException(fault);
-        }
         try {
+            if (receivedAtTick < requestHostTick)
+                throw new IllegalArgumentException("Response receipt tick moved backwards");
+            if (receivedAtTick > deadlineTick) {
+                fault("Native-AI response missed deadline at tick " + deadlineTick);
+                throw new IllegalStateException(fault);
+            }
             var envelope = CapturedIntentWireCodec.decode(
                 responseWire, key, sessionId, outstandingTick);
             var frame = envelope.frame();
