@@ -42,11 +42,21 @@ assert 'mirror_body_mutation' in (root/'src/main/java/dev/freakyfriday/mind/Deta
 assert 'constructor_body_mutation' in (root/'src/main/java/dev/freakyfriday/mind/DetachedMindHostProbe.java').read_text()
 assert 'physical_probe_watchdog_timeout' in (root/'src/main/java/dev/freakyfriday/mind/LiveBodyProbe.java').read_text()
 assert 'LAST_INTERACTION.remove(p.getUUID())' in (root/'src/main/java/dev/freakyfriday/mind/MindSwapSessions.java').read_text()
-# The public book must reject one-way possession until the reciprocal
-# player/mob native mind runtime is implemented.
+# The public book routes both M↔M and P↔M selections through the
+# supervised reciprocal worker coordinator. It must never fall back to a
+# one-way possession or the obsolete reflective Goal/Brain transplant.
 actual_book = (root/'src/main/java/dev/freakyfriday/mind/MindSwapSessions.java').read_text()
-assert 'Reciprocal player/mob mind transfer is not implemented yet' in actual_book
+assert 'NativeMindWorkerSupervisor.startPlayerMob(p,mob)' in actual_book
+assert 'NativeMindWorkerSupervisor.startMobPair(p,mobA,mobB)' in actual_book
+assert 'NativeMindWorkerSupervisor.cancelByAccount' in actual_book
 assert 'PlayerMobPossession.begin(p,mob)' not in actual_book
+assert 'PlayerPlayerExchange.begin(p,other)' in actual_book
+worker_supervisor = (root/'src/main/java/dev/freakyfriday/mind/NativeMindWorkerSupervisor.java').read_text()
+assert 'new ProcessBuilder(command)' in worker_supervisor
+assert 'worker.channel.complete' in worker_supervisor
+assert 'pair.bridge.deliver(frame)' in worker_supervisor
+assert 'MinecraftMindSenseCapture.capture' in worker_supervisor
+assert 'NativeMindWorkerSupervisor.class' in (root/'src/main/java/dev/freakyfriday/FreakyFriday.java').read_text()
 native_swap = (root/'src/main/java/dev/freakyfriday/mind/NativeBrainSwap.java').read_text()
 assert 'freakyfriday.allowExperimentalPartialMindTransfer' not in native_swap
 assert 'Universal reciprocal native mind transfer is not implemented' in native_swap
@@ -67,7 +77,7 @@ assert 'PossessionMotion.step(living' in client
 assert 'PossessionStatePayload.TYPE' in (root/'src/main/java/dev/freakyfriday/PossessionNetwork.java').read_text()
 assert 'PossessionCombat.findValidMeleeTarget' in (root/'src/main/java/dev/freakyfriday/mind/PlayerMobPossession.java').read_text()
 
-assert 'NativeBrainSwap.exchange(mobA,mobB)' in actual_book
+assert 'NativeBrainSwap.exchange(mobA,mobB)' not in actual_book
 assert 'modBus.addListener(PortableAttributes::addToEntityTypes)' not in (root/'src/main/java/dev/freakyfriday/FreakyFriday.java').read_text()
 
 assert (root/'src/main/java/dev/freakyfriday/mind/ProbeTelemetry.java').exists()
