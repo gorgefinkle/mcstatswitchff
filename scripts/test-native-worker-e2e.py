@@ -171,7 +171,7 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
     (WORKER_DIR / "server.properties").write_text(
         "online-mode=false\nserver-port=0\n"
         "level-name=ff-native-ai-ci-worker\n"
-        "difficulty=normal\nspawn-monsters=true\n"
+        "difficulty=normal\nlevel-seed=0\nlevel-type=minecraft:flat\ngenerate-structures=false\n"
         "simulation-distance=3\nview-distance=3\n"
         "max-players=1\nspawn-protection=0\n",
         encoding="utf-8",
@@ -350,7 +350,7 @@ def run_reciprocal_mob_pair(opts):
         (directory/"server.properties").write_text(
             "online-mode=false\\nserver-port=0\\n"
             "level-name=ff-native-ai-reciprocal-worker\\n"
-            "difficulty=normal\\nspawn-monsters=true\\n"
+            "difficulty=normal\\nlevel-seed=0\\nlevel-type=minecraft:flat\\ngenerate-structures=false\\n"
             "simulation-distance=3\\nview-distance=3\\n"
             "max-players=1\\nspawn-protection=0\\n",
             encoding="utf-8")
