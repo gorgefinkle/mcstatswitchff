@@ -51,12 +51,23 @@ public final class NativeMindWorkerSupervisorSmoke {
         phase=0;ticks=0;sequence=0;
         try {
             // All fixtures fit inside a single pair of loaded chunks.
+            // The server's generated spawn terrain may occupy y=64 at these
+            // coordinates; a floor-only fixture previously spawned the
+            // Villager inside solid terrain ("suffocated in a wall") and
+            // immobilized both reciprocal bodies. Clear a roomy, bounded
+            // arena before adding any living entity.
             level.getChunk(0,0);
             level.getChunk(1,0);
             level.getChunk(0,1);
             level.getChunk(1,1);
-            for(int x=0;x<=31;x++) for(int z=0;z<=15;z++)
+            for(int x=0;x<=31;x++) for(int z=0;z<=15;z++) {
                 level.setBlockAndUpdate(new BlockPos(x,63,z),Blocks.STONE.defaultBlockState());
+                for(int y=64;y<=70;y++) {
+                    BlockPos clear=new BlockPos(x,y,z);
+                    if(!level.getBlockState(clear).isAir())
+                        level.setBlockAndUpdate(clear,Blocks.AIR.defaultBlockState());
+                }
+            }
             UUID id=UUID.randomUUID();
             account=new FakePlayer(level,new GameProfile(id,"FFSupervisor"));
             level.addNewPlayer(account);
