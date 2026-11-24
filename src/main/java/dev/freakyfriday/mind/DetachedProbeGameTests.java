@@ -713,7 +713,7 @@ public final class DetachedProbeGameTests {
         setArenaChunks(level,ticketOwner,ticketBounds,true);
         // The GameTest structure may straddle a chunk edge. Release this
         // isolated fixture's tickets even if a later assertion fails.
-        helper.runAfterDelay(60,()->setArenaChunks(level,ticketOwner,ticketBounds,false));
+        helper.runAfterDelay(120,()->setArenaChunks(level,ticketOwner,ticketBounds,false));
         try {
             java.util.Properties request=new java.util.Properties();
             try(var in=java.nio.file.Files.newInputStream(requestPath)){request.load(in);}
@@ -908,9 +908,12 @@ public final class DetachedProbeGameTests {
             final double originalX=recipient.getX(), originalZ=recipient.getZ();
             final String donorName=donorType, recipientName=recipientType;
             // Minecraft entity/nav initialization runs in subsequent server
-            // ticks after addFreshEntity. Do NOT dispatch at construction
-            // tick: that can report a false "no path" for a real Mob body.
-            helper.runAfterDelay(5,()->{
+            // ticks after addFreshEntity. Player melee also requires the
+            // player's native attack-strength cooldown to charge; use a full
+            // cooldown window for a physical Player body rather than claiming
+            // a cooldown-blocked hit demonstrates unavailable anatomy.
+            int bodyInitializationDelay=recipient instanceof ServerPlayer ? 25 : 5;
+            helper.runAfterDelay(bodyInitializationDelay,()->{
                 helper.assertTrue(level.getEntity(recipientId)==recipient
                         && recipient.isAlive(),
                     "Real recipient not registered/alive at native dispatch tick");
