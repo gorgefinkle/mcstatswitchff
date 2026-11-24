@@ -37,6 +37,7 @@ public final class NativeMindWorkerSupervisorSmoke {
     private static long sequence;
     private static double accountStartX,accountStartZ,mobStartX,mobStartZ;
     private static double firstStartX,firstStartZ,secondStartX,secondStartZ;
+    private static boolean firstOriginalNoAi,secondOriginalNoAi;
     private static UUID[] originalIds;
 
     private static boolean enabled() {
@@ -172,8 +173,8 @@ public final class NativeMindWorkerSupervisorSmoke {
         firstStartX=firstMob.getX();firstStartZ=firstMob.getZ();
         secondStartX=secondMob.getX();secondStartZ=secondMob.getZ();
         originalIds=new UUID[]{firstMob.getUUID(),secondMob.getUUID(),target.getUUID()};
-        boolean firstOriginalNoAi=firstMob.isNoAi();
-        boolean secondOriginalNoAi=secondMob.isNoAi();
+        firstOriginalNoAi=firstMob.isNoAi();
+        secondOriginalNoAi=secondMob.isNoAi();
         String error=NativeMindWorkerSupervisor.startMobPair(account,firstMob,secondMob);
         if(error!=null) throw new IllegalStateException("Mob↔Mob supervisor start rejected: "+error);
         System.out.println("FF-SUPERVISOR MOB_MOB_STARTED PASS");
