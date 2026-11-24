@@ -25,6 +25,10 @@ public final class NativeMindSenseFixtureWriter {
         long tick=Long.parseLong(required("tick"));
         String recipient=required("recipient");
         String stimulus=required("stimulus");
+        double targetDx=Double.parseDouble(
+            System.getProperty("ff.fixture.targetDx","8"));
+        if(!Double.isFinite(targetDx) || targetDx<1.0 || targetDx>8.0)
+            throw new IllegalArgumentException("Fixture targetDx must be finite and in [1,8]");
         String keyHex=System.getenv("FF_WORKER_KEY_HEX");
         if(keyHex==null) throw new IllegalArgumentException("FF_WORKER_KEY_HEX missing");
         byte[] key=java.util.HexFormat.of().parseHex(keyHex);
@@ -41,7 +45,7 @@ public final class NativeMindSenseFixtureWriter {
 
         double targetWidth=0.6,targetHeight=1.95;
         var target=new NativeMindSenseFrame.EntitySense(stimulusId,stimulus,
-            8,0,0,0,0,0,0,0,targetWidth,targetHeight,20,20,
+            targetDx,0,0,0,0,0,0,0,targetWidth,targetHeight,20,20,
             true,true,true);
         List<NativeMindSenseFrame.BlockSense> blocks=new ArrayList<>(17*9*17);
         for(int dx=-8;dx<=8;dx++) for(int dy=-4;dy<=4;dy++) for(int dz=-8;dz<=8;dz++) {
@@ -59,7 +63,7 @@ public final class NativeMindSenseFixtureWriter {
         Files.createDirectories(output.getParent());
         Files.write(output,packet);
         System.out.println("FF-SENSE fixture_written PASS bodyType="+recipient
-            +" stimulus="+stimulus+" blockSamples="+blocks.size()
+            +" stimulus="+stimulus+" targetDx="+targetDx+" blockSamples="+blocks.size()
             +" authenticated=true bytes="+packet.length);
     }
 }

@@ -220,5 +220,7 @@ tasks.register("writeNativeMindSenseFixture", JavaExec) {
                 throw new GradleException("Missing required -PffFixture"+suffix+" property")
             systemProperty("ff.fixture."+suffix.substring(0,1).toLowerCase()+suffix.substring(1), value)
         }
+        def targetDx = providers.gradleProperty("ffFixtureTargetDx").orNull
+        if(targetDx != null) systemProperty("ff.fixture.targetDx", targetDx)
     }
 }

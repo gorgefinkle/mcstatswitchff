@@ -85,16 +85,19 @@ public final class NativeAiWorkerServer {
     private record Request(UUID session, UUID recipientBody, UUID sourceMind,
                            UUID stimulusId, long recipientTick, String donor,
                            String recipient, String stimulus, boolean requireAttack,
-                           String sensesFile, byte[] secret) {}
+                           String sensesFile, String sensesInboxFile, byte[] secret) {}
 
     private static final class State {
         final ServerLevel level;
         final Request request;
         final Mob donor;
-        final Mob stimulus;
+        Mob stimulus;
         final BlockPos anchor;
         final NativeMindMirrorWorld mirrorWorld;
         final boolean stimulusAlreadyRegistered;
+        final NativeMindMirrorState mirrorState;
+        NativeMindSenseFrame previousSense;
+        final Path sensesInbox;
         final double startX, startZ;
         int age, targetTicks, navigationTicks;
         boolean produced;
@@ -105,7 +108,9 @@ public final class NativeAiWorkerServer {
         String attackedTargetType;
 
         State(ServerLevel level, Request request, Mob donor, Mob stimulus,
-              BlockPos anchor, NativeMindMirrorWorld mirrorWorld) {
+              BlockPos anchor, NativeMindMirrorWorld mirrorWorld,
+              NativeMindMirrorState mirrorState, NativeMindSenseFrame previousSense,
+              Path sensesInbox) {
             this.level=level;
             this.request=request;
             this.donor=donor;
@@ -113,9 +118,17 @@ public final class NativeAiWorkerServer {
             this.anchor=anchor;
             this.mirrorWorld=mirrorWorld;
             this.stimulusAlreadyRegistered=mirrorWorld!=null;
+            this.mirrorState=mirrorState;
+            this.previousSense=previousSense;
+            this.sensesInbox=sensesInbox;
             this.startX=donor.getX();
             this.startZ=donor.getZ();
         }
+    }
+
+    private static boolean safeFileName(String name) {
+        return name!=null && name.matches("[A-Za-z0-9._-]{1,80}")
+            && !name.equals(".") && !name.equals("..");
     }
 
     private static void checkWorkerPath() {
@@ -141,12 +154,16 @@ public final class NativeAiWorkerServer {
         String recipient=config.getProperty("recipient");
         String stimulus=config.getProperty("stimulus");
         String sensesFile=config.getProperty("sensesFile");
+        String sensesInboxFile=config.getProperty("sensesInboxFile");
         if (donor==null || stimulus==null)
             throw new IllegalArgumentException("Missing donor/stimulus entity types");
         if (sensesFile!=null && (recipient==null
-                || !sensesFile.matches("[A-Za-z0-9._-]{1,80}")
-                || sensesFile.equals(".") || sensesFile.equals("..")))
+                || !safeFileName(sensesFile)))
             throw new IllegalArgumentException("Invalid recipient/sensory file request");
+        if (sensesInboxFile!=null && (sensesFile==null
+                || !safeFileName(sensesInboxFile)
+                || sensesInboxFile.equals(sensesFile)))
+            throw new IllegalArgumentException("Invalid recipient/sensory inbox request");
         UUID stimulusId=UUID.fromString(config.getProperty("stimulusId"));
         boolean requireAttack=Boolean.parseBoolean(
             config.getProperty("requireAttack","false"));
@@ -156,7 +173,8 @@ public final class NativeAiWorkerServer {
             UUID.fromString(config.getProperty("session")),
             UUID.fromString(config.getProperty("recipientBody")),
             UUID.fromString(config.getProperty("sourceMind")),
-            stimulusId,tick,donor,recipient,stimulus,requireAttack,sensesFile,secret);
+            stimulusId,tick,donor,recipient,stimulus,requireAttack,
+            sensesFile,sensesInboxFile,secret);
     }
 
     private static Mob construct(ServerLevel level,String entityId) {
@@ -211,6 +229,9 @@ public final class NativeAiWorkerServer {
             donor.setPersistenceRequired();
             Mob stimulus;
             NativeMindMirrorWorld mirrorWorld=null;
+            NativeMindMirrorState mirrorState=null;
+            NativeMindSenseFrame previousSense=null;
+            Path sensesInbox=null;
             if(request.sensesFile()!=null) {
                 Path sensePath=Path.of(request.sensesFile()).toAbsolutePath().normalize();
                 Path workerRoot=Path.of("").toAbsolutePath().normalize();
@@ -227,7 +248,15 @@ public final class NativeAiWorkerServer {
                     throw new IllegalArgumentException("Recipient body type does not match authenticated sensory snapshot");
                 if(!"minecraft:overworld".equals(senses.dimension()))
                     throw new IllegalArgumentException("This worker fixture currently mirrors only the overworld");
-                NativeMindMirrorState mirrorState=new NativeMindMirrorState();
+                mirrorState=new NativeMindMirrorState();
+                previousSense=senses;
+                if(request.sensesInboxFile()!=null) {
+                    if(!safeFileName(request.sensesInboxFile()))
+                        throw new IllegalArgumentException("Unsafe sensory inbox filename");
+                    sensesInbox=workerRoot.resolve(request.sensesInboxFile());
+                    if(Files.exists(sensesInbox))
+                        throw new IllegalStateException("Sensory inbox must be empty at worker start");
+                }
                 var seed=NativeMindMirrorDelta.between(null,senses);
                 var mirrorSnapshot=mirrorState.apply(seed);
                 mirrorWorld=new NativeMindMirrorWorld();
@@ -255,7 +284,8 @@ public final class NativeAiWorkerServer {
             // ServerStartedEvent is still inside the startup lifecycle on
             // 26.2. Defer entity insertion to a normal server tick so the
             // EntityManager and chunk tracker are fully online first.
-            active=new State(level,request,donor,stimulus,anchor,mirrorWorld);
+            active=new State(level,request,donor,stimulus,anchor,mirrorWorld,
+                mirrorState,previousSense,sensesInbox);
             started=true;
             System.out.println("FF-NATIVE-WORKER READY donor="+request.donor()
                 +" stimulus="+request.stimulus()+" requireAttack="+request.requireAttack()
@@ -271,6 +301,70 @@ public final class NativeAiWorkerServer {
             System.err.println("FF-NATIVE-WORKER START_FAILURE "
                 +failure.getClass().getName()+": "+failure.getMessage());
             throw new IllegalStateException("Native worker must fail closed",failure);
+        }
+    }
+
+    /**
+     * Consume at most one atomic, authenticated next-tick sensory update.
+     * The inbox is outside the worker JVM protocol surface: only a fixed
+     * basename in the worker game directory is accepted. A claimed .processing
+     * file prevents duplicate application after a tick callback or retry.
+     */
+    private static void applyPendingSense(State state) {
+        if(state.mirrorWorld==null || state.mirrorState==null
+                || state.sensesInbox==null || state.produced) return;
+        Path processing=state.sensesInbox.resolveSibling(
+            state.sensesInbox.getFileName().toString()+".processing");
+        if(!Files.exists(state.sensesInbox,java.nio.file.LinkOption.NOFOLLOW_LINKS))
+            return;
+        try {
+            if(Files.isSymbolicLink(state.sensesInbox)
+                    || !Files.isRegularFile(state.sensesInbox,
+                        java.nio.file.LinkOption.NOFOLLOW_LINKS))
+                throw new IllegalArgumentException("Sensory inbox is not a regular non-symlink file");
+            try {
+                Files.move(state.sensesInbox,processing,StandardCopyOption.ATOMIC_MOVE);
+            } catch(java.nio.file.AtomicMoveNotSupportedException unsupported) {
+                Files.move(state.sensesInbox,processing);
+            }
+            long size=Files.size(processing);
+            if(size<64 || size>NativeMindSenseWireCodec.MAX_WIRE_BYTES)
+                throw new IllegalArgumentException("Next sensory frame is outside the wire size bound");
+            long expectedTick=state.previousSense.tick()+1;
+            if(expectedTick<=0)
+                throw new IllegalStateException("Sensory tick overflow");
+            NativeMindSenseFrame next=NativeMindSenseWireCodec.decode(
+                Files.readAllBytes(processing),state.request.secret(),
+                state.request.recipientBody(),state.request.sourceMind(),expectedTick);
+            NativeMindMirrorDelta delta=NativeMindMirrorDelta.between(
+                state.previousSense,next);
+            NativeMindMirrorState.Snapshot nextState=state.mirrorState.apply(delta);
+            NativeMindMirrorWorld.Report report=state.mirrorWorld.reconcile(
+                state.level,state.donor,nextState);
+            Entity target=state.mirrorWorld.managedEntity(state.request.stimulusId());
+            if(!(target instanceof Mob mob))
+                throw new IllegalStateException("Updated sensory frame removed or changed the required native AI target");
+            state.stimulus=mob;
+            state.previousSense=next;
+            System.out.println("FF-NATIVE-WORKER MIRROR_DELTA_APPLIED PASS"
+                +" fromTick="+delta.fromTick()+" toTick="+delta.toTick()
+                +" entitiesAdded="+report.addedEntities()
+                +" entitiesUpdated="+report.updatedEntities()
+                +" entitiesRemoved="+report.removedEntities()
+                +" blocksChanged="+report.changedBlocks()
+                +" blocksRestored="+report.restoredBlocks()
+                +" sameMindSession=true authenticated=true");
+        } catch(Exception failure) {
+            state.produced=true;
+            System.err.println("FF-NATIVE-WORKER MIRROR_DELTA_FAILURE "
+                +failure.getClass().getName()+": "+failure.getMessage());
+        } finally {
+            try { Files.deleteIfExists(processing); }
+            catch(IOException cleanupFailure) {
+                state.produced=true;
+                System.err.println("FF-NATIVE-WORKER MIRROR_INBOX_CLEANUP_FAILURE "
+                    +cleanupFailure.getMessage());
+            }
         }
     }
 
@@ -315,6 +409,11 @@ public final class NativeAiWorkerServer {
                 +" donor="+donor.getUUID()+" stimulus="+stimulus.getUUID());
             return;
         }
+        // Receive the next live sensory frame before the donor's following
+        // native AI tick. Applying it after the initial spawn avoids changing
+        // the worker world during entity-manager startup.
+        applyPendingSense(state);
+        if(state.produced) return;
         if (state.age < 8) return;
         boolean stimulusRegistered=state.mirrorWorld!=null
             ? state.mirrorWorld.managedEntity(stimulus.getUUID())==stimulus

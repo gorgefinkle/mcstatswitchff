@@ -31,7 +31,7 @@ WORKER_CONFIG = WORKER_DIR / "ff-worker-request.properties"
 RECEIVER_OUTPUT = RECEIVER_DIR / "ff-worker-frame.bin"
 RECEIVER_CONFIG = RECEIVER_DIR / "ff-worker-request.properties"
 
-def run_until_markers(command, log_path, markers, env, timeout=420):
+def run_until_markers(command, log_path, markers, env, timeout=420, on_line=None):
     reached = set()
     error_terms = ("FF-NATIVE-WORKER START_FAILURE",
                    "FF-NATIVE-WORKER FRAME_FAILURE",
@@ -71,6 +71,8 @@ def run_until_markers(command, log_path, markers, env, timeout=420):
                 print(line, end="", flush=True)
                 log.write(line)
                 log.flush()
+                if on_line is not None:
+                    on_line(line)
                 if any(term in line for term in error_terms):
                     failure = "Explicit native AI worker failure in server output"
                     break
@@ -146,6 +148,7 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
         "donor=" + donor + "\n"
         "recipient=" + recipient + "\n"
         "sensesFile=ff-worker-senses.bin\n"
+        "sensesInboxFile=ff-worker-senses-inbox.bin\n"
         "stimulus=" + stimulus + "\n"
         "stimulusId=" + str(stimulus_id) + "\n"
         "requireAttack=" + str(require_attack).lower() + "\n"
@@ -167,6 +170,8 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
                  "--no-daemon","--stacktrace"]
 
     senses_file=WORKER_DIR / "ff-worker-senses.bin"
+    senses_next_pending=WORKER_DIR / "ff-worker-senses-next.pending"
+    senses_inbox=WORKER_DIR / "ff-worker-senses-inbox.bin"
     try:
         if WORKER_OUTPUT.exists():
             WORKER_OUTPUT.unlink()
@@ -186,22 +191,51 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
             env,
             timeout=180,
         )
+        next_fixture_args=[
+            "-PffFixtureBody="+str(body),
+            "-PffFixtureMind="+str(mind),
+            "-PffFixtureStimulusId="+str(stimulus_id),
+            "-PffFixtureTick="+str(tick+1),
+            "-PffFixtureRecipient="+recipient,
+            "-PffFixtureStimulus="+stimulus,
+            "-PffFixtureTargetDx=6",
+            "-PffFixtureOutput="+str(senses_next_pending),
+        ]
+        run_until_markers(
+            cmd_base + ["writeNativeMindSenseFixture"] + arguments + next_fixture_args,
+            ROOT / "native-worker-next-fixture.log",
+            ("FF-SENSE fixture_written PASS",),
+            env,
+            timeout=180,
+        )
         print("FF-NATIVE-WORKER starting distinct disposable NeoForge producer")
         worker_markers = [
             "FF-NATIVE-WORKER READY",
             "FF-NATIVE-WORKER MIRROR_RECONCILE PASS",
             "FF-NATIVE-WORKER ENTITIES_SPAWNED PASS",
+            "FF-NATIVE-WORKER MIRROR_DELTA_APPLIED PASS",
             "FF-NATIVE-WORKER NATIVE_NAVIGATION_OBSERVED",
             "FF-NATIVE-WORKER FRAME_WRITTEN PASS",
         ]
         if require_attack:
             worker_markers.append("FF-NATIVE-WORKER NATIVE_ATTACK_OBSERVED")
+        published={"value":False}
+        def publish_next_senses(line):
+            if "FF-NATIVE-WORKER ENTITIES_SPAWNED PASS" in line and not published["value"]:
+                # The producer consumes only complete packets. Atomic rename
+                # is the publication boundary shared with the worker tick.
+                os.replace(senses_next_pending,senses_inbox)
+                published["value"]=True
+                print("FF-NATIVE-WORKER PUBLISHED_NEXT_SENSES tick="+str(tick+1),flush=True)
         run_until_markers(
             cmd_base + ["runAiWorker"] + arguments,
             ROOT / "native-worker-server.log",
             tuple(worker_markers),
             env,
+            on_line=publish_next_senses,
         )
+        if not published["value"]:
+            raise RuntimeError("Worker never reached a tick boundary for the next sensory frame")
         if not WORKER_OUTPUT.is_file():
             raise RuntimeError("Native AI worker emitted no signed packet")
         size = WORKER_OUTPUT.stat().st_size
@@ -225,11 +259,13 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
             " nativeDonorActuallyMoved=true"
             " signedRelativeActionsMovedRealRecipient=true"
             " recipientSnapshotMaterialized=true"
+            " persistentAdjacentSnapshotApplied=true"
             " samePhysicalWorld=false noArbitraryModIsolationClaim=true")
     finally:
         # Never store the session fixture with normal game-test logs or
         # accidentally reuse old signed packets in future tests.
-        for item in (RECEIVER_CONFIG, RECEIVER_OUTPUT, senses_file):
+        for item in (RECEIVER_CONFIG, RECEIVER_OUTPUT, senses_file,
+                     senses_next_pending,senses_inbox):
             try:
                 item.unlink(missing_ok=True)
             except OSError:
