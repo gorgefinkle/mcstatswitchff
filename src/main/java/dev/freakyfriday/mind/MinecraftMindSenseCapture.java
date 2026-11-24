@@ -45,6 +45,12 @@ public final class MinecraftMindSenseCapture {
         return property.getName((Comparable) state.getValue(property));
     }
 
+    static boolean withinRange(double dx,double dy,double dz) {
+        return Double.isFinite(dx) && Double.isFinite(dy) && Double.isFinite(dz)
+            && dx*dx + dy*dy + dz*dz
+                <= NativeMindSenseFrame.MAX_ENTITY_RANGE*NativeMindSenseFrame.MAX_ENTITY_RANGE;
+    }
+
     public static NativeMindSenseFrame capture(
             LivingEntity body, UUID mindId, long serverTick) {
         Objects.requireNonNull(body, "body");
@@ -71,6 +77,10 @@ public final class MinecraftMindSenseCapture {
         List<NativeMindSenseFrame.EntitySense> entities = new ArrayList<>();
         for (Entity entity : nearby) {
             if (entities.size() == NativeMindSenseFrame.MAX_ENTITIES) break;
+            double dx=entity.getX()-body.getX();
+            double dy=entity.getY()-body.getY();
+            double dz=entity.getZ()-body.getZ();
+            if(!withinRange(dx,dy,dz)) continue;
             var motion = entity.getDeltaMovement();
             float health = entity instanceof LivingEntity living ? living.getHealth() : 0;
             float maxHealth = entity instanceof LivingEntity living ? living.getMaxHealth() : 0;
@@ -84,8 +94,7 @@ public final class MinecraftMindSenseCapture {
             entities.add(new NativeMindSenseFrame.EntitySense(
                 entity.getUUID(),
                 BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).toString(),
-                entity.getX()-body.getX(), entity.getY()-body.getY(), entity.getZ()-body.getZ(),
-                motion.x, motion.y, motion.z,
+                dx,dy,dz,motion.x,motion.y,motion.z,
                 entity.getYRot(), entity.getXRot(), entity.getBbWidth(), entity.getBbHeight(),
                 health, maxHealth, entity.isAlive(), visible, entity.onGround()));
         }

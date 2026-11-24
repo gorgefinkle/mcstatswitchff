@@ -106,7 +106,9 @@ public record NativeMindSenseFrame(
             String fluidType, boolean sturdyTop, boolean collisionEmpty,
             boolean known, java.util.Map<String, String> properties) {
         public BlockSense {
-            if (Math.abs(dx)>MAX_BLOCK_OFFSET || Math.abs(dy)>MAX_BLOCK_OFFSET || Math.abs(dz)>MAX_BLOCK_OFFSET)
+            if (dx < -MAX_BLOCK_OFFSET || dx > MAX_BLOCK_OFFSET
+                    || dy < -MAX_BLOCK_OFFSET || dy > MAX_BLOCK_OFFSET
+                    || dz < -MAX_BLOCK_OFFSET || dz > MAX_BLOCK_OFFSET)
                 throw new IllegalArgumentException("Block sample outside bounded neighborhood");
             identifier(blockType, "block type");
             identifier(fluidType, "fluid type");
