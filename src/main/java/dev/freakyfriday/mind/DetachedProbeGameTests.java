@@ -749,14 +749,18 @@ public final class DetachedProbeGameTests {
                 entityR=fakePlayer(level,recipientId);
             } else {
                 var factoryR=net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getValue(rId);
-                entityR=factoryR.create(level,EntitySpawnReason.COMMAND);
+                var createdR=factoryR.create(level,EntitySpawnReason.COMMAND);
+                entityR=createdR instanceof net.minecraft.world.entity.LivingEntity living
+                    ? living : null;
             }
             var entityD=factoryD.create(level,EntitySpawnReason.COMMAND);
             net.minecraft.world.entity.LivingEntity entityT;
             if("minecraft:player".equals(stimulusType)) {
                 entityT=fakePlayer(level,stimulusId);
             } else {
-                entityT=factoryT.create(level,EntitySpawnReason.COMMAND);
+                var createdT=factoryT.create(level,EntitySpawnReason.COMMAND);
+                entityT=createdT instanceof net.minecraft.world.entity.LivingEntity living
+                    ? living : null;
             }
             helper.assertTrue(entityR!=null && entityD instanceof Mob
                     && entityT!=null,
@@ -999,7 +1003,8 @@ public final class DetachedProbeGameTests {
                             +" donor="+donorName+" recipient="+recipientName
                             +" moved="+moved
                             +" onGround="+recipient.onGround()
-                            +" nav="+recipient.getNavigation().isInProgress());
+                            +" nav="+(recipient instanceof Mob recipientMob
+                                ? recipientMob.getNavigation().isInProgress() : "player-physical-body"));
                         helper.assertTrue(recipient.getUUID().equals(recipientId)
                                 && Float.compare(recipient.getHealth(),healthBefore)==0
                                 && Float.compare(donor.getHealth(),donorHealthBefore)==0,
