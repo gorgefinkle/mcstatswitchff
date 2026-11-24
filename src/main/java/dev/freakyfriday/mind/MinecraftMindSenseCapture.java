@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -13,6 +15,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.phys.HitResult;
 
 /**
@@ -28,6 +31,19 @@ public final class MinecraftMindSenseCapture {
 
     private static final int HORIZONTAL_BLOCK_RADIUS = 8;
     private static final int VERTICAL_BLOCK_RADIUS = 4;
+
+    private static Map<String,String> blockProperties(BlockState state) {
+        Map<String,String> result = new TreeMap<>();
+        for (Property<?> property : state.getProperties()) {
+            result.put(property.getName(), propertyValue(state, property));
+        }
+        return Map.copyOf(result);
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static String propertyValue(BlockState state, Property property) {
+        return property.getName((Comparable) state.getValue(property));
+    }
 
     public static NativeMindSenseFrame capture(
             LivingEntity body, UUID mindId, long serverTick) {
@@ -88,7 +104,8 @@ public final class MinecraftMindSenseCapture {
                     blocks.add(new NativeMindSenseFrame.BlockSense(
                         dx,dy,dz,blockType,fluidType,
                         state.isFaceSturdy(level,pos,Direction.UP),
-                        state.getCollisionShape(level,pos).isEmpty()));
+                        state.getCollisionShape(level,pos).isEmpty(),
+                        blockProperties(state)));
                 }
             }
         }
