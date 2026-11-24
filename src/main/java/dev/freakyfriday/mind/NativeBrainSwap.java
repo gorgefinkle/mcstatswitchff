@@ -16,17 +16,12 @@ public final class NativeBrainSwap {
     private NativeBrainSwap() {}
 
     public static String exchange(LivingEntity first, LivingEntity second) {
-        if (first == null || second == null)
+        if(first==null||second==null)
             return "Both physical bodies are required.";
-        if (first == second)
-            return "A body cannot exchange its mind with itself.";
-        if (!first.isAlive() || !second.isAlive())
-            return "Both bodies must be alive.";
-        if (first.level() != second.level())
-            return "Both bodies must be in the same loaded dimension.";
-        if (!(first instanceof Mob) || !(second instanceof Mob))
-            return "The reciprocal player/mob controller runtime is not implemented.";
-        return "Universal reciprocal native mind transfer is not implemented; "
-            + "no Brain, Goal, or target-selector state was changed.";
+        if(first==second||!first.isAlive()||!second.isAlive()||first.level()!=second.level())
+            return "Two different living bodies in the same level are required.";
+        if(!(first instanceof Mob firstMob)||!(second instanceof Mob secondMob))
+            return "The current native controller rebinder supports Mob-to-Mob pairs only.";
+        return GoalMindRuntime.exchange(firstMob,secondMob);
     }
 }

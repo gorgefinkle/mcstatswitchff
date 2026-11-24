@@ -1,9 +1,12 @@
 package dev.freakyfriday.mind;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
@@ -13,6 +16,12 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.ai.goal.GoalSelector;
 import net.minecraft.world.entity.ai.goal.WrappedGoal;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.network.chat.Component;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.neoforged.neoforge.event.server.ServerStoppedEvent;
+import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
@@ -225,5 +234,180 @@ public final class GoalMindRuntime {
             return "Dynamic AI exchange rejected and original goals restored: "
                 + failure.getMessage();
         }
+    }
+
+    /**
+     * A live exchange keeps the original goal graphs so the operation is
+     * reversible. The real mobs remain in the ordinary level and continue
+     * ticking their newly-installed native goal selectors. No worker JVM,
+     * mirror world, AI freeze or duplicate physical entity is involved.
+     */
+    private static final class ActiveSwap {
+        final UUID requester;
+        final ServerLevel level;
+        final Mob first, second;
+        final Snapshot firstOriginal, secondOriginal;
+        final MindLedger.Mind firstMind, secondMind;
+        ActiveSwap(UUID requester, ServerLevel level, Mob first, Mob second,
+                Snapshot firstOriginal, Snapshot secondOriginal,
+                MindLedger.Mind firstMind, MindLedger.Mind secondMind) {
+            this.requester=requester;
+            this.level=level;
+            this.first=first;
+            this.second=second;
+            this.firstOriginal=firstOriginal;
+            this.secondOriginal=secondOriginal;
+            this.firstMind=firstMind;
+            this.secondMind=secondMind;
+        }
+    }
+
+    private static final Map<UUID,ActiveSwap> ACTIVE_BY_BODY=new HashMap<>();
+    private static final Map<UUID,Set<ActiveSwap>> ACTIVE_BY_REQUESTER=new HashMap<>();
+
+    private static void registerOriginalIfMissing(Mob body) {
+        if (!OWNERS.snapshot().containsKey(body.getUUID()))
+            OWNERS.registerOriginal(body.getUUID(),new MindLedger.Mind(
+                body.getUUID(),MindLedger.Kind.NPC,body.getType().toString()));
+    }
+
+    /**
+     * Commit a reciprocal Mob↔Mob exchange directly in the live server.
+     * Requesters are session managers, not participants; one requester may
+     * hold multiple independent pairs, while a physical body is exclusive.
+     */
+    public static synchronized String begin(UUID requester,Mob first,Mob second) {
+        if(requester==null) return "A requester identity is required.";
+        if(first==null||second==null||first==second)
+            return "Choose two different living Mob bodies.";
+        if(!first.isAlive()||!second.isAlive()||first.isRemoved()||second.isRemoved())
+            return "Both Mob bodies must be alive and loaded.";
+        if(first.level()!=second.level()||!(first.level() instanceof ServerLevel level))
+            return "Both Mob bodies must be in the same loaded server level.";
+        if(ACTIVE_BY_BODY.containsKey(first.getUUID())
+                ||ACTIVE_BY_BODY.containsKey(second.getUUID()))
+            return "One of those physical bodies already belongs to another mind exchange.";
+        if(!supports(first,second))
+            return "This pair uses active Brain AI that the current native goal rebinder cannot fully transfer.";
+
+        Snapshot originalFirst=snapshot(first),originalSecond=snapshot(second);
+        if(originalFirst.goals().isEmpty()&&originalFirst.targets().isEmpty())
+            return "The first Mob has no transferable native goal controller.";
+        if(originalSecond.goals().isEmpty()&&originalSecond.targets().isEmpty())
+            return "The second Mob has no transferable native goal controller.";
+
+        final MindLedger.Mind firstMind,secondMind;
+        try {
+            registerOriginalIfMissing(first);
+            registerOriginalIfMissing(second);
+            firstMind=OWNERS.controlling(first.getUUID());
+            secondMind=OWNERS.controlling(second.getUUID());
+        } catch(RuntimeException failure) {
+            return "Could not reserve both native mind identities: "+failure.getMessage();
+        }
+
+        String issue=exchange(first,second);
+        if(issue!=null) return issue;
+
+        ActiveSwap active=new ActiveSwap(requester,level,first,second,
+            originalFirst,originalSecond,firstMind,secondMind);
+        ACTIVE_BY_BODY.put(first.getUUID(),active);
+        ACTIVE_BY_BODY.put(second.getUUID(),active);
+        ACTIVE_BY_REQUESTER.computeIfAbsent(requester,ignored->new HashSet<>()).add(active);
+        return null;
+    }
+
+    public static synchronized int activeSessions(UUID requester) {
+        return ACTIVE_BY_REQUESTER.getOrDefault(requester,Set.of()).size();
+    }
+
+    public static synchronized boolean bodyReserved(UUID body) {
+        return ACTIVE_BY_BODY.containsKey(body);
+    }
+
+    /** End all independent Mob pairs managed by one player/account. */
+    public static synchronized boolean cancelByAccount(UUID requester) {
+        Set<ActiveSwap> sessions=new HashSet<>(
+            ACTIVE_BY_REQUESTER.getOrDefault(requester,Set.of()));
+        if(sessions.isEmpty()) return false;
+        for(ActiveSwap session:sessions) end(session,true,
+            "Mob minds returned to their original physical bodies.");
+        return true;
+    }
+
+    private static void end(ActiveSwap session,boolean notify,String reason) {
+        if(!ACTIVE_BY_BODY.containsValue(session)) return;
+        RuntimeException failure=null;
+        // Restore only bodies still present and alive. A dead or unloaded
+        // physical body is never recreated or teleported as part of a return.
+        if(session.first.isAlive()&&!session.first.isRemoved()) {
+            try { apply(session.first,session.firstOriginal); }
+            catch(RuntimeException problem) { failure=problem; }
+        }
+        if(session.second.isAlive()&&!session.second.isRemoved()) {
+            try { apply(session.second,session.secondOriginal); }
+            catch(RuntimeException problem) {
+                if(failure==null) failure=problem; else failure.addSuppressed(problem);
+            }
+        }
+        try {
+            OWNERS.restorePair(session.first.getUUID(),session.firstMind,
+                session.second.getUUID(),session.secondMind);
+        } catch(RuntimeException problem) {
+            if(failure==null) failure=problem; else failure.addSuppressed(problem);
+        }
+
+        ACTIVE_BY_BODY.remove(session.first.getUUID(),session);
+        ACTIVE_BY_BODY.remove(session.second.getUUID(),session);
+        Set<ActiveSwap> owned=ACTIVE_BY_REQUESTER.get(session.requester);
+        if(owned!=null) {
+            owned.remove(session);
+            if(owned.isEmpty()) ACTIVE_BY_REQUESTER.remove(session.requester);
+        }
+        if(notify) {
+            var player=session.level.getServer().getPlayerList().getPlayer(session.requester);
+            if(player!=null&&!player.isRemoved()) {
+                String message=failure==null?reason:
+                    "Mob exchange ended, but a native controller restore reported: "
+                        +failure.getMessage();
+                player.sendSystemMessage(Component.literal("[Freaky Friday] "+message));
+            }
+        }
+        if(failure!=null) {
+            System.err.println("[Freaky Friday] Native mind restore failed for pair "
+                +session.first.getUUID()+" / "+session.second.getUUID()+": "+failure);
+        }
+    }
+
+    @SubscribeEvent
+    public static synchronized void onBodyDeath(LivingDeathEvent event) {
+        if(!(event.getEntity() instanceof Mob body)) return;
+        ActiveSwap session=ACTIVE_BY_BODY.get(body.getUUID());
+        if(session!=null) end(session,true,
+            "One Mob body died; the surviving body was returned to its original AI.");
+    }
+
+    @SubscribeEvent
+    public static synchronized void maintain(ServerTickEvent.Post event) {
+        for(ActiveSwap session:List.copyOf(new HashSet<>(ACTIVE_BY_BODY.values()))) {
+            if(session.first.isRemoved()||session.second.isRemoved()
+                    ||!session.first.isAlive()||!session.second.isAlive()
+                    ||session.first.level()!=session.level||session.second.level()!=session.level) {
+                end(session,true,
+                    "A Mob body died or unloaded; remaining native AI was restored.");
+            }
+        }
+    }
+
+    @SubscribeEvent
+    public static synchronized void onServerStopped(ServerStoppedEvent event) {
+        clearOnServerStop();
+    }
+
+    public static synchronized void clearOnServerStop() {
+        for(ActiveSwap session:List.copyOf(new HashSet<>(ACTIVE_BY_BODY.values())))
+            end(session,false,"Server stopped; original AI controllers restored.");
+        ACTIVE_BY_BODY.clear();
+        ACTIVE_BY_REQUESTER.clear();
     }
 }

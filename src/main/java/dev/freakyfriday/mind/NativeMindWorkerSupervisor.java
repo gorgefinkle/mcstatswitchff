@@ -289,9 +289,9 @@ public final class NativeMindWorkerSupervisor {
      * runtime can run both minds independently in the live server.
      */
     public static synchronized String startMobPair(ServerPlayer requester,Mob first,Mob second) {
-        return "Mob/Mob mind exchange is temporarily unavailable. The previous "
-            +"experimental path launched two additional Minecraft servers and "
-            +"paralyzed both native bodies. No bodies were changed.";
+        if(requester==null||first==null||second==null)
+            return "A requester and two physical Mob bodies are required.";
+        return GoalMindRuntime.begin(requester.getUUID(),first,second);
     }
 
     private static void register(PairSession pair) {
@@ -420,6 +420,7 @@ public final class NativeMindWorkerSupervisor {
     }
 
     public static synchronized boolean cancelByAccount(UUID account) {
+        boolean nativeGoals=GoalMindRuntime.cancelByAccount(account);
         java.util.Set<PairSession> owned=new java.util.HashSet<>(
             BY_ACCOUNT.getOrDefault(account,java.util.Set.of()));
         // Also include any session where this account is the occupied player
@@ -429,7 +430,7 @@ public final class NativeMindWorkerSupervisor {
                     &&candidate.playerAccount.getUUID().equals(account))
                 owned.add(candidate);
         }
-        if(owned.isEmpty()) return false;
+        if(owned.isEmpty()) return nativeGoals;
         for(PairSession pair:owned)
             endPair(pair,"Native mind exchange cancelled; original body ownership restored.",true);
         return true;
@@ -445,5 +446,6 @@ public final class NativeMindWorkerSupervisor {
             endPair(pair,"Server stopped; native worker sessions were closed.",false);
         BY_BODY.clear();
         BY_ACCOUNT.clear();
+        GoalMindRuntime.clearOnServerStop();
     }
 }
