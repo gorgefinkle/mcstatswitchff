@@ -192,7 +192,7 @@ public final class PlayerMobGameTests {
         var stream=new NativeMindSessionChannel(streamSession,player.getUUID(),
             mobMind.identity(),streamKey,streamTick,2);
         for(int sample=0;sample<3;sample++) {
-            long currentTick=streamTick+sample;
+            long currentTick=stream.nextTick();
             var senses=MinecraftMindSenseCapture.capture(
                 player,mobMind.identity(),currentTick);
             var mappedTarget=senses.entities().stream()
@@ -215,14 +215,16 @@ public final class PlayerMobGameTests {
             byte[] bodyDispatch=CapturedIntentWireCodec.encode(
                 new CapturedIntentWireCodec.Envelope(streamSession,admitted),streamKey);
             var receipt=bridge.deliverAuthenticated(
-                bodyDispatch,streamKey,streamSession,currentTick);
+                bodyDispatch,streamKey,streamSession,currentTick+1);
             helper.assertTrue(receipt.status()==CapturedIntentBridge.Status.DISPATCHED
                     && receipt.outcomes().size()==1
                     && receipt.outcomes().get(0).status()==BodyActionGate.Status.EXECUTED
-                    && stream.nextTick()==currentTick+1
+                    && receipt.tick()==currentTick+1
+                    && stream.nextTick()==currentTick+2
                     && !stream.hasOutstandingRequest(),
                 "Sequential authenticated worker tick did not reach original player body");
         }
+        long reverseTick=stream.nextTick();
         stream.close();
         helper.assertTrue(stream.state()==NativeMindSessionChannel.State.CLOSED,
             "Native worker session did not retire cleanly");
@@ -236,7 +238,7 @@ public final class PlayerMobGameTests {
                 && bridge.controlling(target.getUUID()).equals(mobMind),
             "Reverse controller exchange did not restore both original minds");
         var incomingPlayerFrame=new CapturedIntentBridge.Frame(target.getUUID(),
-            mobMind.identity(),tick+1,List.of(new BodyActionGate.Intent(
+            mobMind.identity(),reverseTick,List.of(new BodyActionGate.Intent(
                 BodyActionGate.LOOK_OFFSET,java.util.Map.of(
                     "dx","1","dy","0","dz","0"))));
         var incomingPlayerResult=bridge.deliver(incomingPlayerFrame);
