@@ -28,6 +28,16 @@ public final class NativeMindMirrorStateSelfTest {
         return new NativeMindSenseFrame.BlockSense(x,0,0,id,
             "minecraft:empty",true,false);
     }
+    private static NativeMindMirrorDelta delta(UUID body,UUID mind,long from,long to,
+            List<NativeMindSenseFrame.EntitySense> added,
+            List<NativeMindSenseFrame.EntitySense> changed,List<UUID> removed,
+            List<NativeMindSenseFrame.BlockSense> changedBlocks,
+            List<NativeMindMirrorDelta.BlockPosition> removedBlocks) {
+        return new NativeMindMirrorDelta(body,mind,"minecraft:overworld",from,to,
+            new NativeMindSenseFrame.BodySense("minecraft:cow",0,0,0,
+                0,0,0,0,0,10,10,true,true,false,false),
+            added,changed,removed,changedBlocks,removedBlocks);
+    }
     public static void main(String[] args) {
         UUID body=UUID.randomUUID(),mind=UUID.randomUUID(),a=UUID.randomUUID(),b=UUID.randomUUID();
         var first=frame(body,mind,20,List.of(entity(a,1),entity(b,2)),
@@ -39,8 +49,8 @@ public final class NativeMindMirrorStateSelfTest {
             "full seed committed");
         var second=frame(body,mind,21,List.of(entity(a,1.5)),
             List.of(block(0,"minecraft:water"),block(2,"minecraft:glass")));
-        var delta=NativeMindMirrorDelta.between(first,second);
-        var updated=state.apply(delta);
+        var normalDelta=NativeMindMirrorDelta.between(first,second);
+        var updated=state.apply(normalDelta);
         check(updated.tick()==21 && updated.entities().size()==1 && !updated.entities().containsKey(b),
             "entity removal and movement committed");
         check(updated.blocks().size()==2
@@ -48,10 +58,36 @@ public final class NativeMindMirrorStateSelfTest {
             && !updated.blocks().containsKey(new NativeMindMirrorDelta.BlockPosition(1,0,0))
             && updated.blocks().containsKey(new NativeMindMirrorDelta.BlockPosition(2,0,0)),
             "block update, removal and addition committed");
+
         var stable=state.snapshot();
-        rejects(()->state.apply(delta),"replayed delta rejected");
-        check(state.snapshot()==stable,"failed delta leaves published snapshot unchanged");
-        var third=frame(body,mind,22,List.of(entity(a,2)),List.of(block(0,"minecraft:water"),block(2,"minecraft:glass")));
+        rejects(()->state.apply(normalDelta),"replayed delta rejected");
+        check(state.snapshot()==stable,"replayed delta leaves published snapshot unchanged");
+        rejects(()->state.apply(delta(body,mind,21,22,List.of(),List.of(),
+            List.of(UUID.randomUUID()),List.of(),List.of())),
+            "removing an entity absent from mirror rejected");
+        check(state.snapshot()==stable,"invalid entity removal is atomic");
+        rejects(()->state.apply(delta(body,mind,21,22,List.of(),List.of(),
+            List.of(a),List.of(),List.of())),
+            "removing an entity and also changing it rejected at delta construction");
+        check(state.snapshot()==stable,"conflicting entity operations leave state unchanged");
+        rejects(()->state.apply(delta(body,mind,21,22,List.of(),List.of(entity(b,3)),
+            List.of(),List.of(),List.of())),
+            "changing an entity absent from mirror rejected");
+        check(state.snapshot()==stable,"invalid changed entity is atomic");
+        rejects(()->state.apply(delta(body,mind,21,22,List.of(entity(a,9)),List.of(),
+            List.of(),List.of(),List.of())),
+            "adding existing entity rejected");
+        check(state.snapshot()==stable,"duplicate existing entity is atomic");
+        rejects(()->state.apply(delta(body,mind,21,22,List.of(),List.of(),List.of(),
+            List.of(),List.of(new NativeMindMirrorDelta.BlockPosition(9,0,0)))),
+            "removing absent block rejected");
+        check(state.snapshot()==stable,"invalid block removal is atomic");
+
+        var unknown=new NativeMindSenseFrame.BlockSense(4,0,0,"minecraft:air",
+            "minecraft:empty",false,true,false,java.util.Map.of());
+        var nowKnown=block(4,"minecraft:stone");
+        var third=frame(body,mind,22,List.of(entity(a,2)),
+            List.of(block(0,"minecraft:water"),block(2,"minecraft:glass"),unknown));
         var gap=NativeMindMirrorDelta.between(second,third);
         var other=new NativeMindMirrorState();
         rejects(()->other.apply(gap),"non-seed cannot initialize empty mirror");
@@ -59,8 +95,17 @@ public final class NativeMindMirrorStateSelfTest {
         check(!state.initialized(),"reset clears mirror");
         check(state.apply(NativeMindMirrorDelta.between(null,third)).tick()==22,
             "reset permits fresh complete seed");
+        var fourth=frame(body,mind,23,List.of(entity(a,2)),
+            List.of(block(0,"minecraft:water"),block(2,"minecraft:glass"),nowKnown));
+        var visibilityDelta=NativeMindMirrorDelta.between(third,fourth);
+        check(visibilityDelta.changedBlocks().equals(List.of(nowKnown)),
+            "unknown-to-known chunk/block transition is retained as a state change");
+        check(state.apply(visibilityDelta).blocks().get(
+            new NativeMindMirrorDelta.BlockPosition(4,0,0)).known(),
+            "unknown-to-known block state committed");
+
         System.out.println("PASS NativeMindMirrorStateSelfTest: "+checks
-            +" assertions; atomic seed/delta commit, entity/block reconciliation, "
-            +"replay rejection, rollback-on-invalid-update and reset");
+            +" assertions; atomic seed/delta commit, strict removals, identity reconciliation, "
+            +"conflict rejection, rollback-on-invalid-update, unknown-to-known transition and reset");
     }
 }

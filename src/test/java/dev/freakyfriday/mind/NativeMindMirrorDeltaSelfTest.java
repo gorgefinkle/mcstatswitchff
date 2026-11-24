@@ -67,9 +67,24 @@ public final class NativeMindMirrorDeltaSelfTest {
         rejects(()->NativeMindMirrorDelta.between(seed,
             frame(body,mind,12,List.of(),List.of())),
             "tick gap rejected instead of applying incomplete delta");
+        rejects(()->new NativeMindMirrorDelta(body,mind,"minecraft:overworld",
+            -1,11,seed.body(),List.of(),List.of(entity(retained,1)),List.of(),
+            List.of(),List.of()),"partial initial seed rejected");
+        rejects(()->new NativeMindMirrorDelta(body,mind,"minecraft:overworld",
+            10,11,seed.body(),List.of(entity(added,1),entity(added,2)),List.of(),
+            List.of(),List.of(),List.of()),"duplicate entity operation rejected");
+        rejects(()->new NativeMindMirrorDelta(body,mind,"minecraft:overworld",
+            10,11,seed.body(),List.of(entity(added,1)),List.of(),List.of(added),
+            List.of(),List.of()),"add and remove same entity rejected");
+        rejects(()->new NativeMindMirrorDelta.BlockPosition(17,0,0),
+            "out-of-bounds block position rejected");
+        rejects(()->new NativeMindMirrorDelta(body,mind,"minecraft:overworld",
+            10,11,seed.body(),List.of(),List.of(),List.of(),
+            List.of(block(0,"minecraft:stone"),block(0,"minecraft:dirt")),List.of()),
+            "duplicate block operation rejected");
 
         System.out.println("PASS NativeMindMirrorDeltaSelfTest: "+checks
-            +" assertions; full seed, entity add/update/remove, block change/removal, "
-            +"identity, dimension and consecutive tick constraints");
+            +" assertions; complete seed semantics, deterministic entity/block diffs, "
+            +"identity, dimension, operation conflicts and bounds");
     }
 }

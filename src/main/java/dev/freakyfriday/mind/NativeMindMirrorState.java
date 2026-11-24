@@ -8,10 +8,9 @@ import java.util.UUID;
 /**
  * Validated state accumulator for a persistent native-worker mirror.
  *
- * A delta is committed atomically only after its identity and sequence have
- * been checked. Consumers can read a stable immutable snapshot to reconcile
- * a worker ServerLevel on its owning server thread. This class intentionally
- * does not mutate Minecraft worlds or execute donor AI.
+ * Deltas are checked and applied to private copies before a new immutable
+ * snapshot is published. This class intentionally does not mutate Minecraft
+ * worlds or execute donor AI.
  */
 public final class NativeMindMirrorState {
     public record Snapshot(UUID bodyId, UUID mindId, String dimension, long tick,
@@ -60,25 +59,33 @@ public final class NativeMindMirrorState {
             throw new IllegalArgumentException("Mirror identity changed");
         if (!current.dimension().equals(delta.dimension()))
             throw new IllegalArgumentException("Dimension changed without mirror reset");
-        if (delta.fromTick() != current.tick() || delta.toTick() != current.tick() + 1)
+        if (current.tick() == Long.MAX_VALUE
+                || delta.fromTick() != current.tick()
+                || delta.toTick() != current.tick() + 1)
             throw new IllegalArgumentException("Mirror delta is stale, skipped or out of order");
 
         Map<UUID, NativeMindSenseFrame.EntitySense> entities =
             new HashMap<>(current.entities());
-        for (UUID removed : delta.removedEntities()) entities.remove(removed);
+        for (UUID removed : delta.removedEntities()) {
+            if (entities.remove(removed) == null)
+                throw new IllegalArgumentException("Removed entity is absent from mirror: " + removed);
+        }
         for (var entity : delta.addedEntities()) {
             if (entities.putIfAbsent(entity.id(), entity) != null)
-                throw new IllegalArgumentException("Added entity already exists in mirror");
+                throw new IllegalArgumentException("Added entity already exists in mirror: " + entity.id());
         }
         for (var entity : delta.changedEntities()) {
             if (!entities.containsKey(entity.id()))
-                throw new IllegalArgumentException("Changed entity is absent from mirror");
+                throw new IllegalArgumentException("Changed entity is absent from mirror: " + entity.id());
             entities.put(entity.id(), entity);
         }
 
         Map<NativeMindMirrorDelta.BlockPosition, NativeMindSenseFrame.BlockSense> blocks =
             new HashMap<>(current.blocks());
-        for (var removed : delta.removedBlocks()) blocks.remove(removed);
+        for (var removed : delta.removedBlocks()) {
+            if (blocks.remove(removed) == null)
+                throw new IllegalArgumentException("Removed block is absent from mirror: " + removed);
+        }
         for (var block : delta.changedBlocks()) blocks.put(position(block), block);
 
         // Publish only after every validation and mutation succeeds.
