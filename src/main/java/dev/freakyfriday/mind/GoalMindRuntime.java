@@ -95,6 +95,59 @@ public final class GoalMindRuntime {
         return remaining.isEmpty();
     }
 
+
+    private record CompatibleCapture(Snapshot snapshot,int omittedGoals) {}
+
+    private static boolean recipientTypeMismatch(DynamicObjectGraph.Uncapturable failure) {
+        return failure.getMessage()!=null
+            &&failure.getMessage().startsWith("AI field incompatible with recipient:");
+    }
+
+    /**
+     * Keep the donor's complete transferable goal set, but do not install a
+     * goal whose declared owner type is not a capability of the recipient
+     * body (for example, an Animal-only breeding goal on a Monster body).
+     * This is inferred from the actual reflected field types, never from
+     * species names. Opaque graphs and non-type-related capture failures still
+     * reject the whole exchange.
+     */
+    private static CompatibleCapture captureCompatibleFor(
+            Mob original,Mob recipient,Snapshot donor)
+            throws DynamicObjectGraph.Uncapturable {
+        try {
+            return new CompatibleCapture(captureFor(original,recipient,donor),0);
+        } catch(DynamicObjectGraph.Uncapturable wholeGraphFailure) {
+            if(!recipientTypeMismatch(wholeGraphFailure)) throw wholeGraphFailure;
+        }
+
+        List<Slot> compatibleGoals=new ArrayList<>();
+        List<Slot> compatibleTargets=new ArrayList<>();
+        int omitted=0;
+        for(Slot slot:donor.goals()) {
+            try {
+                captureFor(original,recipient,new Snapshot(List.of(slot),List.of()));
+                compatibleGoals.add(slot);
+            } catch(DynamicObjectGraph.Uncapturable failure) {
+                if(!recipientTypeMismatch(failure)) throw failure;
+                omitted++;
+            }
+        }
+        for(Slot slot:donor.targets()) {
+            try {
+                captureFor(original,recipient,new Snapshot(List.of(),List.of(slot)));
+                compatibleTargets.add(slot);
+            } catch(DynamicObjectGraph.Uncapturable failure) {
+                if(!recipientTypeMismatch(failure)) throw failure;
+                omitted++;
+            }
+        }
+        if(compatibleGoals.isEmpty()&&compatibleTargets.isEmpty())
+            throw new DynamicObjectGraph.Uncapturable(
+                "No native goals are compatible with the recipient body's declared capabilities");
+        Snapshot accepted=new Snapshot(compatibleGoals,compatibleTargets);
+        return new CompatibleCapture(captureFor(original,recipient,accepted),omitted);
+    }
+
     private static Snapshot captureFor(Mob original, Mob recipient, Snapshot donor)
             throws DynamicObjectGraph.Uncapturable {
         IdentityHashMap<Object, Object> bindings = new IdentityHashMap<>();
@@ -187,11 +240,15 @@ public final class GoalMindRuntime {
             return "The second mob has no goal AI to capture.";
 
         final Snapshot firstReceiving, secondReceiving;
+        final int omittedGoals;
         try {
-            firstReceiving = captureFor(second, first, originalSecond);
-            secondReceiving = captureFor(first, second, originalFirst);
+            CompatibleCapture firstCapture=captureCompatibleFor(second,first,originalSecond);
+            CompatibleCapture secondCapture=captureCompatibleFor(first,second,originalFirst);
+            firstReceiving=firstCapture.snapshot();
+            secondReceiving=secondCapture.snapshot();
+            omittedGoals=firstCapture.omittedGoals()+secondCapture.omittedGoals();
         } catch (DynamicObjectGraph.Uncapturable failure) {
-            return "Dynamic AI capture rejected the COMPLETE exchange: " + failure.getMessage();
+            return "Dynamic AI capture rejected the exchange: " + failure.getMessage();
         }
 
         UUID firstId = first.getUUID(), secondId = second.getUUID();
@@ -219,6 +276,10 @@ public final class GoalMindRuntime {
                 if (incoming.kind() != MindLedger.Kind.NPC)
                     throw new IllegalArgumentException("Incoming mind is not a complete NPC controller");
             });
+            if(omittedGoals>0)
+                System.out.println("[Freaky Friday] Native mind exchange omitted "
+                    +omittedGoals+" goal(s) whose owner types are not supported by "
+                    +"the recipient physical bodies.");
             return null;
         } catch (Exception failure) {
             // Goal selectors and the mind ledger have separate ownership.
