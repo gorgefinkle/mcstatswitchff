@@ -724,8 +724,8 @@ public final class BookInteractionHarness {
   ok(received(p,"First body: Player"),
     "Ctrl+S self must become a selectable gameplay body, not be rejected");
   MindSwapSessions.select(p,chicken);
-  ok(received(p,"Reciprocal player/mob mind transfer is not implemented yet"),
-    "Book pair rejects one-way possession until reciprocal mind transfer exists");
+  ok(received(p,"Player/mob reciprocal exchange REJECTED: stub"),
+    "Synthetic supervisor stub is reached through the player-first book workflow");
   MindSwapSessions.cancel(p);
 
   var one=new PlayerInteractEvent.EntityInteract(p,chicken);
@@ -734,14 +734,14 @@ public final class BookInteractionHarness {
     "Book consumes actual mob interaction instead of feeding/trading");
   ok(received(p,"First body: Chicken"),"Mob selected in gameplay mode");
   MindSwapSessions.select(p,p);
-  ok(received(p,"Reciprocal player/mob mind transfer is not implemented yet"),
-    "Chicken then self rejects one-way possession until reciprocal runtime exists");
+  ok(received(p,"Player/mob reciprocal exchange REJECTED: stub"),
+    "Synthetic supervisor stub is reached through the reversed mob-first/player-second workflow");
   MindSwapSessions.cancel(p);
 
   MindSwapSessions.select(p,chicken);
   MindSwapSessions.select(p,zombie);
-  ok(received(p,"Native mind exchange REJECTED"),
-    "Mob/Mob invokes true AI exchange entrypoint and never reports fake success: "+p.messages);
+  ok(received(p,"Mob/mob reciprocal exchange REJECTED: stub"),
+    "Mob/Mob book workflow reaches the reciprocal supervisor entrypoint without faking a success: "+p.messages);
   MindSwapSessions.cancel(p);
 
   p.setMainHand(new Object());
