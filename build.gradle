@@ -224,3 +224,13 @@ tasks.register("writeNativeMindSenseFixture", JavaExec) {
         if(targetDx != null) systemProperty("ff.fixture.targetDx", targetDx)
     }
 }
+
+tasks.register("runNativeMindWorkerHeartbeatSelfTest", JavaExec) {
+    group = 'verification'
+    description = 'Prove persistent worker streams retire on stale, missing or reordered recipient senses'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.freakyfriday.mind.NativeMindWorkerHeartbeatSelfTest'
+    enableAssertions = true
+}
+tasks.named('check') { dependsOn tasks.named('runNativeMindWorkerHeartbeatSelfTest') }

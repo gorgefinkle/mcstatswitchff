@@ -98,6 +98,7 @@ public final class NativeAiWorkerServer {
         final NativeMindMirrorState mirrorState;
         NativeMindSenseFrame previousSense;
         final Path sensesInbox;
+        NativeMindWorkerHeartbeat heartbeat;
         final double startX, startZ;
         double lastReportedX, lastReportedZ;
         long currentRecipientTick;
@@ -357,6 +358,8 @@ public final class NativeAiWorkerServer {
             if(!(target instanceof Mob mob))
                 throw new IllegalStateException("Updated sensory frame removed or changed the required native AI target");
             state.stimulus=mob;
+            if(state.heartbeat!=null)
+                state.heartbeat.received(state.level.getGameTime(),next.tick());
             state.previousSense=next;
             state.currentRecipientTick=next.tick();
             state.produced=false;
@@ -434,6 +437,15 @@ public final class NativeAiWorkerServer {
         // native AI tick. Applying it after the initial spawn avoids changing
         // the worker world during entity-manager startup.
         applyPendingSense(state);
+        if(state.failed) return;
+        if(state.heartbeat!=null && state.heartbeat.expire(state.level.getGameTime())) {
+            state.failed=true;
+            System.err.println("FF-NATIVE-WORKER SENSORY_STREAM_TIMEOUT"
+                +" lastRecipientTick="+state.previousSense.tick()
+                +" workerTick="+state.level.getGameTime()
+                +" maxSilenceTicks="+NativeMindWorkerHeartbeat.DEFAULT_MAX_SILENCE_TICKS);
+            return;
+        }
         if(state.produced) return;
         if (state.age < 8) return;
         boolean stimulusRegistered=state.mirrorWorld!=null
@@ -520,6 +532,12 @@ public final class NativeAiWorkerServer {
                     Files.move(tmp,OUTPUT,StandardCopyOption.REPLACE_EXISTING);
                 }
                 state.produced=true;
+                if(state.mirrorWorld!=null && state.sensesInbox!=null
+                        && state.heartbeat==null) {
+                    state.heartbeat=new NativeMindWorkerHeartbeat(
+                        state.level.getGameTime(),state.currentRecipientTick,
+                        NativeMindWorkerHeartbeat.DEFAULT_MAX_SILENCE_TICKS);
+                }
                 long completedFrame=state.frameIndex++;
                 state.lastReportedX=donor.getX();
                 state.lastReportedZ=donor.getZ();
