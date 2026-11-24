@@ -13,6 +13,7 @@ import com.mojang.authlib.GameProfile;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import dev.freakyfriday.FreakyFriday;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
@@ -705,6 +706,10 @@ public final class DetachedProbeGameTests {
         // player-info packet reads connection.latency() and crashes when the
         // synthetic connection is absent. FakePlayer defaults to survival;
         // the fixture only primes the native attack cooldown below.
+        // A real physical player's own held equipment must be used by
+        // its incoming mind's native attack. Give this disposable fixture a
+        // normal vanilla sword; never synthesize donor damage values.
+        player.setItemInHand(InteractionHand.MAIN_HAND,new ItemStack(Items.IRON_SWORD));
         player.setNoGravity(true);
         for(int tick=0;tick<30;tick++) player.tick();
         player.primeMeleeCooldown();
@@ -973,6 +978,7 @@ public final class DetachedProbeGameTests {
                             +" creative="+playerBody.isCreative()
                             +" spectator="+playerBody.isSpectator()
                             +" mainHand="+playerBody.getMainHandItem()
+                            +" attackDamage="+playerBody.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE)
                             +" playerPos="+playerBody.position()
                             +" targetPos="+mappedTarget.position()
                             +" distanceSq="+playerBody.distanceToSqr(mappedTarget)

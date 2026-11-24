@@ -125,6 +125,10 @@ public final class MinecraftPlayerBodyPort implements BodyActionGate.BodyPort {
         float healthBefore=target instanceof net.minecraft.world.entity.LivingEntity living
             ? living.getHealth() : Float.NaN;
         float attackStrength=body.getAttackStrengthScale(0.5f);
+        double attackDamage=body.getAttributeValue(
+            net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE);
+        boolean targetInvulnerable=target.isInvulnerableTo(
+            body.damageSources().playerAttack(body));
         body.attack(target);
         float healthAfter=target instanceof net.minecraft.world.entity.LivingEntity living
             ? living.getHealth() : Float.NaN;
@@ -133,6 +137,8 @@ public final class MinecraftPlayerBodyPort implements BodyActionGate.BodyPort {
                 +" body="+body.getUUID()
                 +" target="+target.getUUID()
                 +" attackStrength="+attackStrength
+                +" attackDamage="+attackDamage
+                +" targetInvulnerable="+targetInvulnerable
                 +" creative="+body.isCreative()
                 +" spectator="+body.isSpectator()
                 +" mainHand="+body.getMainHandItem()
