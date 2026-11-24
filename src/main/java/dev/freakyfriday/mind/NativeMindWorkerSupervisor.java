@@ -13,6 +13,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -215,11 +217,10 @@ public final class NativeMindWorkerSupervisor {
         } catch(IOException ignored) {}
     }
 
-    private static void stopWorker(Worker worker) {
-        worker.channel.close();
-        // Preserve the isolated worker's own log in the parent smoke folder
-        // before deleting its disposable world. CI needs this when native AI
-        // fails to produce a frame or a mirrored target disappears.
+    private static void archiveAndDeleteWorker(Worker worker) {
+        // Preserve the isolated worker's complete shutdown/failure log before
+        // deleting its disposable world. In particular, do not copy while the
+        // child JVM may still be appending its final exception or shutdown data.
         if(Boolean.getBoolean("freakyfriday.supervisorSmoke")) {
             try {
                 Path source=worker.root.resolve("worker.log");
@@ -235,12 +236,36 @@ public final class NativeMindWorkerSupervisor {
                     +diagnosticFailure.getMessage());
             }
         }
+        deleteTree(worker.root);
+    }
+
+    private static void stopWorker(Worker worker) {
+        worker.channel.close();
         java.util.Arrays.fill(worker.key,(byte)0);
         try {
-            if(worker.process.isAlive()) worker.process.destroy();
-            if(worker.process.isAlive()) worker.process.destroyForcibly();
-        } catch(RuntimeException ignored) {}
-        deleteTree(worker.root);
+            if(worker.process.isAlive()) {
+                // Process.destroy() initiates an orderly server shutdown; the
+                // old immediate isAlive()/destroyForcibly() pair usually killed
+                // the JVM before its shutdown hooks or mirror cleanup could run.
+                // Keep the session directory until the child has actually exited.
+                worker.process.onExit().thenRun(() -> archiveAndDeleteWorker(worker));
+                worker.process.destroy();
+                CompletableFuture.delayedExecutor(3,TimeUnit.SECONDS).execute(() -> {
+                    if(worker.process.isAlive()) {
+                        System.err.println("FF-SUPERVISOR WORKER_GRACE_TIMEOUT mind="
+                            +worker.mindId+"; forcing child shutdown");
+                        worker.process.destroyForcibly();
+                    }
+                });
+                return;
+            }
+        } catch(RuntimeException shutdownFailure) {
+            System.err.println("FF-SUPERVISOR WORKER_SHUTDOWN_FAILURE mind="
+                +worker.mindId+" reason="+shutdownFailure.getMessage());
+            try { worker.process.destroyForcibly(); }
+            catch(RuntimeException ignored) {}
+        }
+        archiveAndDeleteWorker(worker);
     }
 
     public static synchronized String startPlayerMob(ServerPlayer player,Mob mob) {
