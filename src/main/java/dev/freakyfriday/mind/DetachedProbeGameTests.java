@@ -675,15 +675,18 @@ public final class DetachedProbeGameTests {
     private static void testExternalNativeWorker(GameTestHelper helper) {
         java.nio.file.Path requestPath=java.nio.file.Path.of("ff-worker-request.properties");
         java.nio.file.Path packetPath=java.nio.file.Path.of("ff-worker-frame.bin");
+        java.nio.file.Path nextPacketPath=java.nio.file.Path.of("ff-worker-frame-next.bin");
         if (!java.nio.file.Files.exists(requestPath)
-                && !java.nio.file.Files.exists(packetPath)) {
+                && !java.nio.file.Files.exists(packetPath)
+                && !java.nio.file.Files.exists(nextPacketPath)) {
             System.out.println("FF-NATIVE-WORKER E2E_SKIPPED_NO_EXTERNAL_FIXTURE");
             helper.succeed();
             return;
         }
         helper.assertTrue(java.nio.file.Files.isRegularFile(requestPath)
-                && java.nio.file.Files.isRegularFile(packetPath),
-            "A partially present worker fixture must never be accepted");
+                && java.nio.file.Files.isRegularFile(packetPath)
+                && java.nio.file.Files.isRegularFile(nextPacketPath),
+            "A two-frame worker fixture must be complete; partial or stale sessions are rejected");
         ServerLevel level=helper.getLevel();
         Mob receiverBody=null, originalDonorBody=null, targetBody=null;
         UUID ticketOwner=UUID.randomUUID();
@@ -797,6 +800,21 @@ public final class DetachedProbeGameTests {
                     && packet.length<=CapturedIntentWireCodec.MAX_WIRE_BYTES,
                 "Worker packet invalid");
             var decoded=CapturedIntentWireCodec.decode(packet,secret,session,tick);
+            byte[] nextPacket=java.nio.file.Files.readAllBytes(nextPacketPath);
+            helper.assertTrue(nextPacket.length>0
+                    && nextPacket.length<=CapturedIntentWireCodec.MAX_WIRE_BYTES,
+                "Second persistent worker packet invalid");
+            var nextDecoded=CapturedIntentWireCodec.decode(
+                nextPacket,secret,session,Math.addExact(tick,1));
+            helper.assertTrue(nextDecoded.frame().bodyId().equals(recipientId)
+                    && nextDecoded.frame().mindId().equals(donorMind)
+                    && nextDecoded.frame().actions().size()>=2
+                    && nextDecoded.frame().actions().size()<=3
+                    && nextDecoded.frame().actions().get(0).actionId()
+                        .equals(MinecraftBodyPort.LOOK_OFFSET)
+                    && nextDecoded.frame().actions().get(1).actionId()
+                        .equals(MinecraftBodyPort.MOVE_OFFSET),
+                "Persistent worker did not emit a second portable frame for the adjacent recipient tick");
             int expectedActions=requireAttack?3:2;
             helper.assertTrue(decoded.frame().bodyId().equals(recipientId)
                     && decoded.frame().mindId().equals(donorMind)
@@ -889,6 +907,20 @@ public final class DetachedProbeGameTests {
                         +" outcome="+result.outcomes().get(2).status()
                         +" reason="+result.outcomes().get(2).reason());
 
+                helper.runAfterDelay(1,()->{
+                var nextResult=bridge.deliverAuthenticated(
+                    nextPacket,secret,session,Math.addExact(tick,1));
+                helper.assertTrue(nextResult.status()==CapturedIntentBridge.Status.DISPATCHED
+                        && nextResult.outcomes().size()==nextDecoded.frame().actions().size()
+                        && nextResult.outcomes().get(0).status()==BodyActionGate.Status.EXECUTED
+                        && nextResult.outcomes().get(1).status()==BodyActionGate.Status.EXECUTED,
+                    "Adjacent-tick native worker frame was not dispatched to the same physical body"
+                    +" status="+nextResult.status()+" diagnostic="+nextResult.diagnostic()
+                    +" outcomes="+nextResult.outcomes());
+                helper.assertTrue(bridge.deliverAuthenticated(
+                        nextPacket,secret,session,Math.addExact(tick,1)).status()
+                            ==CapturedIntentBridge.Status.DUPLICATE_OR_STALE_TICK,
+                    "Second persistent worker frame replay was not rejected");
                 helper.runAfterDelay(50,()->{
                     try {
                         double moved=Math.hypot(recipient.getX()-originalX,
@@ -909,6 +941,7 @@ public final class DetachedProbeGameTests {
                             +" authenticatedRelativeMovement=true"
                             +" realRecipientMoved="+moved
                             +" signedFrameReplayRejected=true"
+                            +" secondAdjacentFrameDispatched=true"
                             +" completeNativeMindTransfer=false");
                         helper.succeed();
                     } finally {
@@ -918,6 +951,7 @@ public final class DetachedProbeGameTests {
                         setArenaChunks(level,ticketOwner,ticketBounds,false);
                     }
                 });
+            });
             });
         } catch(Exception failure) {
             if(receiverBody!=null)receiverBody.discard();

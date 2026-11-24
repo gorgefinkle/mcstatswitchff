@@ -184,6 +184,7 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
     senses_next_pending=WORKER_DIR / "ff-worker-senses-next.pending"
     senses_inbox=WORKER_DIR / "ff-worker-senses-inbox.bin"
     first_frame=WORKER_DIR / "ff-worker-frame-first.bin"
+    second_frame=WORKER_DIR / "ff-worker-frame-second.bin"
     inbox_processing=senses_inbox.with_name(senses_inbox.name+".processing")
     # Do not let an interrupted prior run contaminate this authenticated session.
     for stale in (WORKER_OUTPUT,WORKER_OUTPUT.with_name(WORKER_OUTPUT.name+".tmp"),
@@ -231,6 +232,7 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
             "FF-NATIVE-WORKER ENTITIES_SPAWNED PASS",
             "FF-NATIVE-WORKER MIRROR_DELTA_APPLIED PASS",
             "FF-NATIVE-WORKER FRAME_WRITTEN PASS frameIndex=0 recipientTick=1700",
+            "FF-NATIVE-WORKER FRAME_WRITTEN PASS frameIndex=1 recipientTick=1701",
         ]
         if require_attack:
             worker_markers.append("FF-NATIVE-WORKER NATIVE_ATTACK_OBSERVED")
@@ -241,6 +243,8 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
                 os.replace(senses_next_pending,senses_inbox)
                 published["value"]=True
                 print("FF-NATIVE-WORKER PUBLISHED_NEXT_SENSES tick="+str(tick+1),flush=True)
+            elif "FF-NATIVE-WORKER FRAME_WRITTEN PASS frameIndex=1 recipientTick=1701" in line:
+                shutil.copyfile(WORKER_OUTPUT,second_frame)
         run_until_markers(
             cmd_base + ["runAiWorker"] + arguments,
             worker_log,
@@ -250,13 +254,14 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
         )
         if not published["value"]:
             raise RuntimeError("Worker never emitted its first action frame for sensory update")
-        if not first_frame.is_file() or not WORKER_OUTPUT.is_file():
-            raise RuntimeError("Persistent worker did not retain its first action frame and output")
+        if not first_frame.is_file() or not second_frame.is_file() or not WORKER_OUTPUT.is_file():
+            raise RuntimeError("Persistent worker did not emit and retain both adjacent-tick action frames")
         size = first_frame.stat().st_size
         if size < 64 or size > 65536:
             raise RuntimeError("Worker output is outside binary size bounds")
         shutil.copyfile(WORKER_CONFIG,RECEIVER_CONFIG)
         shutil.copyfile(first_frame,RECEIVER_OUTPUT)
+        shutil.copyfile(second_frame,RECEIVER_DIR / "ff-worker-frame-next.bin")
 
         print("FF-NATIVE-WORKER starting independent NeoForge receiver GameTest")
         run_until_markers(
@@ -275,6 +280,7 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
             " recipientSnapshotMaterialized=true"
             " persistentAdjacentSnapshotApplied=true"
             " persistentSessionAcceptedAdjacentSensoryTick=true"
+            " secondNativeFrameForUpdatedRecipientWorld=true"
             " sensoryTicks=1700,1701"
             " samePhysicalWorld=false noArbitraryModIsolationClaim=true")
         print("FF-NATIVE-WORKER CASE_COMPLETE direction="+case_tag
@@ -282,8 +288,9 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
     finally:
         # Never store the session fixture with normal game-test logs or
         # accidentally reuse old signed packets in future tests.
-        for item in (RECEIVER_CONFIG, RECEIVER_OUTPUT, senses_file,
-                     senses_next_pending,senses_inbox,first_frame):
+        for item in (RECEIVER_CONFIG, RECEIVER_OUTPUT,
+                     RECEIVER_DIR / "ff-worker-frame-next.bin", senses_file,
+                     senses_next_pending,senses_inbox,first_frame,second_frame):
             try:
                 item.unlink(missing_ok=True)
             except OSError:
