@@ -421,6 +421,18 @@ public final class PlayerPlayerGameTests {
    net.neoforged.neoforge.registries.DeferredRegister.createItems("stub-player-player-tests");
 }
 ''',
+'dev/freakyfriday/mind/NativeMindSenseGameTests.java':'''package dev.freakyfriday.mind;
+public final class NativeMindSenseGameTests {
+ public static final net.neoforged.neoforge.registries.DeferredRegister.Items FUNCTIONS =
+   net.neoforged.neoforge.registries.DeferredRegister.createItems("stub-sensory-tests");
+}
+''',
+'dev/freakyfriday/mind/MinecraftMindSenseCapture.java':'''package dev.freakyfriday.mind;
+public final class MinecraftMindSenseCapture {
+ public static NativeMindSenseFrame capture(
+   net.minecraft.world.entity.LivingEntity body,java.util.UUID mind,long tick){return null;}
+}
+''',
 # These components exercise real Brigadier/NeoForge command events and
 # two-player GameTest APIs, rather than the old synthetic Minecraft stubs.
 'dev/freakyfriday/mind/PlayerCommandBodyRouting.java':'''package dev.freakyfriday.mind;
