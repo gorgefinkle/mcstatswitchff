@@ -9,7 +9,7 @@ public final class NativeMindSenseWireCodecSelfTest {
         java.util.Arrays.fill(key,(byte)0x5a);
         UUID body=UUID.randomUUID(),mind=UUID.randomUUID(),target=UUID.randomUUID();
         var self=new NativeMindSenseFrame.BodySense("minecraft:chicken",
-            10,64,-3,0.1,0,0,90,0,4,4,true,true,false,false);
+            0,0,0,0.1,0,0,90,0,4,4,true,true,false,false);
         var entity=new NativeMindSenseFrame.EntitySense(target,"minecraft:zombie",
             2,0,-1,0,0,0,20,20,true,true,true);
         var block=new NativeMindSenseFrame.BlockSense(0,-1,0,
