@@ -45,6 +45,21 @@ public final class NativeMindMirrorWorld implements AutoCloseable {
 
     public Report reconcile(ServerLevel level, Entity anchor,
             NativeMindMirrorState.Snapshot snapshot) {
+        try {
+            return reconcileInternal(level,anchor,snapshot);
+        } catch(RuntimeException failure) {
+            // Never leave a half-applied recipient snapshot in the worker.
+            // Roll back owned entities and blocks before propagating failure.
+            if(ownerLevel==null || ownerLevel==level) {
+                try { close(level); }
+                catch(RuntimeException cleanupFailure) { failure.addSuppressed(cleanupFailure); }
+            }
+            throw failure;
+        }
+    }
+
+    private Report reconcileInternal(ServerLevel level, Entity anchor,
+            NativeMindMirrorState.Snapshot snapshot) {
         Objects.requireNonNull(level,"worker level");
         Objects.requireNonNull(anchor,"mirror anchor");
         Objects.requireNonNull(snapshot,"mirror snapshot");
@@ -147,9 +162,9 @@ public final class NativeMindMirrorWorld implements AutoCloseable {
         // samples stay observed and retain their last known worker-world state.
         for(BlockPos pos:Set.copyOf(originalBlocks.keySet())) {
             if(!currentObserved.contains(pos)) {
-                BlockState original=originalBlocks.remove(pos);
-                appliedBlocks.remove(pos);
                 if(level.hasChunkAt(pos)) {
+                    BlockState original=originalBlocks.remove(pos);
+                    appliedBlocks.remove(pos);
                     level.setBlockAndUpdate(pos,original);
                     restored++;
                 }
@@ -231,8 +246,9 @@ public final class NativeMindMirrorWorld implements AutoCloseable {
         for(Entity entity:entities.values()) if(!entity.isRemoved()) entity.discard();
         entities.clear();
         for(var entry:originalBlocks.entrySet()) {
-            if(level.hasChunkAt(entry.getKey()))
-                level.setBlockAndUpdate(entry.getKey(),entry.getValue());
+            if(!level.hasChunkAt(entry.getKey()))
+                throw new IllegalStateException("Cannot safely restore an unloaded mirror block without force-loading: "+entry.getKey());
+            level.setBlockAndUpdate(entry.getKey(),entry.getValue());
         }
         originalBlocks.clear();
         appliedBlocks.clear();

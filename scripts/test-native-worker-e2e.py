@@ -146,7 +146,6 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
         "donor=" + donor + "\n"
         "recipient=" + recipient + "\n"
         "sensesFile=ff-worker-senses.bin\n"
-        "recipient=" + recipient + "\n"
         "stimulus=" + stimulus + "\n"
         "stimulusId=" + str(stimulus_id) + "\n"
         "requireAttack=" + str(require_attack).lower() + "\n"
