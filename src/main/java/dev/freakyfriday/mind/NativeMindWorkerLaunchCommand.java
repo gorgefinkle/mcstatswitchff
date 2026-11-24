@@ -104,8 +104,12 @@ public final class NativeMindWorkerLaunchCommand {
         // cannot resolve through the live server's run directory.
         // ProcessBuilder.directory(root) supplies the child game directory;
         // --gameDir is not a server CLI option in current NeoForge 26.2/26.3.
+        // The server rejects a world whose resolved directory is the
+        // same path as the universe. Keep the child working directory at
+        // the session root (for server.properties/request files), and put
+        // the world universe in its own nested directory.
         command.add("--universe");
-        command.add(root.toString());
+        command.add(root.resolve("universe").toString());
         command.add("--world");
         command.add("ff-native-mind-worker-world");
         command.add("--nogui");
