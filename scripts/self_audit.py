@@ -52,16 +52,16 @@ assert 'NativeMindWorkerSupervisor.cancelByAccount' in actual_book
 assert 'PlayerMobPossession.begin(p,mob)' not in actual_book
 assert 'PlayerPlayerExchange.begin(p,other)' in actual_book
 worker_supervisor = (root/'src/main/java/dev/freakyfriday/mind/NativeMindWorkerSupervisor.java').read_text()
-assert 'new ProcessBuilder(command)' in worker_supervisor
-assert 'worker.channel.complete' in worker_supervisor
-assert 'pair.bridge.deliver(frame)' in worker_supervisor
-assert 'MinecraftMindSenseCapture.capture' in worker_supervisor
+assert 'GoalMindRuntime.begin(requester.getUUID(),first,second)' in worker_supervisor
+assert 'GoalMindRuntime.cancelByAccount(account)' in worker_supervisor
+assert 'ProcessBuilder' not in worker_supervisor
+assert 'Runtime.getRuntime().exec' not in worker_supervisor
 assert 'NativeMindWorkerSupervisor.class' in (root/'src/main/java/dev/freakyfriday/FreakyFriday.java').read_text()
+assert 'NativeMindWorkerSupervisorSmoke.class' not in (root/'src/main/java/dev/freakyfriday/FreakyFriday.java').read_text()
 native_swap = (root/'src/main/java/dev/freakyfriday/mind/NativeBrainSwap.java').read_text()
 assert 'freakyfriday.allowExperimentalPartialMindTransfer' not in native_swap
 assert 'GoalMindRuntime.exchange(firstMob,secondMob)' in native_swap
 assert 'GoalMindRuntime.begin(requester.getUUID(),first,second)' in worker_supervisor
-assert 'new ProcessBuilder(command)' in worker_supervisor  # retained only for explicit legacy worker diagnostics
 assert 'SELECTION_TIMEOUT_TICKS = 160L' in actual_book
 assert 'SelectionHudSync.show(p,target.getDisplayName().getString()' in actual_book
 assert 'SelectionHudSync.clear(p)' in actual_book

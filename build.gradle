@@ -30,28 +30,10 @@ neoForge {
     runs {
         client { client() }
         server { server(); programArgument '--nogui' }
-        aiWorker {
-            type = 'server'
-            gameDirectory = project.file('run-ai-worker')
-            systemProperty 'freakyfriday.aiWorker', 'true'
-            programArgument '--nogui'
-        }
-        aiWorkerReverse {
-            type = 'server'
-            gameDirectory = project.file('run-ai-worker-reverse')
-            systemProperty 'freakyfriday.aiWorker', 'true'
-            programArgument '--nogui'
-        }
         gameTestServer {
             type = 'gameTestServer'
             systemProperty 'neoforge.enabledGameTestNamespaces', 'freakyfriday'
             systemProperty 'freakyfriday.thirdPartyFixture', 'true'
-        }
-        supervisorSmoke {
-            type = 'server'
-            gameDirectory = project.file('run-supervisor-smoke')
-            systemProperty 'freakyfriday.supervisorSmoke', 'true'
-            programArgument '--nogui'
         }
     }
     mods { freakyfriday { sourceSet(sourceSets.main) } }

@@ -158,8 +158,6 @@ jobs:
             run/logs/**
             run/crash-reports/**
 
-  native-worker-e2e:
-    name: Two-process bounded native intent capture Minecraft ${{ matrix.minecraft }}
     needs: core
     runs-on: ubuntu-latest
     timeout-minutes: 18
@@ -192,8 +190,6 @@ jobs:
             run/logs/**
             run/crash-reports/**
 
-  supervisor:
-    name: Live reciprocal worker supervisor Minecraft ${{ matrix.minecraft }}
     needs: core
     runs-on: ubuntu-latest
     timeout-minutes: 35
