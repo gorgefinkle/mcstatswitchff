@@ -27,6 +27,28 @@ For every reciprocal exchange:
 
 The player-driving-a-mob experience is a separate **possession/input-adapter exception**. It can validate camera, authenticated input, body collision, and player UX, but it is not the mind-swap mechanic and cannot count as reciprocal Player↔Mob acceptance. For Player↔Mob, the mob mind must independently pilot the vacated original player body at the same time the player's mind pilots the mob body.
 
+## Runtime-discovered locomotion; no species movement rules
+
+Locomotion is a property of the **physical body's live implementation**, not a species name table and not a behavior profile authored by Freaky Friday.
+
+The runtime must inspect and bind the movement surfaces actually present on each physical entity at runtime. This includes, where implemented:
+
+- Native entity travel/physics and movement overrides.
+- The actual movement controller, navigation implementation, jump controller, look controller, and body-rotation controller attached to that entity.
+- Brain memories/sensors/behaviors and goal/target-goal actions that request movement.
+- Runtime movement attributes, dimensions, collision shape, fluid state, gravity/drag/buoyancy rules, and environmental movement hooks.
+- Mod-provided movement controllers, capabilities, mixin hooks, and entity overrides.
+
+The discovered components are captured as a generic runtime capability contract, with concrete implementation references bound to the physical body. The controller must issue decisions through that body's discovered native surfaces; it must not reduce every entity to a universal horizontal displacement command. Vanilla and modded entities must use the same discovery and dispatch path.
+
+**Explicitly forbidden design:** species-ID branches or hardcoded movement profiles such as "if Bat then fly", "if Chicken then glide", or "if Turtle then swim". Those examples are useful as regression subjects, but they must never appear as implementation branches or special-case registries. Adding an unfamiliar vanilla or modded entity must not require Freaky Friday source changes to recognize its movement mechanics.
+
+The implementation must also avoid mutating or transplanting the recipient body's movement controllers from the donor. The body retains its own locomotion stack and physical parameters; the incoming mind's decision state is rebound to that stack. Conversely, the donor's former body must no longer receive decisions from that donor mind.
+
+If a required native movement surface cannot be discovered, rebound, and safely invoked under the runtime's side-effect boundary, the entire reciprocal transaction must fail before either body is changed. Do not fall back to generic movement or claim partial mind-swap success.
+
+Regression coverage should select entities by discovered runtime locomotion surfaces rather than species conditionals. The test suite may include a flying body, a gliding body, an aquatic body, a ground-only body, and modded examples; the assertions are about discovered capabilities and preserved behavior, not hardcoded mob identities.
+
 ## Required simultaneous-independence proof
 
 A valid test must observe both original entities concurrently, not just see one body move:
