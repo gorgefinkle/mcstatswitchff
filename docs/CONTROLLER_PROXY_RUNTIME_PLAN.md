@@ -12,6 +12,34 @@ A visual proxy is optional and presentation-only. It may represent a controller 
 
 The logical controller is not a visual stand-in. It owns the incoming mind's decision state and schedules decisions. A decision backend must still execute the incoming mind's behavior. Until that backend is proven safe and complete, the runtime must refuse to advertise or commit a full swap.
 
+## Core rule: bodies stay alive; only mind authority moves
+
+A swap is **not** possession, puppeteering one entity while parking the other, or mirroring the same input onto both bodies.
+
+For every reciprocal exchange:
+
+- Both original physical entities remain registered and receive their ordinary entity tick exactly once per server tick. Gravity, velocity, collision, fall damage, animation, damage, knockback, fluids, fire, item use, block interaction, and body-owned equipment/inventory behavior remain active.
+- Each body has exactly one decision authority: the incoming mind. The body's former mind must stop issuing decisions to that body while assigned elsewhere.
+- The incoming mind must continue its own decision lifecycle against the recipient body's current surroundings. It must not be replaced by a one-time movement sample, a copied appearance, or the requester's raw input.
+- Both directions advance concurrently. Neither body may be frozen, anchored, held at a saved position, set to NoAI as a substitute for an incoming controller, or moved in lockstep with the other body.
+- This does **not** mean leaving both original AI brains running. That would create two competing decision authorities on each body. Suppress only the body's displaced controller decision loop; never suppress the physical entity lifecycle.
+- Do not use `setNoAi(true)` as the swap implementation. A backend may gate the outgoing native decision scheduler only when the replacement controller has been bound and is actively driving that exact body. Any inability to bind the replacement mind must abort before changing either body.
+
+The player-driving-a-mob experience is a separate **possession/input-adapter exception**. It can validate camera, authenticated input, body collision, and player UX, but it is not the mind-swap mechanic and cannot count as reciprocal Player↔Mob acceptance. For Player↔Mob, the mob mind must independently pilot the vacated original player body at the same time the player's mind pilots the mob body.
+
+## Required simultaneous-independence proof
+
+A valid test must observe both original entities concurrently, not just see one body move:
+
+1. Exchange two unlike mobs (first gate: Chicken↔Zombie).
+2. Show the Chicken mind independently causing Chicken-native decisions in the original Zombie body while the Zombie mind independently causes Zombie-native decisions in the original Chicken body.
+3. Change targets, obstacles, nearby entities, and environmental conditions after the swap; both decision streams must react to the new recipient surroundings.
+4. Verify both bodies keep normal gravity/fall speed, collision, knockback, animation, damage, attacks, and interaction behavior.
+5. Verify neither body's position or rotation is a mirror of the other body's controller/input stream.
+6. Reverse the exchange and prove both original controllers resume their original bodies without replacing either entity.
+
+A movement-only probe, a single controlled body, a worker that ticks a duplicate mob, or a body that merely continues its own AI is a failure.
+
 ## Runtime objects
 
 - **PhysicalBody** — the real player or mob already registered in the target world. Owns UUID, entity type, health, attributes, dimensions, equipment, inventory, collision, physics, damage, death, and native interactions.
