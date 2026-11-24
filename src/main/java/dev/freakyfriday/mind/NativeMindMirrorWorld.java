@@ -6,10 +6,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import com.mojang.authlib.GameProfile;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
@@ -18,6 +20,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.common.util.FakePlayerFactory;
 
 /**
  * Applies a bounded recipient sensory snapshot to a disposable worker
@@ -34,6 +37,7 @@ public final class NativeMindMirrorWorld implements AutoCloseable {
                          int changedBlocks,int restoredBlocks) {}
 
     private final Map<UUID,Entity> entities=new HashMap<>();
+    private final Map<UUID,Integer> fakePlayerGenerations=new HashMap<>();
     private final Map<BlockPos,BlockState> originalBlocks=new HashMap<>();
     private final Set<BlockPos> observedBlocks=new HashSet<>();
     private final Map<BlockPos,BlockState> appliedBlocks=new HashMap<>();
@@ -107,7 +111,7 @@ public final class NativeMindMirrorWorld implements AutoCloseable {
             if(entity==null) {
                 if(level.getEntity(id)!=null)
                     throw new IllegalStateException("Worker world already contains unowned mirror UUID "+id);
-                entity=createMirrorMob(level,sense);
+                entity=createMirrorEntity(level,sense);
                 entity.setUUID(id);
                 position(entity,anchor,sense);
                 entity.setDeltaMovement(new Vec3(sense.velocityX(),sense.velocityY(),sense.velocityZ()));
@@ -116,8 +120,11 @@ public final class NativeMindMirrorWorld implements AutoCloseable {
                 if(entity instanceof LivingEntity living) living.setYHeadRot(sense.yaw());
                 setHealth(entity,sense.health());
                 if(entity instanceof Mob mob) mob.setNoAi(true);
-                if(!level.addFreshEntity(entity))
+                if(entity instanceof ServerPlayer player) {
+                    level.addNewPlayer(player);
+                } else if(!level.addFreshEntity(entity)) {
                     throw new IllegalStateException("Could not register mirrored recipient entity "+id);
+                }
                 entities.put(id,entity);
                 added++;
             } else {
@@ -139,7 +146,10 @@ public final class NativeMindMirrorWorld implements AutoCloseable {
         for(UUID id:Set.copyOf(entities.keySet())) {
             if(!desiredEntities.contains(id)) {
                 Entity stale=entities.remove(id);
-                if(stale!=null) { stale.discard(); removed++; }
+                if(stale instanceof ServerPlayer player)
+                    level.removePlayerImmediately(player,Entity.RemovalReason.DISCARDED);
+                else if(stale!=null) stale.discard();
+                if(stale!=null) removed++;
             }
         }
 
@@ -206,10 +216,24 @@ public final class NativeMindMirrorWorld implements AutoCloseable {
         return new Report(added,updated,removed,changed,restored);
     }
 
-    private static Entity createMirrorMob(ServerLevel level,
+    private Entity createMirrorEntity(ServerLevel level,
             NativeMindSenseFrame.EntitySense sense) {
-        if("minecraft:player".equals(sense.entityType()))
-            throw new IllegalStateException("Player sensory targets require a dedicated player mirror and are not guessed");
+        if("minecraft:player".equals(sense.entityType())) {
+            int generation=fakePlayerGenerations.merge(sense.id(),1,Integer::sum);
+            String compact=sense.id().toString().replace("-","");
+            String profileName="FFM"+compact.substring(0,7)
+                +Integer.toUnsignedString(generation,36);
+            if(profileName.length()>16) profileName=profileName.substring(0,16);
+            var player=FakePlayerFactory.get(level,new GameProfile(sense.id(),profileName));
+            if(!player.getUUID().equals(sense.id()))
+                throw new IllegalStateException("Fake player factory did not preserve recipient player UUID");
+            if(Math.abs(player.getBbWidth()-sense.width())>0.01
+                    || Math.abs(player.getBbHeight()-sense.height())>0.01)
+                throw new IllegalStateException("Recipient player geometry cannot be represented by worker FakePlayer");
+            if(Math.abs(player.getMaxHealth()-sense.maxHealth())>0.05)
+                throw new IllegalStateException("Recipient player health attributes differ in worker FakePlayer");
+            return player;
+        }
         Identifier id=Identifier.tryParse(sense.entityType());
         if(id==null || !BuiltInRegistries.ENTITY_TYPE.containsKey(id))
             throw new IllegalStateException("Worker does not have recipient entity type "+sense.entityType());
@@ -274,8 +298,13 @@ public final class NativeMindMirrorWorld implements AutoCloseable {
         requireServerThread(level);
         if(ownerLevel!=null && ownerLevel!=level)
             throw new IllegalArgumentException("Cannot close mirror from a different ServerLevel");
-        for(Entity entity:entities.values()) if(!entity.isRemoved()) entity.discard();
+        for(Entity entity:entities.values()) if(!entity.isRemoved()) {
+            if(entity instanceof ServerPlayer player)
+                level.removePlayerImmediately(player,Entity.RemovalReason.DISCARDED);
+            else entity.discard();
+        }
         entities.clear();
+        fakePlayerGenerations.clear();
         for(var entry:originalBlocks.entrySet()) {
             if(!level.hasChunkAt(entry.getKey()))
                 throw new IllegalStateException("Cannot safely restore an unloaded mirror block without force-loading: "+entry.getKey());

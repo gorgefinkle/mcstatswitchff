@@ -86,8 +86,15 @@ public final class NativeMindSenseGameTests {
             "The radial sensory entity range must reject diagonal overflow and non-finite values");
         target.discard();
         level.setBlockAndUpdate(logPos,Blocks.AIR.defaultBlockState());
+        UUID nearbyPlayerId=UUID.randomUUID();
+        var nearbyPlayer=new NativeMindSenseFrame.EntitySense(nearbyPlayerId,
+            "minecraft:player",2,0,1,0,0,0,91,7,0.6,1.8,20,20,
+            true,true,true);
+        var playerFrame=new NativeMindSenseFrame(decoded.bodyId(),decoded.mindId(),
+            decoded.tick(),decoded.dimension(),decoded.body(),
+            java.util.List.of(decoded.entities().get(0),nearbyPlayer),decoded.blocks());
         NativeMindMirrorState mirrorState=new NativeMindMirrorState();
-        mirrorState.apply(NativeMindMirrorDelta.between(null,decoded));
+        mirrorState.apply(NativeMindMirrorDelta.between(null,playerFrame));
         NativeMindMirrorWorld mirror=new NativeMindMirrorWorld();
         var report=mirror.reconcile(level,body,mirrorState.snapshot());
         Entity mirroredTarget=level.getEntity(target.getUUID());
@@ -102,15 +109,25 @@ public final class NativeMindSenseGameTests {
         helper.assertTrue(level.getBlockState(logPos).getBlock()==Blocks.OAK_LOG
                 && level.getBlockState(logPos).getValue(RotatedPillarBlock.AXIS)==Direction.Axis.X,
             "Mirror failed to materialize exact recipient block-state properties");
-        helper.assertTrue(report.addedEntities()==1 && report.changedBlocks()>0,
+        Entity mirroredPlayer=mirror.managedEntity(nearbyPlayerId);
+        helper.assertTrue(mirroredPlayer instanceof net.minecraft.server.level.ServerPlayer
+                && mirroredPlayer.getUUID().equals(nearbyPlayerId)
+                && mirroredPlayer.getYRot()==91.0f
+                && Math.abs(mirroredPlayer.getBbWidth()-0.6)<0.001
+                && Math.abs(mirroredPlayer.getBbHeight()-1.8)<0.001,
+            "A nearby physical player was not represented by a UUID-stable worker FakePlayer");
+        helper.assertTrue(report.addedEntities()==2 && report.changedBlocks()>0,
             "Mirror reconciliation report omitted entity/block materialization");
         mirror.close(level);
-        helper.assertTrue(level.getEntity(target.getUUID())==null && level.getBlockState(logPos).isAir(),
-            "Mirror shutdown failed to remove its entities and restore original blocks");
+        helper.assertTrue(level.getEntity(target.getUUID())==null
+                && level.getEntity(nearbyPlayerId)==null
+                && level.getBlockState(logPos).isAir(),
+            "Mirror shutdown failed to remove its mob/player copies and restore original blocks");
         System.out.println("FF-SENSE recipient_snapshot PASS blocks="+frame.blocks().size()
             +" nearbyEntities="+frame.entities().size()
             +" blockStateProperties=true physicalGeometry=true explicitUnknownCoverage=true "
-            +" authenticatedRoundTrip=true mirrorWorldReconciled=true cleanup=true");
+            +" authenticatedRoundTrip=true mirrorWorldReconciled=true "
+            +" nearbyPlayerFakeMirror=true cleanup=true");
         body.discard();
         helper.succeed();
     }
