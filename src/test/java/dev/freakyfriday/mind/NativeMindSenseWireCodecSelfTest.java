@@ -22,6 +22,10 @@ public final class NativeMindSenseWireCodecSelfTest {
         byte[] wire=NativeMindSenseWireCodec.encode(frame,key);
         var decoded=NativeMindSenseWireCodec.decode(wire,key,body,mind,123);
         assert decoded.equals(frame);
+        assert decoded.body().width()==0.7 && decoded.body().height()==0.7;
+        assert decoded.entities().get(0).yaw()==35
+            && decoded.entities().get(0).width()==0.6;
+        assert !decoded.blocks().get(1).known();
         int rejected=0;
         byte[] tampered=wire.clone(); tampered[12]^=1;
         try { NativeMindSenseWireCodec.decode(tampered,key,body,mind,123); }

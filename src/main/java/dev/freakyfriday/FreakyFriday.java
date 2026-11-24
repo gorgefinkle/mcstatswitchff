@@ -20,6 +20,7 @@ public final class FreakyFriday {
         dev.freakyfriday.mind.PlayerCommandRouteGameTests.FUNCTIONS.register(modBus);
         dev.freakyfriday.mind.PlayerMobGameTests.FUNCTIONS.register(modBus);
         dev.freakyfriday.mind.PlayerPlayerGameTests.FUNCTIONS.register(modBus);
+        dev.freakyfriday.mind.NativeMindSenseGameTests.FUNCTIONS.register(modBus);
         modBus.addListener(PlatformHooks::addBookToCreativeTab);
         modBus.addListener(PossessionNetwork::register);
         modBus.addListener(dev.freakyfriday.mind.NativeAiWorkerServer::registerChunkTickets);
