@@ -519,13 +519,17 @@ public final class NativeAiWorkerServer {
         boolean attackRequirementSatisfied=!state.request.requireAttack()
             || state.attackObservedEver;
         boolean hasNativeMovement=state.observedMovement!=null;
+        // Initial native decision gets enough room for the generic test
+        // environment stimulus (age 80) to reach the donor's real panic/
+        // movement goals. Later sensory ticks use the short idle response.
+        int idleGraceTicks=state.frameIndex==0 ? 160 : 8;
         // Native AI is not obliged to change direction on every observation.
         // At the same time, the receiver needs one authenticated frame per
         // sensory tick, including a no-op frame when the correct decision is
         // to wait. Otherwise a passive/finished goal falsely looks like a
         // dead worker and the session heartbeat times out.
         if(attackRequirementSatisfied
-                && (hasNativeMovement || state.age>=8)) {
+                && (hasNativeMovement || state.age>=idleGraceTicks)) {
             try {
                 CapturedIntentBridge.Frame frame;
                 if(hasNativeMovement) {
