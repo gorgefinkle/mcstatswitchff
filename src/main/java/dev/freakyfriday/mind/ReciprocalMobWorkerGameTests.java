@@ -104,9 +104,15 @@ public final class ReciprocalMobWorkerGameTests {
             villager=EntityTypes.VILLAGER.create(level,EntitySpawnReason.COMMAND);
             helper.assertTrue(chicken!=null && zombie!=null && villager!=null,
                 "Bilateral receiver needs real Chicken, Zombie and Villager entities");
-            for(int x=0;x<=30;x++) for(int z=0;z<=30;z++)
+            for(int x=0;x<=30;x++) for(int z=0;z<=30;z++) {
                 level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,0,z)),
                     Blocks.STONE.defaultBlockState());
+                // Keep the physical Zombie body out of daylight burn logic.
+                // This test measures mind-driven movement, not environmental
+                // damage from the receiver world's day cycle.
+                level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,8,z)),
+                    Blocks.STONE.defaultBlockState());
+            }
             BlockPos chickenPos=helper.absolutePos(new BlockPos(8,1,8));
             BlockPos zombiePos=helper.absolutePos(new BlockPos(21,1,8));
             BlockPos villagerPos=helper.absolutePos(new BlockPos(12,1,8));
@@ -120,8 +126,8 @@ public final class ReciprocalMobWorkerGameTests {
             chicken.targetSelector.removeAllGoals(goal->true);
             zombie.goalSelector.removeAllGoals(goal->true);
             zombie.targetSelector.removeAllGoals(goal->true);
-            chicken.setNoAi(false);
-            zombie.setNoAi(false);
+            chicken.setNoAi(true);
+            zombie.setNoAi(true);
             villager.setNoAi(true);
             villager.setNoGravity(true);
             chicken.setPersistenceRequired();
