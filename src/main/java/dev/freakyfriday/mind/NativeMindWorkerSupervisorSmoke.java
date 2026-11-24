@@ -109,6 +109,10 @@ public final class NativeMindWorkerSupervisorSmoke {
         villager.setPos(x,y,z);
         villager.setNoAi(true);
         villager.setNoGravity(true);
+        // Both reciprocal donor minds can legitimately choose to attack this
+        // shared sensory stimulus. The smoke verifies their action routing,
+        // not lethal damage to its disposable target fixture.
+        villager.setInvulnerable(true);
         villager.setPersistenceRequired();
         if(!level.addFreshEntity(villager))
             throw new IllegalStateException("Could not add smoke Villager");
