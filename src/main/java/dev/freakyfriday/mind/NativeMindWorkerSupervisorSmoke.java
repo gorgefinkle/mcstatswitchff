@@ -10,7 +10,6 @@ import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.level.block.Blocks;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.common.util.FakePlayer;
@@ -32,7 +31,7 @@ public final class NativeMindWorkerSupervisorSmoke {
     private static FakePlayer account;
     private static Mob occupiedMob;
     private static Mob firstMob,secondMob;
-    private static Villager target;
+    private static Mob target;
     private static int phase,ticks;
     private static long sequence;
     private static double accountStartX,accountStartZ,mobStartX,mobStartZ;
@@ -91,9 +90,10 @@ public final class NativeMindWorkerSupervisorSmoke {
         return mob;
     }
 
-    private static Villager createVillager(double x,double y,double z) {
-        var villager=EntityTypes.VILLAGER.create(level,EntitySpawnReason.COMMAND);
-        if(villager==null) throw new IllegalStateException("Could not construct smoke Villager");
+    private static Mob createVillager(double x,double y,double z) {
+        var entity=EntityTypes.VILLAGER.create(level,EntitySpawnReason.COMMAND);
+        if(!(entity instanceof Mob villager))
+            throw new IllegalStateException("Could not construct smoke Villager Mob");
         villager.setPos(x,y,z);
         villager.setPersistenceRequired();
         if(!level.addFreshEntity(villager))
