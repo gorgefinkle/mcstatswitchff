@@ -400,6 +400,20 @@ public static void main(String[] args){
 }
 }
 ''')
+# This server-side coordinator owns live subprocesses and real NeoForge
+# entity ports. The first synthetic bridge harness only verifies the book/session
+# wiring, so provide a no-op compile stub; the actual implementation is compiled
+# and run by the real versioned NeoForge build/GameTests.
+(STUB/'dev/freakyfriday/mind/NativeMindWorkerSupervisor.java').write_text('''package dev.freakyfriday.mind;
+public final class NativeMindWorkerSupervisor {
+ public static String startPlayerMob(net.minecraft.server.level.ServerPlayer p,
+   net.minecraft.world.entity.Mob m){return "stub";}
+ public static String startMobPair(net.minecraft.server.level.ServerPlayer p,
+   net.minecraft.world.entity.Mob a,net.minecraft.world.entity.Mob b){return "stub";}
+ public static boolean cancelByAccount(java.util.UUID id){return false;}
+ public static void clearOnServerStop(){}
+}
+''')
 prod=[ROOT/'src/main/java/dev/freakyfriday/core/CategoryExchange.java',ROOT/'src/main/java/dev/freakyfriday/core/PermanentModifier.java',ROOT/'src/main/java/dev/freakyfriday/core/CategoryBundle.java',ROOT/'src/main/java/dev/freakyfriday/core/CategoryDefinitions.java',ROOT/'src/main/java/dev/freakyfriday/core/CategorySchema.java',ROOT/'src/main/java/dev/freakyfriday/core/CategoryOffers.java',ROOT/'src/main/java/dev/freakyfriday/AttributeModifierTransfer.java',ROOT/'src/main/java/dev/freakyfriday/AttributeCategorySwapper.java',ROOT/'src/main/java/dev/freakyfriday/SwapSessions.java',ROOT/'src/main/java/dev/freakyfriday/FreakyFridayBookItem.java',ROOT/'src/main/java/dev/freakyfriday/mind/MindSwapSessions.java']
 cmd=['javac','-d',str(OUT)]+list(map(str,STUB.rglob('*.java')))+list(map(str,prod))
 subprocess.run(cmd,check=True)
