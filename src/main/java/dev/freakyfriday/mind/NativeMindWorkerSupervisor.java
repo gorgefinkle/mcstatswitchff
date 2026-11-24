@@ -270,98 +270,28 @@ public final class NativeMindWorkerSupervisor {
         archiveAndDeleteWorker(worker);
     }
 
+    /**
+     * Disabled deliberately: the previous implementation launched a separate
+     * NeoForge server JVM for the incoming Mob mind and only replayed a narrow
+     * one-shot action stream. It froze native body AI and did not implement a
+     * reciprocal mind swap. Never launch that worker from live gameplay.
+     */
     public static synchronized String startPlayerMob(ServerPlayer player,Mob mob) {
-        return "Reciprocal mind swaps are temporarily disabled: this experimental path launches a separate Minecraft server worker and does not provide independent two-way native AI. No bodies were changed.";
-        /* Disabled pending controller-proxy runtime implementation.
-        if(player==null||mob==null||!player.isAlive()||!mob.isAlive())
-            return "Both player and Mob bodies must be alive.";
-        if(!(player.level() instanceof ServerLevel level)||mob.level()!=level)
-            return "Both selected bodies must be in the same loaded dimension.";
-        if(player.distanceToSqr(mob)>32.0*32.0)
-            return "Keep the player and Mob within 32 blocks so its surroundings can be mirrored.";
-        if(!supportedRuntime())
-            return "Live native workers are unavailable in this test/worker environment.";
-        if(PlayerMobPossession.hasSession(player.getUUID())
-                ||PlayerPlayerExchange.active(player.getUUID())
-                ||BY_BODY.containsKey(player.getUUID())
-                ||BY_BODY.containsKey(mob.getUUID()))
-            return "One of these participants already belongs to an active exchange.";
-
-        CapturedIntentBridge bridge=new CapturedIntentBridge();
-        UUID playerMind=player.getUUID(),mobMind=mob.getUUID();
-        bridge.register(new MinecraftPlayerBodyPort(player),
-            new MindLedger.Mind(playerMind,MindLedger.Kind.PLAYER,"minecraft:player"));
-        bridge.register(new MinecraftBodyPort(mob),
-            new MindLedger.Mind(mobMind,MindLedger.Kind.NPC,entityId(mob)));
-        try { bridge.exchange(player.getUUID(),mob.getUUID()); }
-        catch(Exception rejected) { return "Mind ownership preflight failed: "+rejected.getMessage(); }
-
-        Worker worker=null;
-        try {
-            worker=launchWorker(player,mob,mobMind,level.getGameTime());
-            String issue=PlayerMobPossession.beginReciprocal(player,mob);
-            if(issue!=null) {
-                stopWorker(worker);
-                return issue;
-            }
-            PairSession pair=new PairSession(player,level,bridge,true,player,mob,
-                null,null,List.of(worker),new UUID[]{player.getUUID(),mob.getUUID()});
-            register(pair);
-            return null;
-        } catch(Exception failure) {
-            if(worker!=null) stopWorker(worker);
-            PlayerMobPossession.end(player);
-            return "Could not start reciprocal player/Mob workers: "
-                +failure.getClass().getSimpleName()+": "+failure.getMessage();
-        }
+        return "Player/Mob mind exchange is temporarily unavailable. The previous "
+            +"experimental path launched another Minecraft server and did not provide "
+            +"independent two-way AI. No bodies were changed.";
     }
 
+    /**
+     * Disabled deliberately for the same reason as Player/Mob: two extra
+     * Minecraft server processes were started and both real Mob bodies had
+     * native AI disabled. Keep the entities untouched until the controller
+     * runtime can run both minds independently in the live server.
+     */
     public static synchronized String startMobPair(ServerPlayer requester,Mob first,Mob second) {
-        return "Reciprocal mind swaps are temporarily disabled: this experimental path launches two separate Minecraft server workers and does not provide independent two-way native AI. No bodies were changed.";
-        /* Disabled pending controller-proxy runtime implementation.
-        if(requester==null||first==null||second==null||first==second
-                ||!first.isAlive()||!second.isAlive())
-            return "Two distinct living Mob bodies are required.";
-        if(!(requester.level() instanceof ServerLevel level)
-                ||first.level()!=level||second.level()!=level)
-            return "Requester and both Mob bodies must be in the same loaded dimension.";
-        if(first.distanceToSqr(second)>32.0*32.0)
-            return "Keep the two Mob bodies within 32 blocks for reciprocal native sensing.";
-        if(!supportedRuntime())
-            return "Live native workers are unavailable in this test/worker environment.";
-        if(BY_BODY.containsKey(first.getUUID())||BY_BODY.containsKey(second.getUUID())
-                ||PlayerMobPossession.hasSession(requester.getUUID())
-                ||PlayerPlayerExchange.active(requester.getUUID()))
-            return "One of these participants already belongs to an active exchange.";
-
-        CapturedIntentBridge bridge=new CapturedIntentBridge();
-        UUID firstMind=first.getUUID(),secondMind=second.getUUID();
-        bridge.register(new MinecraftBodyPort(first),
-            new MindLedger.Mind(firstMind,MindLedger.Kind.NPC,entityId(first)));
-        bridge.register(new MinecraftBodyPort(second),
-            new MindLedger.Mind(secondMind,MindLedger.Kind.NPC,entityId(second)));
-        try { bridge.exchange(first.getUUID(),second.getUUID()); }
-        catch(Exception rejected) { return "Mind ownership preflight failed: "+rejected.getMessage(); }
-
-        List<Worker> workers=new ArrayList<>(2);
-        MobState firstState=new MobState(first),secondState=new MobState(second);
-        try {
-            workers.add(launchWorker(second,first,firstMind,level.getGameTime()));
-            workers.add(launchWorker(first,second,secondMind,level.getGameTime()));
-            first.setNoAi(true);
-            second.setNoAi(true);
-            PairSession pair=new PairSession(requester,level,bridge,false,null,null,
-                firstState,secondState,workers,new UUID[]{first.getUUID(),second.getUUID()});
-            register(pair);
-            return null;
-        } catch(Exception failure) {
-            workers.forEach(NativeMindWorkerSupervisor::stopWorker);
-            first.setNoAi(firstState.originalNoAi);
-            second.setNoAi(secondState.originalNoAi);
-            return "Could not start reciprocal Mob workers: "
-                +failure.getClass().getSimpleName()+": "+failure.getMessage();
-        }
-        */
+        return "Mob/Mob mind exchange is temporarily unavailable. The previous "
+            +"experimental path launched two additional Minecraft servers and "
+            +"paralyzed both native bodies. No bodies were changed.";
     }
 
     private static void register(PairSession pair) {
