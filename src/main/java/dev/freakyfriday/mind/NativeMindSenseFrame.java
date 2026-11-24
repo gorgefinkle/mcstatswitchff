@@ -45,6 +45,7 @@ public record NativeMindSenseFrame(
         }
     }
 
+    /** Body origin is always local (0,0,0); absolute world coordinates never cross the worker boundary. */
     public record BodySense(String entityType, double x, double y, double z,
             double velocityX, double velocityY, double velocityZ,
             float yaw, float pitch, float health, float maxHealth,
@@ -52,6 +53,8 @@ public record NativeMindSenseFrame(
         public BodySense {
             identifier(entityType, "body entity type");
             finite(x,y,z,velocityX,velocityY,velocityZ,yaw,pitch,health,maxHealth);
+            if (x != 0.0 || y != 0.0 || z != 0.0)
+                throw new IllegalArgumentException("Body position must use the local origin (0,0,0)");
             if (maxHealth < 0 || health < 0 || health > maxHealth + 0.001f)
                 throw new IllegalArgumentException("Invalid body health");
         }
