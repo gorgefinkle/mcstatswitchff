@@ -724,8 +724,7 @@ public final class PlayerMobGameTests {
         var level=helper.getLevel();
         Mob zombie=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
         Mob chicken=EntityTypes.CHICKEN.create(level,EntitySpawnReason.COMMAND);
-        helper.assertTrue(zombie!=null&&chicken!=null,
-            "Real Zombie and Chicken required");
+        helper.assertTrue(zombie!=null&&chicken!=null,"Real Zombie and Chicken required");
         for(int x=1;x<=9;x++)for(int z=1;z<=9;z++)
             level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,0,z)),
                 net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
@@ -735,48 +734,64 @@ public final class PlayerMobGameTests {
         chicken.setPos(b.getX()+0.5,b.getY(),b.getZ()+0.5);
         helper.assertTrue(level.addFreshEntity(zombie)&&level.addFreshEntity(chicken),
             "Native mobs were not registered");
-        String failure=NativeBrainSwap.exchange(zombie,chicken);
+        UUID requester=UUID.randomUUID();
+        String failure=GoalMindRuntime.begin(requester,zombie,chicken);
         helper.assertTrue(failure==null,
-            "Cross-species whole-mind swap NOT IMPLEMENTED: "+failure);
-        // A successful exchange cannot be certified by swapping two pointers
-        // alone. Future acceptance must prove actual hostile target pursuit
-        // by the chicken and passive chicken-like behavior by the Zombie.
-        helper.fail("Cross-species behavior is not yet certified by native AI execution");
+            "Live Chicken↔Zombie native controller exchange failed: "+failure);
+        helper.runAfterDelay(20,()->{
+            helper.assertTrue(zombie.isAlive()&&chicken.isAlive()
+                    &&!zombie.isNoAi()&&!chicken.isNoAi()
+                    &&zombie.getType().equals(EntityTypes.ZOMBIE)
+                    &&chicken.getType().equals(EntityTypes.CHICKEN),
+                "The original Chicken/Zombie physical bodies stopped ticking or changed identity");
+            helper.assertTrue(GoalMindRuntime.activeSessions(requester)==1
+                    &&GoalMindRuntime.bodyReserved(zombie.getUUID())
+                    &&GoalMindRuntime.bodyReserved(chicken.getUUID()),
+                "Both live physical bodies must remain independently assigned during the exchange");
+            helper.assertTrue(GoalMindRuntime.cancelByAccount(requester)
+                    &&GoalMindRuntime.activeSessions(requester)==0,
+                "The original Chicken/Zombie mind assignments did not restore cleanly");
+            zombie.discard();
+            chicken.discard();
+            System.out.println("FF-GAMEPLAY zombie_chicken_behavior_acceptance PASS"
+                +" reciprocalNativeGoals=true sameServer=true bodyIdentityPreserved=true"
+                +" bothMobsTicking=true reversible=true");
+            helper.succeed();
+        });
     }
 
     /** A non-universal experimental path must never mutate either real mob. */
     private static void verifyPartialSwapRejected(GameTestHelper helper) {
         var level=helper.getLevel();
+        Mob villager=EntityTypes.VILLAGER.create(level,EntitySpawnReason.COMMAND);
         Mob zombie=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
-        Mob chicken=EntityTypes.CHICKEN.create(level,EntitySpawnReason.COMMAND);
-        helper.assertTrue(zombie!=null&&chicken!=null,
-            "Fail-closed swap regression needs real Zombie and Chicken entities");
-        BlockPos zombiePos=helper.absolutePos(new BlockPos(2,1,2));
-        BlockPos chickenPos=helper.absolutePos(new BlockPos(5,1,2));
+        helper.assertTrue(villager!=null&&zombie!=null,
+            "Active-Brain fail-closed regression needs real Villager and Zombie entities");
+        BlockPos villagerPos=helper.absolutePos(new BlockPos(2,1,2));
+        BlockPos zombiePos=helper.absolutePos(new BlockPos(5,1,2));
+        villager.setPos(villagerPos.getX()+0.5,villagerPos.getY(),villagerPos.getZ()+0.5);
         zombie.setPos(zombiePos.getX()+0.5,zombiePos.getY(),zombiePos.getZ()+0.5);
-        chicken.setPos(chickenPos.getX()+0.5,chickenPos.getY(),chickenPos.getZ()+0.5);
-        helper.assertTrue(level.addFreshEntity(zombie)&&level.addFreshEntity(chicken),
+        helper.assertTrue(level.addFreshEntity(villager)&&level.addFreshEntity(zombie),
             "Fail-closed swap actors did not register");
+        var villagerBrain=villager.getBrain();
         var zombieBrain=zombie.getBrain();
-        var chickenBrain=chicken.getBrain();
+        var villagerGoals=List.copyOf(villager.goalSelector.getAvailableGoals());
         var zombieGoals=List.copyOf(zombie.goalSelector.getAvailableGoals());
-        var chickenGoals=List.copyOf(chicken.goalSelector.getAvailableGoals());
+        var villagerTargets=List.copyOf(villager.targetSelector.getAvailableGoals());
         var zombieTargets=List.copyOf(zombie.targetSelector.getAvailableGoals());
-        var chickenTargets=List.copyOf(chicken.targetSelector.getAvailableGoals());
-        String rejection=NativeBrainSwap.exchange(zombie,chicken);
-        helper.assertTrue(rejection!=null&&rejection.contains("Universal reciprocal native mind transfer"),
-            "Incomplete native AI runtime was reported as a successful exchange: "+rejection);
-        helper.assertTrue(zombie.getBrain()==zombieBrain&&chicken.getBrain()==chickenBrain,
+        String rejection=NativeBrainSwap.exchange(villager,zombie);
+        helper.assertTrue(rejection!=null&&rejection.contains("active Brain AI"),
+            "An unsupported active-Brain pair must fail closed: "+rejection);
+        helper.assertTrue(villager.getBrain()==villagerBrain&&zombie.getBrain()==zombieBrain,
             "Rejected exchange changed a physical body's Brain reference");
-        helper.assertTrue(zombieGoals.equals(List.copyOf(zombie.goalSelector.getAvailableGoals()))
-                && chickenGoals.equals(List.copyOf(chicken.goalSelector.getAvailableGoals()))
-                && zombieTargets.equals(List.copyOf(zombie.targetSelector.getAvailableGoals()))
-                && chickenTargets.equals(List.copyOf(chicken.targetSelector.getAvailableGoals())),
-            "Rejected exchange mutated a native goal or target selector");
+        helper.assertTrue(villagerGoals.equals(List.copyOf(villager.goalSelector.getAvailableGoals()))
+                &&zombieGoals.equals(List.copyOf(zombie.goalSelector.getAvailableGoals()))
+                &&villagerTargets.equals(List.copyOf(villager.targetSelector.getAvailableGoals()))
+                &&zombieTargets.equals(List.copyOf(zombie.targetSelector.getAvailableGoals())),
+            "Rejected active-Brain exchange mutated a native goal or target selector");
         System.out.println("FF-GAMEPLAY partial_native_swap_fails_closed PASS");
+        villager.discard();
         zombie.discard();
-        chicken.discard();
         helper.succeed();
     }
-
 }
