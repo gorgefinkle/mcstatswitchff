@@ -39,7 +39,10 @@ def run_until_markers(command, log_path, markers, env, timeout=420, on_line=None
                    "FF-NATIVE-WORKER NO_NATIVE_ATTACK",
                    "FF-NATIVE-WORKER NATIVE_CAPTURE_INCOMPLETE",
                    "FF-NATIVE-WORKER MOB_DIED",
-                   "FF-NATIVE-WORKER WORLD_REGISTRATION_FAILED")
+                   "FF-NATIVE-WORKER WORLD_REGISTRATION_FAILED",
+                   "FF-NATIVE-WORKER MIRROR_DELTA_FAILURE",
+                   "FF-NATIVE-WORKER MIRROR_INBOX_CLEANUP_FAILURE",
+                   "FF-NATIVE-WORKER MIRROR_CLEANUP_FAILURE")
     process = subprocess.Popen(
         command, cwd=ROOT, env=env, stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT, text=True, encoding="utf-8",
@@ -172,9 +175,14 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
     senses_file=WORKER_DIR / "ff-worker-senses.bin"
     senses_next_pending=WORKER_DIR / "ff-worker-senses-next.pending"
     senses_inbox=WORKER_DIR / "ff-worker-senses-inbox.bin"
+    first_frame=WORKER_DIR / "ff-worker-frame-first.bin"
+    inbox_processing=senses_inbox.with_name(senses_inbox.name+".processing")
+    # Do not let an interrupted prior run contaminate this authenticated session.
+    for stale in (WORKER_OUTPUT,WORKER_OUTPUT.with_name(WORKER_OUTPUT.name+".tmp"),
+                  senses_file,senses_next_pending,senses_inbox,inbox_processing,
+                  first_frame):
+        stale.unlink(missing_ok=True)
     try:
-        if WORKER_OUTPUT.exists():
-            WORKER_OUTPUT.unlink()
         fixture_args=[
             "-PffFixtureBody="+str(body),
             "-PffFixtureMind="+str(mind),
@@ -214,13 +222,12 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
             "FF-NATIVE-WORKER MIRROR_RECONCILE PASS",
             "FF-NATIVE-WORKER ENTITIES_SPAWNED PASS",
             "FF-NATIVE-WORKER MIRROR_DELTA_APPLIED PASS",
-            "FF-NATIVE-WORKER FRAME_WRITTEN PASS frameIndex=0",
-            "FF-NATIVE-WORKER FRAME_WRITTEN PASS frameIndex=1",
+            "FF-NATIVE-WORKER FRAME_WRITTEN PASS frameIndex=0 recipientTick=1700",
+            "FF-NATIVE-WORKER FRAME_WRITTEN PASS frameIndex=1 recipientTick=1701",
         ]
         if require_attack:
             worker_markers.append("FF-NATIVE-WORKER NATIVE_ATTACK_OBSERVED")
         published={"value":False}
-        first_frame=WORKER_DIR / "ff-worker-frame-first.bin"
         def publish_next_senses(line):
             if "FF-NATIVE-WORKER FRAME_WRITTEN PASS frameIndex=0" in line and not published["value"]:
                 shutil.copyfile(WORKER_OUTPUT,first_frame)
@@ -240,7 +247,6 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
             raise RuntimeError("Persistent worker did not retain both action frames")
         if first_frame.read_bytes()==WORKER_OUTPUT.read_bytes():
             raise RuntimeError("Persistent worker did not emit a distinct second response frame")
-            raise RuntimeError("Native AI worker emitted no signed packet")
         size = WORKER_OUTPUT.stat().st_size
         if size < 64 or size > 65536:
             raise RuntimeError("Worker output is outside binary size bounds")
@@ -264,6 +270,7 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
             " recipientSnapshotMaterialized=true"
             " persistentAdjacentSnapshotApplied=true"
             " multipleTickActionFrames=true"
+            " frameTicks=1700,1701"
             " samePhysicalWorld=false noArbitraryModIsolationClaim=true")
     finally:
         # Never store the session fixture with normal game-test logs or

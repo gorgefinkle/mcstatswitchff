@@ -104,6 +104,7 @@ public final class NativeAiWorkerServer {
         int frameIndex, age, targetTicks, navigationTicks;
         boolean attackObservedEver;
         boolean produced;
+        boolean failed;
         boolean spawned;
         boolean genericStimulusApplied;
         NativeMindObservation.NativeNavigation observedMovement;
@@ -242,8 +243,10 @@ public final class NativeAiWorkerServer {
                 Path sensePath=Path.of(request.sensesFile()).toAbsolutePath().normalize();
                 Path workerRoot=Path.of("").toAbsolutePath().normalize();
                 if(!sensePath.getParent().equals(workerRoot)
-                        || !Files.isRegularFile(sensePath))
-                    throw new IllegalArgumentException("Recipient sensory packet must be a regular file in worker root");
+                        || Files.isSymbolicLink(sensePath)
+                        || !Files.isRegularFile(sensePath,
+                            java.nio.file.LinkOption.NOFOLLOW_LINKS))
+                    throw new IllegalArgumentException("Recipient sensory packet must be a regular non-symlink file in worker root");
                 long bytes=Files.size(sensePath);
                 if(bytes<64 || bytes>NativeMindSenseWireCodec.MAX_WIRE_BYTES)
                     throw new IllegalArgumentException("Recipient sensory packet outside bounded wire size");
@@ -260,8 +263,11 @@ public final class NativeAiWorkerServer {
                     if(!safeFileName(request.sensesInboxFile()))
                         throw new IllegalArgumentException("Unsafe sensory inbox filename");
                     sensesInbox=workerRoot.resolve(request.sensesInboxFile());
-                    if(Files.exists(sensesInbox))
-                        throw new IllegalStateException("Sensory inbox must be empty at worker start");
+                    Path processing=sensesInbox.resolveSibling(
+                        sensesInbox.getFileName().toString()+".processing");
+                    if(Files.exists(sensesInbox,java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                            || Files.exists(processing,java.nio.file.LinkOption.NOFOLLOW_LINKS))
+                        throw new IllegalStateException("Sensory inbox and processing path must be empty at worker start");
                 }
                 var seed=NativeMindMirrorDelta.between(null,senses);
                 var mirrorSnapshot=mirrorState.apply(seed);
@@ -317,7 +323,7 @@ public final class NativeAiWorkerServer {
      * file prevents duplicate application after a tick callback or retry.
      */
     private static void applyPendingSense(State state) {
-        if(state.mirrorWorld==null || state.mirrorState==null
+        if(state.failed || state.mirrorWorld==null || state.mirrorState==null
                 || state.sensesInbox==null) return;
         Path processing=state.sensesInbox.resolveSibling(
             state.sensesInbox.getFileName().toString()+".processing");
@@ -369,13 +375,13 @@ public final class NativeAiWorkerServer {
                 +" blocksRestored="+report.restoredBlocks()
                 +" sameMindSession=true authenticated=true");
         } catch(Exception failure) {
-            state.produced=true;
+            state.failed=true;
             System.err.println("FF-NATIVE-WORKER MIRROR_DELTA_FAILURE "
                 +failure.getClass().getName()+": "+failure.getMessage());
         } finally {
             try { Files.deleteIfExists(processing); }
             catch(IOException cleanupFailure) {
-                state.produced=true;
+                state.failed=true;
                 System.err.println("FF-NATIVE-WORKER MIRROR_INBOX_CLEANUP_FAILURE "
                     +cleanupFailure.getMessage());
             }
@@ -385,7 +391,7 @@ public final class NativeAiWorkerServer {
     @SubscribeEvent
     public static void onNativeAttack(LivingIncomingDamageEvent event) {
         State state=active;
-        if(!started || state==null || state.produced || state.attackedTarget!=null)
+        if(!started || state==null || state.failed || state.produced || state.attackedTarget!=null)
             return;
         if(event.getSource().getEntity()==state.donor) {
             state.attackedTarget=event.getEntity().getUUID();
@@ -399,7 +405,7 @@ public final class NativeAiWorkerServer {
 
     @SubscribeEvent
     public static void onServerTick(ServerTickEvent.Post event) {
-        if (!started || active==null) return;
+        if (!started || active==null || active.failed) return;
         State state=active;
         state.age++;
         Mob donor=state.donor, stimulus=state.stimulus;
@@ -412,7 +418,7 @@ public final class NativeAiWorkerServer {
             boolean stimulusAdded=state.stimulusAlreadyRegistered
                 || state.level.addFreshEntity(stimulus);
             if(!donorAdded || !stimulusAdded) {
-                state.produced=true;
+                state.failed=true;
                 System.err.println("FF-NATIVE-WORKER WORLD_REGISTRATION_FAILED"
                     +" addDonor="+donorAdded+" addStimulus="+stimulusAdded
                     +" donorUUID="+donor.getUUID()
@@ -453,7 +459,7 @@ public final class NativeAiWorkerServer {
         }
         if (!donor.isAlive() || !stimulus.isAlive()) {
             System.err.println("FF-NATIVE-WORKER MOB_DIED before AI capture");
-            state.produced=true;
+            state.failed=true;
             return;
         }
         // Both conditions are supplied by the REAL Minecraft AI scheduler.
@@ -542,12 +548,12 @@ public final class NativeAiWorkerServer {
                 state.attackedTarget=null;
                 state.attackedTargetType=null;
             } catch (Exception failure) {
-                state.produced=true;
+                state.failed=true;
                 System.err.println("FF-NATIVE-WORKER FRAME_FAILURE "
                     +failure.getClass().getName()+": "+failure.getMessage());
             }
         } else if (state.age>=400) {
-            state.produced=true;
+            state.failed=true;
             System.err.println(state.observedMovement==null
                 ? "FF-NATIVE-WORKER NO_NATIVE_DECISION"
                 : "FF-NATIVE-WORKER NO_NATIVE_ATTACK");
