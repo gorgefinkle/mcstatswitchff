@@ -29,9 +29,9 @@ public record NativeMindMirrorDelta(
     /** Body-relative coordinates in the bounded sensory neighborhood. */
     public record BlockPosition(int dx, int dy, int dz) {
         public BlockPosition {
-            if (Math.abs(dx) > NativeMindSenseFrame.MAX_BLOCK_OFFSET
-                    || Math.abs(dy) > NativeMindSenseFrame.MAX_BLOCK_OFFSET
-                    || Math.abs(dz) > NativeMindSenseFrame.MAX_BLOCK_OFFSET)
+            int limit = NativeMindSenseFrame.MAX_BLOCK_OFFSET;
+            if (dx < -limit || dx > limit || dy < -limit || dy > limit
+                    || dz < -limit || dz > limit)
                 throw new IllegalArgumentException("Mirror block position outside sensory bounds");
         }
     }
