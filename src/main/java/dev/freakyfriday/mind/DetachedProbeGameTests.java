@@ -22,7 +22,6 @@ import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.entity.ai.goal.Goal;
-import net.neoforged.neoforge.common.util.FakePlayerFactory;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
@@ -675,22 +674,41 @@ public final class DetachedProbeGameTests {
                 NativeAiWorkerServer.setEntityTickingChunk(level,owner,cx,cz,forced);
     }
 
+    /**
+     * Test-only FakePlayer whose native cooldown is explicitly primed. GameTest
+     * world insertion does not run the ordinary PlayerList tick cadence, so
+     * calling player.tick() thirty times only advanced a small fraction of the
+     * player attack clock. A connected real ServerPlayer accrues this naturally.
+     */
+    private static final class ChargedWorkerPlayer
+            extends net.neoforged.neoforge.common.util.FakePlayer {
+        ChargedWorkerPlayer(ServerLevel level,GameProfile profile) {
+            super(level,profile);
+        }
+        void primeMeleeCooldown() {
+            this.attackStrengthTicker=40;
+        }
+    }
+
     private static ServerPlayer workerPlayer(ServerLevel level,UUID id) {
         String shortId=id.toString().replace("-","");
         String name="FF"+shortId.substring(0,9);
         // NeoForge FakePlayerFactory supplies the dummy packet listener that
         // ChunkMap requires when it starts tracking a ServerPlayer. A bare
         // new ServerPlayer has a null connection and crashes the GameTest.
-        ServerPlayer player=FakePlayerFactory.get(level,new GameProfile(id,name));
+        ChargedWorkerPlayer player=new ChargedWorkerPlayer(level,new GameProfile(id,name));
         if(!player.getUUID().equals(id))
             throw new IllegalStateException("Fake player did not retain the requested physical body UUID");
         level.addNewPlayer(player);
         // Player-body combat must use its real survival attack pipeline.
-        // FakePlayerFactory provides the dummy packet listener required for
-        // this mode packet; a bare ServerPlayer cannot safely receive it.
+        // NeoForge FakePlayer supplies the dummy packet listener required for
+        // server-side mode setup and chunk tracking.
         player.gameMode.changeGameModeForPlayer(GameType.SURVIVAL);
         player.setNoGravity(true);
         for(int tick=0;tick<30;tick++) player.tick();
+        player.primeMeleeCooldown();
+        if(player.getAttackStrengthScale(0.5f)<0.99f)
+            throw new IllegalStateException("Player test fixture did not begin with a full native attack cooldown");
         player.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
         player.setNoGravity(false);
         return player;
