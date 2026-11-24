@@ -106,10 +106,16 @@ public final class NativeMindSessionChannel implements AutoCloseable {
             var frame = envelope.frame();
             if (!bodyId.equals(frame.bodyId()) || !mindId.equals(frame.mindId()))
                 throw new IllegalArgumentException("Worker response body/mind identity mismatch");
+            // The worker's signed frame names the sensory tick it consumed.
+            // Dispatch must instead use the CURRENT server tick; otherwise
+            // CapturedIntentBridge correctly rejects a one-tick-late result.
+            // Rebase only after authentication and identity checks.
+            CapturedIntentBridge.Frame dispatchFrame = new CapturedIntentBridge.Frame(
+                bodyId, mindId, receivedAtTick, frame.actions());
             outstandingTick = -1;
             deadlineTick = -1;
-            nextTick = Math.addExact(nextTick, 1);
-            return frame;
+            nextTick = Math.addExact(receivedAtTick, 1);
+            return dispatchFrame;
         } catch (RuntimeException invalid) {
             fault("Rejected worker response: " + invalid.getMessage());
             throw invalid;
