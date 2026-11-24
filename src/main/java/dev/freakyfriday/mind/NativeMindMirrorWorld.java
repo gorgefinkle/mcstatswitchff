@@ -174,7 +174,11 @@ public final class NativeMindMirrorWorld implements AutoCloseable {
                 // Preserve the ownership ledger without firing needless
                 // neighbor-update hooks for an unchanged physical state.
                 if(!level.getBlockState(pos).equals(state)) {
-                    level.setBlockAndUpdate(pos,state);
+                    // The worker is a playerless disposable mirror. The
+                    // complete neighborhood is applied before collision
+                    // verification, so neighbor propagation per block is
+                    // unnecessary and can stall large initial snapshots.
+                    level.setBlock(pos,state,2);
                     changed++;
                 }
                 appliedBlocks.put(pos,state);
@@ -204,7 +208,7 @@ public final class NativeMindMirrorWorld implements AutoCloseable {
                 if(level.hasChunkAt(pos)) {
                     BlockState original=originalBlocks.remove(pos);
                     appliedBlocks.remove(pos);
-                    level.setBlockAndUpdate(pos,original);
+                    level.setBlock(pos,original,2);
                     restored++;
                 }
             }
@@ -308,7 +312,7 @@ public final class NativeMindMirrorWorld implements AutoCloseable {
         for(var entry:originalBlocks.entrySet()) {
             if(!level.hasChunkAt(entry.getKey()))
                 throw new IllegalStateException("Cannot safely restore an unloaded mirror block without force-loading: "+entry.getKey());
-            level.setBlockAndUpdate(entry.getKey(),entry.getValue());
+            level.setBlock(entry.getKey(),entry.getValue(),2);
         }
         originalBlocks.clear();
         appliedBlocks.clear();
