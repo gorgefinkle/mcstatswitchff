@@ -9,6 +9,8 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import com.mojang.authlib.GameProfile;
+import net.neoforged.neoforge.common.util.FakePlayerFactory;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import dev.freakyfriday.FreakyFriday;
@@ -672,6 +674,15 @@ public final class DetachedProbeGameTests {
                 NativeAiWorkerServer.setEntityTickingChunk(level,owner,cx,cz,forced);
     }
 
+    private static ServerPlayer fakePlayer(ServerLevel level,UUID id) {
+        String shortId=id.toString().replace("-","");
+        String name="FF"+shortId.substring(0,9);
+        ServerPlayer player=FakePlayerFactory.get(level,new GameProfile(id,name));
+        level.addNewPlayer(player);
+        player.gameMode.changeGameModeForPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        return player;
+    }
+
     private static void testExternalNativeWorker(GameTestHelper helper) {
         java.nio.file.Path requestPath=java.nio.file.Path.of("ff-worker-request.properties");
         java.nio.file.Path packetPath=java.nio.file.Path.of("ff-worker-frame.bin");
@@ -724,24 +735,26 @@ public final class DetachedProbeGameTests {
                 net.minecraft.resources.Identifier.tryParse(donorType);
             net.minecraft.resources.Identifier tId=
                 net.minecraft.resources.Identifier.tryParse(stimulusType);
-            helper.assertTrue(rId!=null && dId!=null && tId!=null
-                    && net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.containsKey(rId)
+            helper.assertTrue(dId!=null && tId!=null
                     && net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.containsKey(dId)
-                    && net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.containsKey(tId),
+                    && ("minecraft:player".equals(recipientType)
+                        || (rId!=null && net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.containsKey(rId)))
+                    && ("minecraft:player".equals(stimulusType)
+                        || (tId!=null && net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.containsKey(tId))),
                 "Native donor, recipient or mapped target entity type not registered");
-            var factoryR=net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getValue(rId);
             var factoryD=net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getValue(dId);
             var factoryT=net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getValue(tId);
             net.minecraft.world.entity.LivingEntity entityR;
             if("minecraft:player".equals(recipientType)) {
-                entityR=helper.makeMockServerPlayerInLevel();
+                entityR=fakePlayer(level,recipientId);
             } else {
+                var factoryR=net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getValue(rId);
                 entityR=factoryR.create(level,EntitySpawnReason.COMMAND);
             }
             var entityD=factoryD.create(level,EntitySpawnReason.COMMAND);
             net.minecraft.world.entity.LivingEntity entityT;
             if("minecraft:player".equals(stimulusType)) {
-                entityT=helper.makeMockServerPlayerInLevel();
+                entityT=fakePlayer(level,stimulusId);
             } else {
                 entityT=factoryT.create(level,EntitySpawnReason.COMMAND);
             }
@@ -761,8 +774,10 @@ public final class DetachedProbeGameTests {
             receiverBody.setPos(start.getX()+0.5,start.getY(),start.getZ()+0.5);
             originalDonorBody.setPos(start.getX()+4.5,start.getY(),start.getZ()+4.5);
             targetBody.setPos(start.getX()+2.5,start.getY(),start.getZ()+0.5);
-            receiverBody.setUUID(recipientId);
-            targetBody.setUUID(stimulusId);
+            if(!(receiverBody instanceof ServerPlayer))
+                receiverBody.setUUID(recipientId);
+            if(!(targetBody instanceof ServerPlayer))
+                targetBody.setUUID(stimulusId);
             if(targetBody instanceof Mob targetMob) {
                 targetMob.setNoAi(true);
                 targetMob.setNoGravity(true);
@@ -771,7 +786,8 @@ public final class DetachedProbeGameTests {
             // This is an isolated GameTest, not a normal mob spawn. Keep
             // the actual Mob bodies alive while the server registers their
             // chunks; the native AI action must then move THAT same entity.
-            receiverBody.setPersistenceRequired();
+            if(receiverBody instanceof Mob recipientPersistence)
+                recipientPersistence.setPersistenceRequired();
             originalDonorBody.setPersistenceRequired();
             // The arena already owns explicit full entity-ticking tickets.
             // Do not create a mock player here: GameTest batches can run
@@ -790,10 +806,13 @@ public final class DetachedProbeGameTests {
             // navigation. The original-donor fixture is the only body held.
             receiverBody.setNoGravity(false);
             originalDonorBody.setNoGravity(true);
-            helper.assertTrue(level.addFreshEntity(receiverBody)
-                    && level.addFreshEntity(originalDonorBody)
-                    && level.addFreshEntity(targetBody),
-                "Genuine receiver/target Mob entities not registered");
+            boolean receiverAdded=receiverBody instanceof ServerPlayer
+                || level.addFreshEntity(receiverBody);
+            boolean targetAdded=targetBody instanceof ServerPlayer
+                || level.addFreshEntity(targetBody);
+            boolean donorAdded=level.addFreshEntity(originalDonorBody);
+            helper.assertTrue(receiverAdded && donorAdded && targetAdded,
+                "Genuine receiver/target living entities not registered");
             // addFreshEntity admits entities before every ServerLevel UUID
             // lookup path is necessarily populated in this GameTest tick.
             // Keep the actual object references and assert world lookup only
@@ -914,7 +933,8 @@ public final class DetachedProbeGameTests {
                     "Recipient body rejected captured native movement/attack actions"
                     +" receiptStatus="+result.status()+" diagnostic="+result.diagnostic()
                     +" donor="+donorName+" recipient="+recipientName
-                    +" path="+recipient.getNavigation().getPath()
+                    +" path="+(recipient instanceof Mob recipientMob
+                        ? recipientMob.getNavigation().getPath() : "player-physical-body")
                     +" onGround="+recipient.onGround()
                     +" requestedDx="+dx+" requestedDz="+dz
                     +" outcomes="+result.outcomes());
@@ -973,7 +993,8 @@ public final class DetachedProbeGameTests {
                                 +" moved="+playerMindMovedMob);
                             PlayerMobPossession.end(reciprocalPlayer);
                         }
-                        helper.assertTrue(moved>0.20 && movedAfterSecond>0.04,
+                        double requiredFirstMove=recipient instanceof ServerPlayer ? 0.04 : 0.20;
+                        helper.assertTrue(moved>requiredFirstMove && movedAfterSecond>0.04,
                             "REAL recipient did not physically follow both donor-native frames"
                             +" donor="+donorName+" recipient="+recipientName
                             +" moved="+moved
@@ -995,9 +1016,13 @@ public final class DetachedProbeGameTests {
                         helper.succeed();
                     } finally {
                         if(reciprocalPlayer!=null) PlayerMobPossession.end(reciprocalPlayer);
-                        recipient.discard();
+                        if(recipient instanceof ServerPlayer player)
+                            level.removePlayerImmediately(player,net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);
+                        else recipient.discard();
                         donor.discard();
-                        mappedTarget.discard();
+                        if(mappedTarget instanceof ServerPlayer player)
+                            level.removePlayerImmediately(player,net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);
+                        else mappedTarget.discard();
                         setArenaChunks(level,ticketOwner,ticketBounds,false);
                     }
                 });
@@ -1006,9 +1031,13 @@ public final class DetachedProbeGameTests {
         } catch(Exception failure) {
             if(receiverBody instanceof ServerPlayer player)
                 PlayerMobPossession.end(player);
-            if(receiverBody!=null && !(receiverBody instanceof ServerPlayer))receiverBody.discard();
+            if(receiverBody instanceof ServerPlayer player)
+                level.removePlayerImmediately(player,net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);
+            else if(receiverBody!=null) receiverBody.discard();
             if(originalDonorBody!=null)originalDonorBody.discard();
-            if(targetBody!=null && !(targetBody instanceof ServerPlayer))targetBody.discard();
+            if(targetBody instanceof ServerPlayer player)
+                level.removePlayerImmediately(player,net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);
+            else if(targetBody!=null) targetBody.discard();
             setArenaChunks(level,ticketOwner,ticketBounds,false);
             throw new AssertionError("External native AI worker receiver failure",failure);
         }

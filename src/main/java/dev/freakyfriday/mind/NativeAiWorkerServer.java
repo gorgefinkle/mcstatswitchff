@@ -112,7 +112,8 @@ public final class NativeAiWorkerServer {
         UUID attackedTarget;
         String attackedTargetType;
 
-        State(ServerLevel level, Request request, Mob donor, Mob stimulus,
+        State(ServerLevel level, Request request, Mob donor,
+              net.minecraft.world.entity.LivingEntity stimulus,
               BlockPos anchor, NativeMindMirrorWorld mirrorWorld,
               NativeMindMirrorState mirrorState, NativeMindSenseFrame previousSense,
               Path sensesInbox) {
@@ -288,11 +289,12 @@ public final class NativeAiWorkerServer {
                     +" authenticatedSnapshot=true"
                     +" bodyType="+request.recipient());
             } else {
-                stimulus=construct(level,request.stimulus());
-                stimulus.setUUID(request.stimulusId());
-                stimulus.setPos(8.5,121,0.5);
-                stimulus.setNoAi(true); // Stationary target; donor uses its OWN vanilla AI.
-                stimulus.setPersistenceRequired();
+                Mob fixtureStimulus=construct(level,request.stimulus());
+                fixtureStimulus.setUUID(request.stimulusId());
+                fixtureStimulus.setPos(8.5,121,0.5);
+                fixtureStimulus.setNoAi(true); // Stationary target; donor uses its OWN vanilla AI.
+                fixtureStimulus.setPersistenceRequired();
+                stimulus=fixtureStimulus;
             }
             // ServerStartedEvent is still inside the startup lifecycle on
             // 26.2. Defer entity insertion to a normal server tick so the
@@ -355,9 +357,9 @@ public final class NativeAiWorkerServer {
             NativeMindMirrorWorld.Report report=state.mirrorWorld.reconcile(
                 state.level,state.donor,nextState);
             Entity target=state.mirrorWorld.managedEntity(state.request.stimulusId());
-            if(!(target instanceof Mob mob))
+            if(!(target instanceof net.minecraft.world.entity.LivingEntity living))
                 throw new IllegalStateException("Updated sensory frame removed or changed the required native AI target");
-            state.stimulus=mob;
+            state.stimulus=living;
             if(state.heartbeat!=null)
                 state.heartbeat.received(state.level.getGameTime(),next.tick());
             state.previousSense=next;
