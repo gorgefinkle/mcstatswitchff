@@ -334,25 +334,25 @@ def run_reciprocal_mob_pair(opts):
                     output.with_name(output.name+".tmp"),first,second):
             old.unlink(missing_ok=True)
         request.write_text(
-            "session="+str(session)+"\\n"
-            "recipientBody="+str(body)+"\\n"
-            "sourceMind="+str(mind)+"\\n"
-            "recipientTick="+str(tick)+"\\n"
-            "donor="+donor+"\\n"
-            "recipient="+recipient+"\\n"
-            "sensesFile=ff-worker-senses.bin\\n"
-            "sensesInboxFile=ff-worker-senses-inbox.bin\\n"
-            "stimulus=minecraft:villager\\n"
-            "stimulusId="+str(villager_id)+"\\n"
-            "requireAttack="+str(require_attack).lower()+"\\n",
+            "session="+str(session)+"\n"
+            "recipientBody="+str(body)+"\n"
+            "sourceMind="+str(mind)+"\n"
+            "recipientTick="+str(tick)+"\n"
+            "donor="+donor+"\n"
+            "recipient="+recipient+"\n"
+            "sensesFile=ff-worker-senses.bin\n"
+            "sensesInboxFile=ff-worker-senses-inbox.bin\n"
+            "stimulus=minecraft:villager\n"
+            "stimulusId="+str(villager_id)+"\n"
+            "requireAttack="+str(require_attack).lower()+"\n",
             encoding="utf-8")
-        (directory/"eula.txt").write_text("eula=true\\n",encoding="utf-8")
+        (directory/"eula.txt").write_text("eula=true\n",encoding="utf-8")
         (directory/"server.properties").write_text(
-            "online-mode=false\\nserver-port=0\\n"
-            "level-name=ff-native-ai-reciprocal-worker\\n"
-            "difficulty=normal\\nlevel-seed=0\\nlevel-type=minecraft:flat\\ngenerate-structures=false\\n"
-            "simulation-distance=3\\nview-distance=3\\n"
-            "max-players=1\\nspawn-protection=0\\n",
+            "online-mode=false\nserver-port=0\n"
+            "level-name=ff-native-ai-reciprocal-worker\n"
+            "difficulty=normal\nlevel-seed=0\nlevel-type=minecraft:flat\ngenerate-structures=false\n"
+            "simulation-distance=3\nview-distance=3\n"
+            "max-players=1\nspawn-protection=0\n",
             encoding="utf-8")
         tag=donor.split(":")[-1]+"-mind-to-"+recipient.split(":")[-1]
         def fixture(at_tick,target_dx,path):
