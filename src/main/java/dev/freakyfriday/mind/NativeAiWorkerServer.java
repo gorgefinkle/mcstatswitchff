@@ -270,13 +270,26 @@ public final class NativeAiWorkerServer {
                         "Full entity-ticking ticket not installed for "+cx+","+cz);
                 level.getChunk(cx,cz);
             }
+            var arenaStone=Blocks.STONE.defaultBlockState();
+            var arenaAir=Blocks.AIR.defaultBlockState();
             for(int x=-12;x<=12;x++) for(int z=-12;z<=12;z++) {
-                level.setBlockAndUpdate(new BlockPos(x,120,z),Blocks.STONE.defaultBlockState());
+                BlockPos floor=new BlockPos(x,120,z);
+                BlockPos roof=new BlockPos(x,126,z);
+                // This is a disposable, playerless arena. Write only changed
+                // states with client-only flags: neighbor propagation for
+                // thousands of identical air cells needlessly stalls 26.2
+                // startup under concurrent worker load.
+                if(!level.getBlockState(floor).equals(arenaStone))
+                    level.setBlock(floor,arenaStone,2);
                 // Roof guards daylight-sensitive native mobs without touching
                 // the removed 26.x ServerLevel.setDayTime API.
-                level.setBlockAndUpdate(new BlockPos(x,126,z),Blocks.STONE.defaultBlockState());
-                for(int y=121;y<=125;y++)
-                    level.setBlockAndUpdate(new BlockPos(x,y,z),Blocks.AIR.defaultBlockState());
+                if(!level.getBlockState(roof).equals(arenaStone))
+                    level.setBlock(roof,arenaStone,2);
+                for(int y=121;y<=125;y++) {
+                    BlockPos clear=new BlockPos(x,y,z);
+                    if(!level.getBlockState(clear).equals(arenaAir))
+                        level.setBlock(clear,arenaAir,2);
+                }
             }
             Mob donor=construct(level,request.donor());
             donor.setPos(0.5,121,0.5);
