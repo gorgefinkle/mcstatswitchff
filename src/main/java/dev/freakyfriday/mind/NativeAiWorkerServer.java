@@ -227,7 +227,7 @@ public final class NativeAiWorkerServer {
                 var mirrorSnapshot=mirrorState.apply(seed);
                 mirrorWorld=new NativeMindMirrorWorld();
                 NativeMindMirrorWorld.Report report=mirrorWorld.reconcile(level,donor,mirrorSnapshot);
-                Entity mirroredStimulus=level.getEntity(request.stimulusId());
+                Entity mirroredStimulus=mirrorWorld.managedEntity(request.stimulusId());
                 if(!(mirroredStimulus instanceof Mob mob)
                         || !BuiltInRegistries.ENTITY_TYPE.getKey(mob.getType()).toString()
                             .equals(request.stimulus()))

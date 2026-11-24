@@ -43,6 +43,15 @@ public final class NativeMindMirrorWorld implements AutoCloseable {
     private long lastTick=-1;
     private ServerLevel ownerLevel;
 
+    /** Return a specifically managed mirrored entity without relying on level-wide UUID lookup timing. */
+    public Entity managedEntity(UUID originalId) {
+        Objects.requireNonNull(originalId,"original entity UUID");
+        Entity entity=entities.get(originalId);
+        if(entity==null || entity.isRemoved() || !originalId.equals(entity.getUUID()))
+            return null;
+        return entity;
+    }
+
     public Report reconcile(ServerLevel level, Entity anchor,
             NativeMindMirrorState.Snapshot snapshot) {
         try {
