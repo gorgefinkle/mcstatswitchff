@@ -42,9 +42,9 @@ assert 'mirror_body_mutation' in (root/'src/main/java/dev/freakyfriday/mind/Deta
 assert 'constructor_body_mutation' in (root/'src/main/java/dev/freakyfriday/mind/DetachedMindHostProbe.java').read_text()
 assert 'physical_probe_watchdog_timeout' in (root/'src/main/java/dev/freakyfriday/mind/LiveBodyProbe.java').read_text()
 assert 'LAST_INTERACTION.remove(p.getUUID())' in (root/'src/main/java/dev/freakyfriday/mind/MindSwapSessions.java').read_text()
-# The public book routes both M↔M and P↔M selections through the
-# supervised reciprocal worker coordinator. It must never fall back to a
-# one-way possession or the obsolete reflective Goal/Brain transplant.
+# Mob↔Mob swaps now run in-process on the two real native Mob bodies.
+# Player↔Mob stays fail-closed until its reciprocal player-body AI adapter
+# can run without freezing either physical body.
 actual_book = (root/'src/main/java/dev/freakyfriday/mind/MindSwapSessions.java').read_text()
 assert 'NativeMindWorkerSupervisor.startPlayerMob(p,mob)' in actual_book
 assert 'NativeMindWorkerSupervisor.startMobPair(p,mobA,mobB)' in actual_book
@@ -59,7 +59,9 @@ assert 'MinecraftMindSenseCapture.capture' in worker_supervisor
 assert 'NativeMindWorkerSupervisor.class' in (root/'src/main/java/dev/freakyfriday/FreakyFriday.java').read_text()
 native_swap = (root/'src/main/java/dev/freakyfriday/mind/NativeBrainSwap.java').read_text()
 assert 'freakyfriday.allowExperimentalPartialMindTransfer' not in native_swap
-assert 'Universal reciprocal native mind transfer is not implemented' in native_swap
+assert 'GoalMindRuntime.exchange(firstMob,secondMob)' in native_swap
+assert 'GoalMindRuntime.begin(requester.getUUID(),first,second)' in worker_supervisor
+assert 'new ProcessBuilder(command)' in worker_supervisor  # retained only for explicit legacy worker diagnostics
 assert 'SELECTION_TIMEOUT_TICKS = 160L' in actual_book
 assert 'SelectionHudSync.show(p,target.getDisplayName().getString()' in actual_book
 assert 'SelectionHudSync.clear(p)' in actual_book
