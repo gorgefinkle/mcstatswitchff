@@ -9,9 +9,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.server.level.ClientInformation;
 import com.mojang.authlib.GameProfile;
-import net.minecraft.world.level.GameType;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import dev.freakyfriday.FreakyFriday;
@@ -678,13 +676,12 @@ public final class DetachedProbeGameTests {
     private static ServerPlayer workerPlayer(ServerLevel level,UUID id) {
         String shortId=id.toString().replace("-","");
         String name="FF"+shortId.substring(0,9);
-        // A genuine ServerPlayer body with native Player.attack and a
-        // test-owned UUID, not a special fake-player class.
-        ServerPlayer player=new ServerPlayer(level.getServer(),level,
-            new GameProfile(id,name),ClientInformation.createDefault());
-        // ServerPlayer defaults to survival. Do not invoke changeGameModeForPlayer
-        // here: that constructs a player-info packet and reads connection latency,
-        // but this isolated test-owned body has no network connection.
+        // NeoForge FakePlayerFactory supplies the dummy packet listener that
+        // ChunkMap requires when it starts tracking a ServerPlayer. A bare
+        // new ServerPlayer has a null connection and crashes the GameTest.
+        ServerPlayer player=FakePlayerFactory.get(level,new GameProfile(id,name));
+        if(!player.getUUID().equals(id))
+            throw new IllegalStateException("Fake player did not retain the requested physical body UUID");
         level.addNewPlayer(player);
         player.setNoGravity(true);
         for(int tick=0;tick<30;tick++) player.tick();
