@@ -169,7 +169,7 @@ public final class NativeMindWorkerSupervisor {
                 +"difficulty=normal\ngamemode=survival\n"
                 +"level-seed=0\nlevel-type=minecraft:flat\ngenerate-structures=false\n"
                 +"simulation-distance=2\nview-distance=2\nmax-players=1\n"
-                +"spawn-protection=0\n");
+                +"spawn-protection=0\n"+"pause-when-empty-seconds=0\n");
             NativeMindSessionChannel channel=new NativeMindSessionChannel(
                 sessionId,recipient.getUUID(),mindId,key,0,
                 NativeMindSessionChannel.DEFAULT_REPLY_DEADLINE_TICKS);
