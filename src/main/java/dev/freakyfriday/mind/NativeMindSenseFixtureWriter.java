@@ -27,8 +27,8 @@ public final class NativeMindSenseFixtureWriter {
         String stimulus=required("stimulus");
         double targetDx=Double.parseDouble(
             System.getProperty("ff.fixture.targetDx","8"));
-        if(!Double.isFinite(targetDx) || targetDx<1.0 || targetDx>8.0)
-            throw new IllegalArgumentException("Fixture targetDx must be finite and in [1,8]");
+        if(!Double.isFinite(targetDx) || targetDx==0.0 || Math.abs(targetDx)>8.0)
+            throw new IllegalArgumentException("Fixture targetDx must be finite, nonzero and within [-8,8]");
         String keyHex=System.getenv("FF_WORKER_KEY_HEX");
         if(keyHex==null) throw new IllegalArgumentException("FF_WORKER_KEY_HEX missing");
         byte[] key=java.util.HexFormat.of().parseHex(keyHex);

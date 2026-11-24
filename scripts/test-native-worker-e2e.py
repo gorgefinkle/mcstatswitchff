@@ -321,7 +321,7 @@ def run_reciprocal_mob_pair(opts):
     zombie_session,chicken_session=uuid.uuid4(),uuid.uuid4()
     tick=2300
 
-    def produce(directory,task,donor,recipient,mind,body,session,require_attack):
+    def produce(directory,task,donor,recipient,mind,body,session,require_attack,target_dx):
         request=directory/"ff-worker-request.properties"
         senses=directory/"ff-worker-senses.bin"
         pending=directory/"ff-worker-senses-next.pending"
@@ -367,11 +367,12 @@ def run_reciprocal_mob_pair(opts):
                 "-PffFixtureOutput="+str(path),
             ]
         run_until_markers(
-            cmd_base+["writeNativeMindSenseFixture"]+arguments+fixture(tick,8,senses),
+            cmd_base+["writeNativeMindSenseFixture"]+arguments+fixture(tick,target_dx,senses),
             ROOT/("reciprocal-fixture-"+tag+".log"),
             ("FF-SENSE fixture_written PASS",),env,timeout=180)
         run_until_markers(
-            cmd_base+["writeNativeMindSenseFixture"]+arguments+fixture(tick+1,6,pending),
+            cmd_base+["writeNativeMindSenseFixture"]+arguments
+                +fixture(tick+1,target_dx-(2 if target_dx>0 else -2),pending),
             ROOT/("reciprocal-next-fixture-"+tag+".log"),
             ("FF-SENSE fixture_written PASS",),env,timeout=180)
         markers=[
@@ -402,10 +403,10 @@ def run_reciprocal_mob_pair(opts):
     try:
         zombie_request,chicken_first,chicken_second=produce(
             WORKER_DIR,"runAiWorker","minecraft:zombie","minecraft:chicken",
-            zombie_mind,chicken_body,zombie_session,True)
+            zombie_mind,chicken_body,zombie_session,True,8)
         chicken_request,zombie_first,zombie_second=produce(
             reverse_dir,"runAiWorkerReverse","minecraft:chicken","minecraft:zombie",
-            chicken_mind,zombie_body,chicken_session,False)
+            chicken_mind,zombie_body,chicken_session,False,-8)
         shutil.copyfile(zombie_request,RECEIVER_CONFIG)
         shutil.copyfile(chicken_first,RECEIVER_OUTPUT)
         shutil.copyfile(chicken_second,RECEIVER_DIR/"ff-worker-frame-next.bin")

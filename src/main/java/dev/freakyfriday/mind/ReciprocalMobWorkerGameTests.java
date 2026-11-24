@@ -107,7 +107,7 @@ public final class ReciprocalMobWorkerGameTests {
                 level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,0,z)),
                     Blocks.STONE.defaultBlockState());
             BlockPos chickenPos=helper.absolutePos(new BlockPos(8,1,8));
-            BlockPos zombiePos=helper.absolutePos(new BlockPos(21,1,21));
+            BlockPos zombiePos=helper.absolutePos(new BlockPos(21,1,8));
             BlockPos villagerPos=helper.absolutePos(new BlockPos(12,1,8));
             chicken.setPos(chickenPos.getX()+0.5,chickenPos.getY(),chickenPos.getZ()+0.5);
             zombie.setPos(zombiePos.getX()+0.5,zombiePos.getY(),zombiePos.getZ()+0.5);

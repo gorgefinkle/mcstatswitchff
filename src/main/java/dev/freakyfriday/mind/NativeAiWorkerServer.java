@@ -516,14 +516,34 @@ public final class NativeAiWorkerServer {
         // For hostile AI acceptance, wait until the REAL donor reaches the
         // native damage pipeline. The incoming hit is canceled only in this
         // disposable worker so the mapped recipient can perform it once.
-        if(state.observedMovement!=null
-                && (!state.request.requireAttack() || state.attackObservedEver)) {
+        boolean attackRequirementSatisfied=!state.request.requireAttack()
+            || state.attackObservedEver;
+        boolean hasNativeMovement=state.observedMovement!=null;
+        // Native AI is not obliged to change direction on every observation.
+        // At the same time, the receiver needs one authenticated frame per
+        // sensory tick, including a no-op frame when the correct decision is
+        // to wait. Otherwise a passive/finished goal falsely looks like a
+        // dead worker and the session heartbeat times out.
+        if(attackRequirementSatisfied
+                && (hasNativeMovement || state.age>=8)) {
             try {
-                var frame=NativeMindObservation.frame(
-                    state.request.recipientBody(),
-                    state.request.sourceMind(),
-                    state.currentRecipientTick,state.observedMovement,
-                    state.attackedTarget);
+                CapturedIntentBridge.Frame frame;
+                if(hasNativeMovement) {
+                    frame=NativeMindObservation.frame(
+                        state.request.recipientBody(),
+                        state.request.sourceMind(),
+                        state.currentRecipientTick,state.observedMovement,
+                        state.attackedTarget);
+                } else {
+                    java.util.List<BodyActionGate.Intent> idleActions=new java.util.ArrayList<>();
+                    if(state.attackedTarget!=null)
+                        idleActions.add(new BodyActionGate.Intent(
+                            BodyActionGate.ATTACK_ENTITY,
+                            java.util.Map.of("targetId",state.attackedTarget.toString())));
+                    frame=new CapturedIntentBridge.Frame(
+                        state.request.recipientBody(),state.request.sourceMind(),
+                        state.currentRecipientTick,idleActions);
+                }
                 byte[] signed=CapturedIntentWireCodec.encode(
                     new CapturedIntentWireCodec.Envelope(
                         state.request.session(),frame),state.request.secret());
@@ -547,14 +567,20 @@ public final class NativeAiWorkerServer {
                 state.lastReportedZ=donor.getZ();
                 UUID completedAttackTarget=state.attackedTarget;
                 String completedAttackType=state.attackedTargetType;
-                System.out.println("FF-NATIVE-WORKER NATIVE_NAVIGATION_OBSERVED"
-                    +" donor="+state.request.donor()
-                    +" nativeTargetTicks="+state.targetTicks
-                    +" nativeNavigationTicks="+state.navigationTicks
-                    +" observedNativeTravel="+state.observedMovement.observedDistance()
-                    +" nativeOffsetX="+state.observedMovement.dx()
-                    +" nativeOffsetZ="+state.observedMovement.dz()
-                    +" originalWorldIsWorker=true");
+                if(state.observedMovement!=null)
+                    System.out.println("FF-NATIVE-WORKER NATIVE_NAVIGATION_OBSERVED"
+                        +" donor="+state.request.donor()
+                        +" nativeTargetTicks="+state.targetTicks
+                        +" nativeNavigationTicks="+state.navigationTicks
+                        +" observedNativeTravel="+state.observedMovement.observedDistance()
+                        +" nativeOffsetX="+state.observedMovement.dx()
+                        +" nativeOffsetZ="+state.observedMovement.dz()
+                        +" originalWorldIsWorker=true");
+                else
+                    System.out.println("FF-NATIVE-WORKER NATIVE_IDLE_FRAME"
+                        +" donor="+state.request.donor()
+                        +" recipientTick="+state.currentRecipientTick
+                        +" noMovementDecision=true");
                 if(completedAttackTarget!=null)
                     System.out.println("FF-NATIVE-WORKER NATIVE_ATTACK_OBSERVED"
                         +" target="+completedAttackTarget
@@ -566,7 +592,8 @@ public final class NativeAiWorkerServer {
                     +" signedBytes="+signed.length
                     +" donorNativeAiActuallyTicked=true"
                     +" attackCaptured="+(completedAttackTarget!=null)
-                    +" actionCapture=native_navigation_plus_observed_attack");
+                    +" actionCapture="+(state.observedMovement==null
+                        ? "native_idle" : "native_navigation_plus_observed_attack"));
                 state.attackedTarget=null;
                 state.attackedTargetType=null;
             } catch (Exception failure) {
