@@ -271,6 +271,8 @@ public final class NativeMindWorkerSupervisor {
     }
 
     public static synchronized String startPlayerMob(ServerPlayer player,Mob mob) {
+        return "Reciprocal mind swaps are temporarily disabled: this experimental path launches a separate Minecraft server worker and does not provide independent two-way native AI. No bodies were changed.";
+        /* Disabled pending controller-proxy runtime implementation.
         if(player==null||mob==null||!player.isAlive()||!mob.isAlive())
             return "Both player and Mob bodies must be alive.";
         if(!(player.level() instanceof ServerLevel level)||mob.level()!=level)
@@ -315,6 +317,8 @@ public final class NativeMindWorkerSupervisor {
     }
 
     public static synchronized String startMobPair(ServerPlayer requester,Mob first,Mob second) {
+        return "Reciprocal mind swaps are temporarily disabled: this experimental path launches two separate Minecraft server workers and does not provide independent two-way native AI. No bodies were changed.";
+        /* Disabled pending controller-proxy runtime implementation.
         if(requester==null||first==null||second==null||first==second
                 ||!first.isAlive()||!second.isAlive())
             return "Two distinct living Mob bodies are required.";
@@ -357,18 +361,9 @@ public final class NativeMindWorkerSupervisor {
             return "Could not start reciprocal Mob workers: "
                 +failure.getClass().getSimpleName()+": "+failure.getMessage();
         }
+        */
     }
 
-    /**
-     * Reserve every physical body atomically. The requester index is not a
-     * participant lock: a Mob↔Mob session does not occupy the requester's
-     * player body, so that same player may initiate another exchange with a
-     * different pair (including a Player↔Mob exchange using their own body).
-     *
-     * Validate the complete body reservation before mutating either index.
-     * All callers hold this class monitor, so no other session can race between
-     * preflight and commit.
-     */
     private static void register(PairSession pair) {
         java.util.HashSet<UUID> uniqueBodies = new java.util.HashSet<>();
         for (UUID body : pair.bodyIds) {
