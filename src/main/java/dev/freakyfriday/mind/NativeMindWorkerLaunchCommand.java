@@ -107,7 +107,7 @@ public final class NativeMindWorkerLaunchCommand {
         command.add("--universe");
         command.add(root.toString());
         command.add("--world");
-        command.add("world");
+        command.add("ff-native-mind-worker-world");
         command.add("--nogui");
         return List.copyOf(command);
     }
