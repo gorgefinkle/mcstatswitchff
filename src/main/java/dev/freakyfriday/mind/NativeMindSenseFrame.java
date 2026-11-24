@@ -18,6 +18,9 @@ public record NativeMindSenseFrame(
     public static final int MAX_ENTITIES = 128;
     public static final int MAX_BLOCKS = 4096;
     public static final int MAX_IDENTIFIER_CHARS = 256;
+    public static final int MAX_BLOCK_PROPERTIES = 32;
+    public static final int MAX_PROPERTY_NAME_CHARS = 64;
+    public static final int MAX_PROPERTY_VALUE_CHARS = 128;
     public static final double MAX_ENTITY_RANGE = 32.0;
     public static final int MAX_BLOCK_OFFSET = 16;
 
@@ -78,12 +81,37 @@ public record NativeMindSenseFrame(
 
     /** Sparse recipient-world block sample relative to the occupied body. */
     public record BlockSense(int dx, int dy, int dz, String blockType,
-            String fluidType, boolean sturdyTop, boolean collisionEmpty) {
+            String fluidType, boolean sturdyTop, boolean collisionEmpty,
+            java.util.Map<String, String> properties) {
         public BlockSense {
             if (Math.abs(dx)>MAX_BLOCK_OFFSET || Math.abs(dy)>MAX_BLOCK_OFFSET || Math.abs(dz)>MAX_BLOCK_OFFSET)
                 throw new IllegalArgumentException("Block sample outside bounded neighborhood");
             identifier(blockType, "block type");
             identifier(fluidType, "fluid type");
+            Objects.requireNonNull(properties, "block properties");
+            if (properties.size() > MAX_BLOCK_PROPERTIES)
+                throw new IllegalArgumentException("Block property limit exceeded");
+            java.util.Map<String, String> copy = new java.util.TreeMap<>();
+            for (var entry : properties.entrySet()) {
+                String name = Objects.requireNonNull(entry.getKey(), "block property name");
+                String value = Objects.requireNonNull(entry.getValue(), "block property value");
+                if (name.length() > MAX_PROPERTY_NAME_CHARS
+                        || !name.matches("[a-z_]+"))
+                    throw new IllegalArgumentException("Invalid block property name: " + name);
+                if (value.isEmpty() || value.length() > MAX_PROPERTY_VALUE_CHARS
+                        || !value.matches("[a-z0-9_.-]+"))
+                    throw new IllegalArgumentException("Invalid block property value: " + value);
+                if (copy.put(name, value) != null)
+                    throw new IllegalArgumentException("Duplicate block property: " + name);
+            }
+            properties = java.util.Map.copyOf(copy);
+        }
+
+        /** Compatibility constructor for blocks with no serialized state properties. */
+        public BlockSense(int dx, int dy, int dz, String blockType,
+                String fluidType, boolean sturdyTop, boolean collisionEmpty) {
+            this(dx, dy, dz, blockType, fluidType, sturdyTop, collisionEmpty,
+                java.util.Map.of());
         }
     }
 
