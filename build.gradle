@@ -47,6 +47,12 @@ neoForge {
             systemProperty 'neoforge.enabledGameTestNamespaces', 'freakyfriday'
             systemProperty 'freakyfriday.thirdPartyFixture', 'true'
         }
+        supervisorSmoke {
+            type = 'server'
+            gameDirectory = project.file('run-supervisor-smoke')
+            systemProperty 'freakyfriday.supervisorSmoke', 'true'
+            programArgument '--nogui'
+        }
     }
     mods { freakyfriday { sourceSet(sourceSets.main) } }
 }

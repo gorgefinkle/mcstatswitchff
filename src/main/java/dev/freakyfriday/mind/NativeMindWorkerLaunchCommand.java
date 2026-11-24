@@ -74,6 +74,7 @@ public final class NativeMindWorkerLaunchCommand {
                     || argument.startsWith("-Dfreakyfriday.aiWorker=")
                     || argument.startsWith("-Dfreakyfriday.workerRoot=")
                     || argument.startsWith("-Dfreakyfriday.thirdPartyFixture=")
+                    || argument.startsWith("-Dfreakyfriday.supervisorSmoke=")
                     || argument.startsWith("-Dneoforge.enabledGameTestNamespaces="))
                 continue;
             command.add(argument);

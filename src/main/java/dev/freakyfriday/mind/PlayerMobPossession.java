@@ -71,7 +71,8 @@ public final class PlayerMobPossession {
      * servers ALWAYS deliver the camera packet to the real modded client.
      */
     private static void sendCamera(ServerPlayer player,PossessionViewPayload payload) {
-        if (Boolean.getBoolean("freakyfriday.thirdPartyFixture")) return;
+        if (Boolean.getBoolean("freakyfriday.thirdPartyFixture")
+                || Boolean.getBoolean("freakyfriday.supervisorSmoke")) return;
         net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,payload);
     }
 
@@ -281,7 +282,8 @@ public final class PlayerMobPossession {
             PossessionMotion.step(body,in.forward(),in.strafe(),in.jump(),
                 in.yaw(),in.pitch());
             if ((player.level().getGameTime()&1L)==0
-                    && !Boolean.getBoolean("freakyfriday.thirdPartyFixture")) {
+                    && !Boolean.getBoolean("freakyfriday.thirdPartyFixture")
+                    && !Boolean.getBoolean("freakyfriday.supervisorSmoke")) {
                 if(s.reciprocal) {
                     sendCamera(player,new PossessionViewPayload(body.getId(),true,
                         player.getX(),player.getY(),player.getZ()));
