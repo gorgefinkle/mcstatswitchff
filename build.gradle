@@ -36,6 +36,12 @@ neoForge {
             systemProperty 'freakyfriday.aiWorker', 'true'
             programArgument '--nogui'
         }
+        aiWorkerReverse {
+            type = 'server'
+            gameDirectory = project.file('run-ai-worker-reverse')
+            systemProperty 'freakyfriday.aiWorker', 'true'
+            programArgument '--nogui'
+        }
         gameTestServer {
             type = 'gameTestServer'
             systemProperty 'neoforge.enabledGameTestNamespaces', 'freakyfriday'

@@ -129,6 +129,7 @@ def main():
         ("minecraft:zombie","minecraft:player","minecraft:player",True),
     ):
         run_case(opts,donor,recipient,stimulus,require_attack)
+    run_reciprocal_mob_pair(opts)
     return 0
 
 def run_case(opts, donor, recipient, stimulus, require_attack):
@@ -298,6 +299,141 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
             except OSError:
                 pass
 
+
+
+def run_reciprocal_mob_pair(opts):
+    """Two isolated native mind workers drive opposite original physical mobs."""
+    reverse_dir=ROOT/"run-ai-worker-reverse"
+    for folder in (WORKER_DIR,reverse_dir,RECEIVER_DIR):
+        folder.mkdir(parents=True,exist_ok=True)
+    for directory in (WORKER_DIR,reverse_dir):
+        world=directory/"ff-native-ai-reciprocal-worker"
+        if world.exists(): shutil.rmtree(world)
+
+    key_hex=secrets.token_hex(32)
+    env=os.environ.copy()
+    env["FF_WORKER_KEY_HEX"]=key_hex
+    cmd_base=["bash","./gradlew"]
+    arguments=["-PtargetMinecraft="+opts.minecraft,"--no-daemon","--stacktrace"]
+    chicken_body,zombie_body=uuid.uuid4(),uuid.uuid4()
+    chicken_mind,zombie_mind=uuid.uuid4(),uuid.uuid4()
+    villager_id=uuid.uuid4()
+    zombie_session,chicken_session=uuid.uuid4(),uuid.uuid4()
+    tick=2300
+
+    def produce(directory,task,donor,recipient,mind,body,session,require_attack):
+        request=directory/"ff-worker-request.properties"
+        senses=directory/"ff-worker-senses.bin"
+        pending=directory/"ff-worker-senses-next.pending"
+        inbox=directory/"ff-worker-senses-inbox.bin"
+        output=directory/"ff-worker-frame.bin"
+        first=directory/"ff-worker-frame-first.bin"
+        second=directory/"ff-worker-frame-second.bin"
+        processing=inbox.with_name(inbox.name+".processing")
+        for old in (request,senses,pending,inbox,processing,output,
+                    output.with_name(output.name+".tmp"),first,second):
+            old.unlink(missing_ok=True)
+        request.write_text(
+            "session="+str(session)+"\\n"
+            "recipientBody="+str(body)+"\\n"
+            "sourceMind="+str(mind)+"\\n"
+            "recipientTick="+str(tick)+"\\n"
+            "donor="+donor+"\\n"
+            "recipient="+recipient+"\\n"
+            "sensesFile=ff-worker-senses.bin\\n"
+            "sensesInboxFile=ff-worker-senses-inbox.bin\\n"
+            "stimulus=minecraft:villager\\n"
+            "stimulusId="+str(villager_id)+"\\n"
+            "requireAttack="+str(require_attack).lower()+"\\n",
+            encoding="utf-8")
+        (directory/"eula.txt").write_text("eula=true\\n",encoding="utf-8")
+        (directory/"server.properties").write_text(
+            "online-mode=false\\nserver-port=0\\n"
+            "level-name=ff-native-ai-reciprocal-worker\\n"
+            "difficulty=normal\\nspawn-monsters=true\\n"
+            "simulation-distance=3\\nview-distance=3\\n"
+            "max-players=1\\nspawn-protection=0\\n",
+            encoding="utf-8")
+        tag=donor.split(":")[-1]+"-mind-to-"+recipient.split(":")[-1]
+        def fixture(at_tick,target_dx,path):
+            return [
+                "-PffFixtureBody="+str(body),
+                "-PffFixtureMind="+str(mind),
+                "-PffFixtureStimulusId="+str(villager_id),
+                "-PffFixtureTick="+str(at_tick),
+                "-PffFixtureRecipient="+recipient,
+                "-PffFixtureStimulus=minecraft:villager",
+                "-PffFixtureTargetDx="+str(target_dx),
+                "-PffFixtureOutput="+str(path),
+            ]
+        run_until_markers(
+            cmd_base+["writeNativeMindSenseFixture"]+arguments+fixture(tick,8,senses),
+            ROOT/("reciprocal-fixture-"+tag+".log"),
+            ("FF-SENSE fixture_written PASS",),env,timeout=180)
+        run_until_markers(
+            cmd_base+["writeNativeMindSenseFixture"]+arguments+fixture(tick+1,6,pending),
+            ROOT/("reciprocal-next-fixture-"+tag+".log"),
+            ("FF-SENSE fixture_written PASS",),env,timeout=180)
+        markers=[
+            "FF-NATIVE-WORKER READY",
+            "FF-NATIVE-WORKER MIRROR_RECONCILE PASS",
+            "FF-NATIVE-WORKER ENTITIES_SPAWNED PASS",
+            "FF-NATIVE-WORKER MIRROR_DELTA_APPLIED PASS",
+            "FF-NATIVE-WORKER FRAME_WRITTEN PASS frameIndex=0 recipientTick="+str(tick),
+            "FF-NATIVE-WORKER FRAME_WRITTEN PASS frameIndex=1 recipientTick="+str(tick+1),
+        ]
+        if require_attack: markers.append("FF-NATIVE-WORKER NATIVE_ATTACK_OBSERVED")
+        published={"value":False}
+        def publish(line):
+            if "FF-NATIVE-WORKER FRAME_WRITTEN PASS frameIndex=0" in line and not published["value"]:
+                shutil.copyfile(output,first)
+                os.replace(pending,inbox)
+                published["value"]=True
+            elif "FF-NATIVE-WORKER FRAME_WRITTEN PASS frameIndex=1 recipientTick="+str(tick+1) in line:
+                shutil.copyfile(output,second)
+        run_until_markers(
+            cmd_base+[task]+arguments,
+            ROOT/("reciprocal-worker-"+tag+".log"),
+            tuple(markers),env,on_line=publish)
+        if not published["value"] or not first.is_file() or not second.is_file():
+            raise RuntimeError("Reciprocal worker did not emit both adjacent-tick intent frames")
+        return request,first,second
+
+    try:
+        zombie_request,chicken_first,chicken_second=produce(
+            WORKER_DIR,"runAiWorker","minecraft:zombie","minecraft:chicken",
+            zombie_mind,chicken_body,zombie_session,True)
+        chicken_request,zombie_first,zombie_second=produce(
+            reverse_dir,"runAiWorkerReverse","minecraft:chicken","minecraft:zombie",
+            chicken_mind,zombie_body,chicken_session,False)
+        shutil.copyfile(zombie_request,RECEIVER_CONFIG)
+        shutil.copyfile(chicken_first,RECEIVER_OUTPUT)
+        shutil.copyfile(chicken_second,RECEIVER_DIR/"ff-worker-frame-next.bin")
+        shutil.copyfile(chicken_request,RECEIVER_DIR/"ff-worker-request-reverse.properties")
+        shutil.copyfile(zombie_first,RECEIVER_DIR/"ff-worker-frame-reverse.bin")
+        shutil.copyfile(zombie_second,RECEIVER_DIR/"ff-worker-frame-next-reverse.bin")
+        run_until_markers(
+            cmd_base+["runGameTestServer"]+arguments,
+            ROOT/"reciprocal-mob-receiver.log",
+            ("FF-NATIVE-WORKER RECIPROCAL_MOB_PAIR PASS",
+             "ALL_REQUIRED_GAME_TESTS_PASSED"),
+            env)
+        print("FF-NATIVE-WORKER RECIPROCAL_MOB_TO_MOB PASS"
+            +" minecraft="+opts.minecraft
+            +" zombieMindToChickenBody=true"
+            +" chickenMindToZombieBody=true"
+            +" independentWorkers=2"
+            +" framesPerDirection=2"
+            +" sharedPhysicalReceiverWorld=true",flush=True)
+    finally:
+        for item in (
+            RECEIVER_CONFIG,RECEIVER_OUTPUT,RECEIVER_DIR/"ff-worker-frame-next.bin",
+            RECEIVER_DIR/"ff-worker-request-reverse.properties",
+            RECEIVER_DIR/"ff-worker-frame-reverse.bin",
+            RECEIVER_DIR/"ff-worker-frame-next-reverse.bin",
+        ):
+            try:item.unlink(missing_ok=True)
+            except OSError:pass
 
 if __name__ == "__main__":
     try:

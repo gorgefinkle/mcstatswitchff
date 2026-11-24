@@ -141,10 +141,11 @@ public final class NativeAiWorkerServer {
     }
 
     private static void checkWorkerPath() {
-        if (!Path.of("").toAbsolutePath().normalize().getFileName()
-                .toString().equals("run-ai-worker"))
+        String directory=Path.of("").toAbsolutePath().normalize().getFileName().toString();
+        if (!directory.equals("run-ai-worker")
+                && !directory.equals("run-ai-worker-reverse"))
             throw new IllegalStateException(
-                "Refusing worker mode outside the dedicated run-ai-worker directory");
+                "Refusing worker mode outside a dedicated native-worker directory");
         if (!Files.exists(REQUEST))
             throw new IllegalStateException("Missing disposable worker request fixture");
     }
