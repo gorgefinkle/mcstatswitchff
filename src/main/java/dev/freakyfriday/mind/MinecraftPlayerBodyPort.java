@@ -122,7 +122,24 @@ public final class MinecraftPlayerBodyPort implements BodyActionGate.BodyPort {
         if (body.distanceToSqr(target) > 16.0) {
             return BodyActionGate.Result.blocked("Mapped target is outside player melee reach");
         }
+        float healthBefore=target instanceof net.minecraft.world.entity.LivingEntity living
+            ? living.getHealth() : Float.NaN;
+        float attackStrength=body.getAttackStrengthScale(0.5f);
         body.attack(target);
+        float healthAfter=target instanceof net.minecraft.world.entity.LivingEntity living
+            ? living.getHealth() : Float.NaN;
+        if(Boolean.getBoolean("freakyfriday.thirdPartyFixture")) {
+            System.out.println("FF-PLAYER-BODY-ATTACK"
+                +" body="+body.getUUID()
+                +" target="+target.getUUID()
+                +" attackStrength="+attackStrength
+                +" creative="+body.isCreative()
+                +" spectator="+body.isSpectator()
+                +" mainHand="+body.getMainHandItem()
+                +" distanceSq="+body.distanceToSqr(target)
+                +" healthBefore="+healthBefore
+                +" healthAfter="+healthAfter);
+        }
         return BodyActionGate.Result.executed();
     }
 

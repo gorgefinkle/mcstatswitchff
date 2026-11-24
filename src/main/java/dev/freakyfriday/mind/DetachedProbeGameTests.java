@@ -947,6 +947,19 @@ public final class DetachedProbeGameTests {
                         "A physical body without attack capability damaged its mapped target");
                 }
                 if(requireAttack && expectedAttackStatus==BodyActionGate.Status.EXECUTED) {
+                    if(!(targetHealthImmediatelyAfterDispatch<targetHealthImmediatelyBeforeDispatch)
+                            && recipient instanceof ServerPlayer playerBody) {
+                        System.out.println("FF-PLAYER-BODY-ATTACK-TEST"
+                            +" attackStrength="+playerBody.getAttackStrengthScale(0.5f)
+                            +" creative="+playerBody.isCreative()
+                            +" spectator="+playerBody.isSpectator()
+                            +" mainHand="+playerBody.getMainHandItem()
+                            +" playerPos="+playerBody.position()
+                            +" targetPos="+mappedTarget.position()
+                            +" distanceSq="+playerBody.distanceToSqr(mappedTarget)
+                            +" targetBefore="+targetHealthImmediatelyBeforeDispatch
+                            +" targetAfter="+targetHealthImmediatelyAfterDispatch);
+                    }
                     helper.assertTrue(targetHealthImmediatelyAfterDispatch
                             < targetHealthImmediatelyBeforeDispatch,
                         "A physical body with native melee capability did not damage its mapped target");
