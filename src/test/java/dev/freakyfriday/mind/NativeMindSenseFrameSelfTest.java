@@ -7,9 +7,9 @@ public final class NativeMindSenseFrameSelfTest {
     public static void main(String[] args) {
         UUID body=UUID.randomUUID(), mind=UUID.randomUUID(), target=UUID.randomUUID();
         var self=new NativeMindSenseFrame.BodySense("minecraft:chicken",
-            0,0,0,0.1,0,0,90,0,4,4,true,true,false,false);
+            0,0,0,0.1,0,0,90,0,0.7,0.7,4,4,true,true,false,false);
         var entity=new NativeMindSenseFrame.EntitySense(target,"minecraft:zombie",
-            2,0,-1,0,0,0,20,20,true,true,true);
+            2,0,-1,0,0,0,35,0,0.6,1.8,20,20,true,true,true);
         var block=new NativeMindSenseFrame.BlockSense(0,-1,0,
             "minecraft:oak_log","minecraft:empty",true,false,true,
             java.util.Map.of("axis","y","waterlogged","false"));
@@ -21,7 +21,7 @@ public final class NativeMindSenseFrameSelfTest {
         assert frame.blocks().get(0).properties().equals(
             java.util.Map.of("axis","y","waterlogged","false"));
         assert frame.body().width()==0.7 && frame.body().height()==0.7;
-        assert frame.entities().get(0).width()==0.0;
+        assert frame.entities().get(0).width()==0.6 && frame.entities().get(0).height()==1.8;
         int rejected=0;
         try { new NativeMindSenseFrame(body,mind,123,"minecraft:overworld",
             self,List.of(entity,entity),List.of()); }

@@ -77,7 +77,8 @@ public record NativeMindSenseFrame(
     /** Nearby live-world entity identity is preserved for target/action mapping. */
     public record EntitySense(UUID id, String entityType,
             double dx, double dy, double dz, double velocityX, double velocityY,
-            double velocityZ, float health, float maxHealth,
+            double velocityZ, float yaw, float pitch, double width, double height,
+            float health, float maxHealth,
             boolean alive, boolean visible, boolean onGround) {
         public EntitySense {
             Objects.requireNonNull(id, "entity id");
