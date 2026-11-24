@@ -17,7 +17,7 @@ public final class NativeMindSessionChannelSelfTest {
     }
     private static NativeMindSenseFrame senses(UUID body, UUID mind, long tick, boolean alive) {
         return new NativeMindSenseFrame(body,mind,tick,"minecraft:overworld",
-            new NativeMindSenseFrame.BodySense("minecraft:cow",0,64,0,0,0,0,
+            new NativeMindSenseFrame.BodySense("minecraft:cow",0,0,0,0,0,0,
                 0,0,10,10,alive,true,false,false),List.of(),List.of());
     }
     private static byte[] response(UUID session, UUID body, UUID mind, long tick, byte[] key) {
