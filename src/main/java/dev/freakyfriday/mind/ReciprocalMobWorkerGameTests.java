@@ -60,7 +60,17 @@ public final class ReciprocalMobWorkerGameTests {
     private static void verify(GameTestHelper helper) {
         Path forwardRequest=Path.of("ff-worker-request.properties");
         Path reverseRequest=Path.of("ff-worker-request-reverse.properties");
-        if(!Files.isRegularFile(reverseRequest)) {
+        boolean reciprocalFixture=Files.isRegularFile(reverseRequest);
+        boolean reciprocalExpected="true".equalsIgnoreCase(
+            System.getenv("FF_RECIPROCAL_E2E"));
+        System.out.println("FF-NATIVE-WORKER RECIPROCAL_MOB_TEST_ENTERED"
+            +" fixture="+reciprocalFixture
+            +" expected="+reciprocalExpected
+            +" cwd="+Path.of("").toAbsolutePath());
+        if(!reciprocalFixture) {
+            if(reciprocalExpected)
+                throw new IllegalStateException(
+                    "Reciprocal e2e receiver did not receive ff-worker-request-reverse.properties");
             System.out.println("FF-NATIVE-WORKER RECIPROCAL_MOB_SKIPPED_NO_TWO_WORKER_FIXTURE");
             helper.succeed();
             return;
