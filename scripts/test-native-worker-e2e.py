@@ -173,7 +173,7 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
         "level-name=ff-native-ai-ci-worker\n"
         "difficulty=normal\nlevel-seed=0\nlevel-type=minecraft:flat\ngenerate-structures=false\n"
         "simulation-distance=3\nview-distance=3\n"
-        "max-players=1\nspawn-protection=0\n",
+        "max-players=1\nspawn-protection=0\npause-when-empty-seconds=0\n",
         encoding="utf-8",
     )
     env = os.environ.copy()
@@ -352,7 +352,7 @@ def run_reciprocal_mob_pair(opts):
             "level-name=ff-native-ai-reciprocal-worker\n"
             "difficulty=normal\nlevel-seed=0\nlevel-type=minecraft:flat\ngenerate-structures=false\n"
             "simulation-distance=3\nview-distance=3\n"
-            "max-players=1\nspawn-protection=0\n",
+            "max-players=1\nspawn-protection=0\npause-when-empty-seconds=0\n",
             encoding="utf-8")
         tag=donor.split(":")[-1]+"-mind-to-"+recipient.split(":")[-1]
         def fixture(at_tick,target_dx,path):
