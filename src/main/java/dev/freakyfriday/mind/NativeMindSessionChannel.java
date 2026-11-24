@@ -8,9 +8,10 @@ import java.util.UUID;
  * Strict per-body streaming handshake for a remote native-AI worker.
  *
  * Exactly one sensory snapshot may be in flight for a body. Each reply must
- * authenticate to the same session/body/mind and exact server tick. A missed
- * deadline or malformed/late reply closes the session: no stale decision is
- * ever replayed against a later physical world state.
+ * authenticate to the same session/body/mind and exact sensory tick. A reply
+ * may arrive on a later server tick; its actions are rebased to that actual
+ * dispatch tick after authentication. A missed deadline or malformed reply
+ * closes the session instead of replaying stale decisions.
  *
  * This class is transport/session policy only. A process supervisor and a
  * worker that continuously consumes these requests are separate integration
