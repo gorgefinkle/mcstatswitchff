@@ -217,6 +217,24 @@ public final class NativeMindWorkerSupervisor {
 
     private static void stopWorker(Worker worker) {
         worker.channel.close();
+        // Preserve the isolated worker's own log in the parent smoke folder
+        // before deleting its disposable world. CI needs this when native AI
+        // fails to produce a frame or a mirrored target disappears.
+        if(Boolean.getBoolean("freakyfriday.supervisorSmoke")) {
+            try {
+                Path source=worker.root.resolve("worker.log");
+                if(Files.isRegularFile(source,LinkOption.NOFOLLOW_LINKS)
+                        && !Files.isSymbolicLink(source)) {
+                    Path archive=worker.root.getParent().resolve(
+                        "worker-debug-"+worker.mindId+".log");
+                    Files.copy(source,archive,StandardCopyOption.REPLACE_EXISTING);
+                    System.out.println("FF-SUPERVISOR WORKER_LOG_ARCHIVED path="+archive);
+                }
+            } catch(IOException diagnosticFailure) {
+                System.err.println("FF-SUPERVISOR WORKER_LOG_ARCHIVE_FAILURE "
+                    +diagnosticFailure.getMessage());
+            }
+        }
         java.util.Arrays.fill(worker.key,(byte)0);
         try {
             if(worker.process.isAlive()) worker.process.destroy();
@@ -364,7 +382,20 @@ public final class NativeMindWorkerSupervisor {
                                 throw new IllegalArgumentException("Worker action frame is outside size bounds");
                             CapturedIntentBridge.Frame frame=worker.channel.complete(
                                 Files.readAllBytes(claimed),hostTick);
+                            double beforeX=worker.recipient.getX(),beforeZ=worker.recipient.getZ();
                             CapturedIntentBridge.Receipt receipt=pair.bridge.deliver(frame);
+                            if(Boolean.getBoolean("freakyfriday.supervisorSmoke")) {
+                                System.out.println("FF-SUPERVISOR FRAME_DISPATCH"
+                                    +" mind="+worker.mindId
+                                    +" recipient="+worker.recipient.getType()
+                                    +" sensoryTick="+(worker.channel.nextTick()-1)
+                                    +" hostTick="+hostTick
+                                    +" actionCount="+frame.actions().size()
+                                    +" actions="+frame.actions()
+                                    +" outcomes="+receipt.outcomes()
+                                    +" before="+beforeX+","+beforeZ
+                                    +" after="+worker.recipient.getX()+","+worker.recipient.getZ());
+                            }
                             if(receipt.status()!=CapturedIntentBridge.Status.DISPATCHED)
                                 throw new IllegalStateException("Recipient rejected worker frame: "
                                     +receipt.status()+" "+receipt.diagnostic());

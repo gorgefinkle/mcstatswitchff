@@ -96,6 +96,8 @@ public final class NativeMindWorkerSupervisorSmoke {
         if(!(entity instanceof Mob villager))
             throw new IllegalStateException("Could not construct smoke Villager Mob");
         villager.setPos(x,y,z);
+        villager.setNoAi(true);
+        villager.setNoGravity(true);
         villager.setPersistenceRequired();
         if(!level.addFreshEntity(villager))
             throw new IllegalStateException("Could not add smoke Villager");
@@ -108,9 +110,16 @@ public final class NativeMindWorkerSupervisorSmoke {
         ticks++;
         try {
             if(phase==1) {
-                if(!account.isRemoved() && PlayerMobPossession.hasSession(account.getUUID()))
+                if(!account.isRemoved() && PlayerMobPossession.hasSession(account.getUUID())) {
                     PlayerMobPossession.input(account,
                         new PlayerMobPossession.Input(1,0,false,0,0,++sequence));
+                    if((ticks%20)==0)
+                        System.out.println("FF-SUPERVISOR PLAYER_INPUT"
+                            +" sequence="+sequence
+                            +" bodyPosition="+occupiedMob.position()
+                            +" playerPosition="+account.position()
+                            +" playerToMobDistance="+account.distanceToSqr(occupiedMob));
+                }
                 double playerMoved=Math.hypot(account.getX()-accountStartX,
                     account.getZ()-accountStartZ);
                 double mobMoved=Math.hypot(occupiedMob.getX()-mobStartX,
