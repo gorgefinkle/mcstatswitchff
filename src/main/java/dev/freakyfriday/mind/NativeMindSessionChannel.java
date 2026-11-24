@@ -18,7 +18,7 @@ import java.util.UUID;
  * requirements; this class does not claim to provide either.
  */
 public final class NativeMindSessionChannel implements AutoCloseable {
-    public static final int DEFAULT_REPLY_DEADLINE_TICKS = 2;
+    public static final int DEFAULT_REPLY_DEADLINE_TICKS = 1200;
 
     public enum State { ACTIVE, CLOSED, FAULTED }
 
@@ -52,8 +52,8 @@ public final class NativeMindSessionChannel implements AutoCloseable {
         this.mindId = Objects.requireNonNull(mindId);
         if (key == null || key.length != NativeMindSenseWireCodec.KEY_BYTES)
             throw new IllegalArgumentException("Expected a 256-bit session key");
-        if (firstTick < 0 || deadlineTicks < 1 || deadlineTicks > 20)
-            throw new IllegalArgumentException("Invalid stream tick/deadline policy");
+        if (firstTick < 0 || deadlineTicks < 1 || deadlineTicks > 1200)
+            throw new IllegalArgumentException("Invalid sensory tick/host deadline policy");
         this.key = key.clone();
         this.nextTick = firstTick;
         this.deadlineTicks = deadlineTicks;
