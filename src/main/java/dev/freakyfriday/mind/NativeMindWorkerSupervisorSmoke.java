@@ -123,8 +123,14 @@ public final class NativeMindWorkerSupervisorSmoke {
         try {
             if(phase==1) {
                 if(!account.isRemoved() && PlayerMobPossession.hasSession(account.getUUID())) {
+                    double controlledBodyTravel=Math.hypot(
+                        occupiedMob.getX()-mobStartX,occupiedMob.getZ()-mobStartZ);
+                    // Move only far enough to prove the player's input reaches
+                    // the original Mob body. Keep the body inside the loaded
+                    // smoke arena while its independent AI worker starts.
+                    float forward=controlledBodyTravel<0.75?1.0f:0.0f;
                     PlayerMobPossession.input(account,
-                        new PlayerMobPossession.Input(1,0,false,0,0,++sequence));
+                        new PlayerMobPossession.Input(forward,0,false,0,0,++sequence));
                     if((ticks%20)==0)
                         System.out.println("FF-SUPERVISOR PLAYER_INPUT"
                             +" sequence="+sequence
