@@ -2,7 +2,7 @@
 
 Status: **NOT IMPLEMENTED — architecture decision, not a release claim.**
 
-This document records the boundary the production implementation must cross. The current detached worker and dynamic goal-graph experiments are research fixtures. Neither is the runtime that the book workflow may use to claim a complete exchange.
+This document records the boundary the production implementation must cross. The selected production direction is now the controller-proxy design in [CONTROLLER_PROXY_RUNTIME_PLAN.md](CONTROLLER_PROXY_RUNTIME_PLAN.md): one authoritative physical body per entity, a persistent logical controller per mind, and an optional presentation-only visual proxy. The current detached worker and dynamic goal-graph experiments remain research fixtures. Neither is the runtime that the book workflow may use to claim a complete exchange.
 
 ## Why the current worker is not the runtime
 
