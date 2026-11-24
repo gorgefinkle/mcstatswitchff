@@ -186,3 +186,13 @@ tasks.register("runNativeMindSessionChannelSelfTest", JavaExec) {
 }
 tasks.named('check') { dependsOn tasks.named('runNativeMindSessionChannelSelfTest') }
 
+
+tasks.register("runNativeMindMirrorDeltaSelfTest", JavaExec) {
+    group = 'verification'
+    description = 'Verify deterministic incremental recipient-world mirror updates and removals'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.freakyfriday.mind.NativeMindMirrorDeltaSelfTest'
+    enableAssertions = true
+}
+tasks.named('check') { dependsOn tasks.named('runNativeMindMirrorDeltaSelfTest') }
