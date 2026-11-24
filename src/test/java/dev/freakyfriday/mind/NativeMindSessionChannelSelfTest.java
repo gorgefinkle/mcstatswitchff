@@ -52,13 +52,14 @@ public final class NativeMindSessionChannelSelfTest {
 
         byte[] key3=CapturedIntentWireCodec.generateKey();
         var stream=new NativeMindSessionChannel(session,body,mind,key3,100,2);
-        for(long tick=100;tick<120;tick++) {
+        for(long tick=100;tick<120;) {
             var req=stream.begin(senses(body,mind,tick,true));
             var accepted=stream.complete(response(session,body,mind,tick,key3),tick+1);
-            check(req.tick()==tick && accepted.tick()==tick,
-                "continuous sequential tick round trip "+tick);
-            check(stream.nextTick()==tick+1 && !stream.hasOutstandingRequest(),
-                "tick advances exactly once "+tick);
+            check(req.tick()==tick && accepted.tick()==tick+1,
+                "sensory tick rebased to authoritative dispatch tick "+tick);
+            check(stream.nextTick()==tick+2 && !stream.hasOutstandingRequest(),
+                "next request follows the dispatch tick "+tick);
+            tick=stream.nextTick();
         }
         check(stream.state()==NativeMindSessionChannel.State.ACTIVE,
             "healthy stream remains active");
