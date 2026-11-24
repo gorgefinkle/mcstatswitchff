@@ -726,6 +726,10 @@ public final class DetachedProbeGameTests {
         java.nio.file.Path nextPacketPath=java.nio.file.Path.of("ff-worker-frame-next.bin");
         if (java.nio.file.Files.isRegularFile(
                 java.nio.file.Path.of("ff-worker-request-reverse.properties"))) {
+            if ("true".equalsIgnoreCase(System.getenv("FF_RECIPROCAL_E2E"))) {
+                ReciprocalMobWorkerGameTests.verify(helper);
+                return;
+            }
             System.out.println("FF-NATIVE-WORKER E2E_SKIPPED_RECIPROCAL_FIXTURE_HANDLED_ELSEWHERE");
             helper.succeed();
             return;
