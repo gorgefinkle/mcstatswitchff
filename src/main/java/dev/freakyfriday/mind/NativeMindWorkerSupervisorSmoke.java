@@ -75,7 +75,7 @@ public final class NativeMindWorkerSupervisorSmoke {
             account.setNoGravity(false);
 
             occupiedMob=createMob(EntityTypes.ZOMBIE,8.5,64,2.5);
-            target=createVillager(4.5,64,2.5);
+            target=createVillager(6.5,64,2.5);
             accountStartX=account.getX();accountStartZ=account.getZ();
             mobStartX=occupiedMob.getX();mobStartZ=occupiedMob.getZ();
             originalIds=new UUID[]{account.getUUID(),occupiedMob.getUUID(),target.getUUID()};
