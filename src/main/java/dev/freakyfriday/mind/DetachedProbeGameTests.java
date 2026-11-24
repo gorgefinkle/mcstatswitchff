@@ -642,7 +642,8 @@ public final class DetachedProbeGameTests {
      * receiver world's directory. No worker Java object or world is shared.
      *
      * When the fixture is absent (ordinary baseline GameTests), succeed as
-     * explicitly SKIPPED; the separate CI worker job requires the PASS marker.
+     * explicitly SKIPPED. A reciprocal two-worker fixture is delegated to
+     * ReciprocalMobWorkerGameTests only when the CI environment requests it.
      */
     public static final DeferredHolder<Consumer<GameTestHelper>, Consumer<GameTestHelper>>
         EXTERNAL_NATIVE_WORKER = FUNCTIONS.register(
