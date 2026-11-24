@@ -91,6 +91,25 @@ public final class ClientPossession {
     }
 
     /**
+     * The mouse wheel normally changes the authenticated LocalPlayer's
+     * selected hotbar slot. During Mob occupation that player is the
+     * abandoned/original body, not the body under the camera. Do not let
+     * remote control silently change the original body's held equipment.
+     *
+     * Player-body exchanges retain their separate player inventory UX.
+     */
+    @SubscribeEvent
+    public static void suppressRemotePlayerHotbarScroll(InputEvent.MouseScrollingEvent event) {
+        if (bodyId < 0) return;
+        Minecraft mc = Minecraft.getInstance();
+        Entity occupied = mc.level == null ? null : mc.level.getEntity(bodyId);
+        // Fail closed while the occupied entity is not yet tracked. Only a
+        // real Player body has a player hotbar that this input may select.
+        if (!(occupied instanceof net.minecraft.world.entity.player.Player))
+            event.setCanceled(true);
+    }
+
+    /**
      * Cancel ORIGINAL player's vanilla attack/use/pick packets during
      * possession. An authenticated intent lets the SERVER choose the
      * occupied body as attacker and validate the target/line of sight.
