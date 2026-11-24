@@ -700,10 +700,11 @@ public final class DetachedProbeGameTests {
         if(!player.getUUID().equals(id))
             throw new IllegalStateException("Fake player did not retain the requested physical body UUID");
         level.addNewPlayer(player);
-        // Player-body combat must use its real survival attack pipeline.
-        // NeoForge FakePlayer supplies the dummy packet listener required for
-        // server-side mode setup and chunk tracking.
-        player.gameMode.changeGameModeForPlayer(GameType.SURVIVAL);
+        // FakePlayer/GameTest bodies do not have a negotiated connection.
+        // Do not call ServerPlayerGameMode.changeGameModeForPlayer here: its
+        // player-info packet reads connection.latency() and crashes when the
+        // synthetic connection is absent. FakePlayer defaults to survival;
+        // the fixture only primes the native attack cooldown below.
         player.setNoGravity(true);
         for(int tick=0;tick<30;tick++) player.tick();
         player.primeMeleeCooldown();
