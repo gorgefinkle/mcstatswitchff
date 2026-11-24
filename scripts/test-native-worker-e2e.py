@@ -189,7 +189,7 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
     # Do not let an interrupted prior run contaminate this authenticated session.
     for stale in (WORKER_OUTPUT,WORKER_OUTPUT.with_name(WORKER_OUTPUT.name+".tmp"),
                   senses_file,senses_next_pending,senses_inbox,inbox_processing,
-                  first_frame):
+                  first_frame,second_frame):
         stale.unlink(missing_ok=True)
     try:
         fixture_args=[
@@ -290,7 +290,8 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
         # accidentally reuse old signed packets in future tests.
         for item in (RECEIVER_CONFIG, RECEIVER_OUTPUT,
                      RECEIVER_DIR / "ff-worker-frame-next.bin", senses_file,
-                     senses_next_pending,senses_inbox,first_frame,second_frame):
+                     senses_next_pending,senses_inbox,inbox_processing,
+                     first_frame,second_frame):
             try:
                 item.unlink(missing_ok=True)
             except OSError:

@@ -908,6 +908,13 @@ public final class DetachedProbeGameTests {
                         +" reason="+result.outcomes().get(2).reason());
 
                 helper.runAfterDelay(1,()->{
+                final double secondStartX=recipient.getX(), secondStartZ=recipient.getZ();
+                var nextMove=nextDecoded.frame().actions().get(1).arguments();
+                double nextDx=Double.parseDouble(nextMove.get("dx"));
+                double nextDz=Double.parseDouble(nextMove.get("dz"));
+                helper.assertTrue(Math.hypot(nextDx,nextDz)>0.08
+                        && Math.hypot(nextDx,nextDz)<4.0,
+                    "Updated recipient surroundings did not produce a fresh bounded native movement frame");
                 var nextResult=bridge.deliverAuthenticated(
                     nextPacket,secret,session,Math.addExact(tick,1));
                 helper.assertTrue(nextResult.status()==CapturedIntentBridge.Status.DISPATCHED
@@ -925,8 +932,10 @@ public final class DetachedProbeGameTests {
                     try {
                         double moved=Math.hypot(recipient.getX()-originalX,
                             recipient.getZ()-originalZ);
-                        helper.assertTrue(moved>0.20,
-                            "REAL recipient did not physically follow donor-native navigation"
+                        double movedAfterSecond=Math.hypot(recipient.getX()-secondStartX,
+                            recipient.getZ()-secondStartZ);
+                        helper.assertTrue(moved>0.20 && movedAfterSecond>0.04,
+                            "REAL recipient did not physically follow both donor-native frames"
                             +" donor="+donorName+" recipient="+recipientName
                             +" moved="+moved
                             +" onGround="+recipient.onGround()
@@ -940,6 +949,7 @@ public final class DetachedProbeGameTests {
                             +" nativeAIExecutedInSeparateNeoForgeProcess=true"
                             +" authenticatedRelativeMovement=true"
                             +" realRecipientMoved="+moved
+                            +" movedAfterUpdatedSense="+movedAfterSecond
                             +" signedFrameReplayRejected=true"
                             +" secondAdjacentFrameDispatched=true"
                             +" completeNativeMindTransfer=false");
