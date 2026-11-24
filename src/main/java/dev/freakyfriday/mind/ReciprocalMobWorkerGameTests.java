@@ -107,9 +107,15 @@ public final class ReciprocalMobWorkerGameTests {
             for(int x=0;x<=30;x++) for(int z=0;z<=30;z++) {
                 level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,0,z)),
                     Blocks.STONE.defaultBlockState());
+                // The GameTest template may contain pre-existing blocks.
+                // Clear the complete movement volume so none of the three
+                // physical entities can suffocate inside template geometry.
+                for(int y=1;y<=7;y++) {
+                    BlockPos clear=helper.absolutePos(new BlockPos(x,y,z));
+                    if(!level.getBlockState(clear).isAir())
+                        level.setBlockAndUpdate(clear,Blocks.AIR.defaultBlockState());
+                }
                 // Keep the physical Zombie body out of daylight burn logic.
-                // This test measures mind-driven movement, not environmental
-                // damage from the receiver world's day cycle.
                 level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,8,z)),
                     Blocks.STONE.defaultBlockState());
             }
@@ -126,6 +132,8 @@ public final class ReciprocalMobWorkerGameTests {
             chicken.targetSelector.removeAllGoals(goal->true);
             zombie.goalSelector.removeAllGoals(goal->true);
             zombie.targetSelector.removeAllGoals(goal->true);
+            chicken.setTarget(null);
+            zombie.setTarget(null);
             chicken.setNoAi(true);
             zombie.setNoAi(true);
             villager.setNoAi(true);
