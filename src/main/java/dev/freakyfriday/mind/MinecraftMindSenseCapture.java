@@ -72,7 +72,8 @@ public final class MinecraftMindSenseCapture {
 
         List<Entity> nearby = new ArrayList<>(level.getEntities(
             body, body.getBoundingBox().inflate(
-                NativeMindSenseFrame.MAX_ENTITY_RANGE), Entity::isAlive));
+                NativeMindSenseFrame.MAX_ENTITY_RANGE),
+            entity -> entity instanceof LivingEntity living && living.isAlive()));
         nearby.sort(Comparator.comparingDouble(body::distanceToSqr));
         List<NativeMindSenseFrame.EntitySense> entities = new ArrayList<>();
         for (Entity entity : nearby) {

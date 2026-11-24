@@ -80,11 +80,36 @@ public final class NativeMindSenseGameTests {
             packet,key,body.getUUID(),mind,frame.tick());
         helper.assertTrue(decoded.equals(frame),
             "Authenticated sensory codec did not preserve the complete recipient snapshot");
+        helper.assertTrue(!MinecraftMindSenseCapture.withinRange(23,23,0)
+                && !MinecraftMindSenseCapture.withinRange(Double.NaN,0,0),
+            "The radial sensory entity range must reject diagonal overflow and non-finite values");
+        target.discard();
+        level.setBlockAndUpdate(logPos,Blocks.AIR.defaultBlockState());
+        NativeMindMirrorState mirrorState=new NativeMindMirrorState();
+        mirrorState.apply(NativeMindMirrorDelta.between(null,decoded));
+        NativeMindMirrorWorld mirror=new NativeMindMirrorWorld();
+        var report=mirror.reconcile(level,body,mirrorState.snapshot());
+        Entity mirroredTarget=level.getEntity(target.getUUID());
+        helper.assertTrue(mirroredTarget instanceof Mob
+                && mirroredTarget.getType().equals(target.getType())
+                && mirroredTarget.getYRot()==target.getYRot()
+                && Math.abs(mirroredTarget.getBbWidth()-target.getBbWidth())<0.001
+                && Math.abs(mirroredTarget.getBbHeight()-target.getBbHeight())<0.001,
+            "Recipient nearby mob identity, type, orientation and geometry were not mirrored");
+        helper.assertTrue(mirroredTarget instanceof Mob mirroredMob && mirroredMob.isNoAi(),
+            "Mirrored target mob must not run competing AI");
+        helper.assertTrue(level.getBlockState(logPos).getBlock()==Blocks.OAK_LOG
+                && level.getBlockState(logPos).getValue(RotatedPillarBlock.AXIS)==Direction.Axis.X,
+            "Mirror failed to materialize exact recipient block-state properties");
+        helper.assertTrue(report.addedEntities()==1 && report.changedBlocks()>0,
+            "Mirror reconciliation report omitted entity/block materialization");
+        mirror.close(level);
+        helper.assertTrue(level.getEntity(target.getUUID())==null && level.getBlockState(logPos).isAir(),
+            "Mirror shutdown failed to remove its entities and restore original blocks");
         System.out.println("FF-SENSE recipient_snapshot PASS blocks="+frame.blocks().size()
             +" nearbyEntities="+frame.entities().size()
             +" blockStateProperties=true physicalGeometry=true explicitUnknownCoverage=true "
-            +" authenticatedRoundTrip=true");
-        target.discard();
+            +" authenticatedRoundTrip=true mirrorWorldReconciled=true cleanup=true");
         body.discard();
         helper.succeed();
     }

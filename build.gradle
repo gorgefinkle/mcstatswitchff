@@ -206,3 +206,19 @@ tasks.register("runNativeMindMirrorStateSelfTest", JavaExec) {
     enableAssertions = true
 }
 tasks.named('check') { dependsOn tasks.named('runNativeMindMirrorStateSelfTest') }
+
+tasks.register("writeNativeMindSenseFixture", JavaExec) {
+    group = 'verification'
+    description = 'Write one bounded HMAC-authenticated sensory fixture for worker integration tests'
+    dependsOn tasks.named('classes')
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'dev.freakyfriday.mind.NativeMindSenseFixtureWriter'
+    doFirst {
+        ['Body','Mind','StimulusId','Tick','Recipient','Stimulus','Output'].each { suffix ->
+            def value = providers.gradleProperty("ffFixture"+suffix).orNull
+            if (value == null || value.isBlank())
+                throw new GradleException("Missing required -PffFixture"+suffix+" property")
+            systemProperty("ff.fixture."+suffix.substring(0,1).toLowerCase()+suffix.substring(1), value)
+        }
+    }
+}

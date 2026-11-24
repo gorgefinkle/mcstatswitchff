@@ -145,6 +145,8 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
         "recipientTick=" + str(tick) + "\n"
         "donor=" + donor + "\n"
         "recipient=" + recipient + "\n"
+        "sensesFile=ff-worker-senses.bin\n"
+        "recipient=" + recipient + "\n"
         "stimulus=" + stimulus + "\n"
         "stimulusId=" + str(stimulus_id) + "\n"
         "requireAttack=" + str(require_attack).lower() + "\n"
@@ -165,12 +167,30 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
     arguments = ["-PtargetMinecraft=" + opts.minecraft,
                  "--no-daemon","--stacktrace"]
 
+    senses_file=WORKER_DIR / "ff-worker-senses.bin"
     try:
         if WORKER_OUTPUT.exists():
             WORKER_OUTPUT.unlink()
+        fixture_args=[
+            "-PffFixtureBody="+str(body),
+            "-PffFixtureMind="+str(mind),
+            "-PffFixtureStimulusId="+str(stimulus_id),
+            "-PffFixtureTick="+str(tick),
+            "-PffFixtureRecipient="+recipient,
+            "-PffFixtureStimulus="+stimulus,
+            "-PffFixtureOutput="+str(senses_file),
+        ]
+        run_until_markers(
+            cmd_base + ["writeNativeMindSenseFixture"] + arguments + fixture_args,
+            ROOT / "native-worker-fixture.log",
+            ("FF-SENSE fixture_written PASS",),
+            env,
+            timeout=180,
+        )
         print("FF-NATIVE-WORKER starting distinct disposable NeoForge producer")
         worker_markers = [
             "FF-NATIVE-WORKER READY",
+            "FF-NATIVE-WORKER MIRROR_RECONCILE PASS",
             "FF-NATIVE-WORKER ENTITIES_SPAWNED PASS",
             "FF-NATIVE-WORKER NATIVE_NAVIGATION_OBSERVED",
             "FF-NATIVE-WORKER FRAME_WRITTEN PASS",
@@ -205,11 +225,12 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
             " nativeAttackCaptured="+str(require_attack).lower()+
             " nativeDonorActuallyMoved=true"
             " signedRelativeActionsMovedRealRecipient=true"
+            " recipientSnapshotMaterialized=true"
             " samePhysicalWorld=false noArbitraryModIsolationClaim=true")
     finally:
         # Never store the session fixture with normal game-test logs or
         # accidentally reuse old signed packets in future tests.
-        for item in (RECEIVER_CONFIG, RECEIVER_OUTPUT):
+        for item in (RECEIVER_CONFIG, RECEIVER_OUTPUT, senses_file):
             try:
                 item.unlink(missing_ok=True)
             except OSError:

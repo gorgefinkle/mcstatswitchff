@@ -84,7 +84,8 @@ public final class NativeAiWorkerServer {
 
     private record Request(UUID session, UUID recipientBody, UUID sourceMind,
                            UUID stimulusId, long recipientTick, String donor,
-                           String stimulus, boolean requireAttack, byte[] secret) {}
+                           String recipient, String stimulus, boolean requireAttack,
+                           String sensesFile, byte[] secret) {}
 
     private static final class State {
         final ServerLevel level;
@@ -92,6 +93,7 @@ public final class NativeAiWorkerServer {
         final Mob donor;
         final Mob stimulus;
         final BlockPos anchor;
+        final NativeMindMirrorWorld mirrorWorld;
         final double startX, startZ;
         int age, targetTicks, navigationTicks;
         boolean produced;
@@ -102,12 +104,13 @@ public final class NativeAiWorkerServer {
         String attackedTargetType;
 
         State(ServerLevel level, Request request, Mob donor, Mob stimulus,
-              BlockPos anchor) {
+              BlockPos anchor, NativeMindMirrorWorld mirrorWorld) {
             this.level=level;
             this.request=request;
             this.donor=donor;
             this.stimulus=stimulus;
             this.anchor=anchor;
+            this.mirrorWorld=mirrorWorld;
             this.startX=donor.getX();
             this.startZ=donor.getZ();
         }
@@ -133,9 +136,15 @@ public final class NativeAiWorkerServer {
         if (secret.length != CapturedIntentWireCodec.KEY_BYTES)
             throw new IllegalArgumentException("Worker secret must be 256-bit");
         String donor=config.getProperty("donor");
+        String recipient=config.getProperty("recipient");
         String stimulus=config.getProperty("stimulus");
+        String sensesFile=config.getProperty("sensesFile");
         if (donor==null || stimulus==null)
             throw new IllegalArgumentException("Missing donor/stimulus entity types");
+        if (sensesFile!=null && (recipient==null
+                || !sensesFile.matches("[A-Za-z0-9._-]{1,80}")
+                || sensesFile.equals(".") || sensesFile.equals("..")))
+            throw new IllegalArgumentException("Invalid recipient/sensory file request");
         UUID stimulusId=UUID.fromString(config.getProperty("stimulusId"));
         boolean requireAttack=Boolean.parseBoolean(
             config.getProperty("requireAttack","false"));
@@ -145,7 +154,7 @@ public final class NativeAiWorkerServer {
             UUID.fromString(config.getProperty("session")),
             UUID.fromString(config.getProperty("recipientBody")),
             UUID.fromString(config.getProperty("sourceMind")),
-            stimulusId,tick,donor,stimulus,requireAttack,secret);
+            stimulusId,tick,donor,recipient,stimulus,requireAttack,sensesFile,secret);
     }
 
     private static Mob construct(ServerLevel level,String entityId) {
@@ -193,17 +202,54 @@ public final class NativeAiWorkerServer {
                     level.setBlockAndUpdate(new BlockPos(x,y,z),Blocks.AIR.defaultBlockState());
             }
             Mob donor=construct(level,request.donor());
-            Mob stimulus=construct(level,request.stimulus());
-            stimulus.setUUID(request.stimulusId());
             donor.setPos(0.5,121,0.5);
-            stimulus.setPos(8.5,121,0.5);
             donor.setPersistenceRequired();
-            stimulus.setNoAi(true); // Stationary target; donor uses its OWN vanilla AI.
-            stimulus.setPersistenceRequired();
+            Mob stimulus;
+            NativeMindMirrorWorld mirrorWorld=null;
+            if(request.sensesFile()!=null) {
+                Path sensePath=Path.of(request.sensesFile()).toAbsolutePath().normalize();
+                Path workerRoot=Path.of("").toAbsolutePath().normalize();
+                if(!sensePath.getParent().equals(workerRoot)
+                        || !Files.isRegularFile(sensePath))
+                    throw new IllegalArgumentException("Recipient sensory packet must be a regular file in worker root");
+                long bytes=Files.size(sensePath);
+                if(bytes<64 || bytes>NativeMindSenseWireCodec.MAX_WIRE_BYTES)
+                    throw new IllegalArgumentException("Recipient sensory packet outside bounded wire size");
+                NativeMindSenseFrame senses=NativeMindSenseWireCodec.decode(
+                    Files.readAllBytes(sensePath),request.secret(),
+                    request.recipientBody(),request.sourceMind(),request.recipientTick());
+                if(!request.recipient().equals(senses.body().entityType()))
+                    throw new IllegalArgumentException("Recipient body type does not match authenticated sensory snapshot");
+                if(!"minecraft:overworld".equals(senses.dimension()))
+                    throw new IllegalArgumentException("This worker fixture currently mirrors only the overworld");
+                NativeMindMirrorState mirrorState=new NativeMindMirrorState();
+                var seed=NativeMindMirrorDelta.between(null,senses);
+                var mirrorSnapshot=mirrorState.apply(seed);
+                mirrorWorld=new NativeMindMirrorWorld();
+                NativeMindMirrorWorld.Report report=mirrorWorld.reconcile(level,donor,mirrorSnapshot);
+                Entity mirroredStimulus=level.getEntity(request.stimulusId());
+                if(!(mirroredStimulus instanceof Mob mob)
+                        || !BuiltInRegistries.ENTITY_TYPE.getKey(mob.getType()).toString()
+                            .equals(request.stimulus()))
+                    throw new IllegalStateException("Authenticated sensory frame did not materialize requested stimulus mob");
+                stimulus=mob;
+                stimulus.setPersistenceRequired();
+                System.out.println("FF-NATIVE-WORKER MIRROR_RECONCILE PASS"
+                    +" entitiesAdded="+report.addedEntities()
+                    +" blocksChanged="+report.changedBlocks()
+                    +" authenticatedSnapshot=true"
+                    +" bodyType="+request.recipient());
+            } else {
+                stimulus=construct(level,request.stimulus());
+                stimulus.setUUID(request.stimulusId());
+                stimulus.setPos(8.5,121,0.5);
+                stimulus.setNoAi(true); // Stationary target; donor uses its OWN vanilla AI.
+                stimulus.setPersistenceRequired();
+            }
             // ServerStartedEvent is still inside the startup lifecycle on
             // 26.2. Defer entity insertion to a normal server tick so the
             // EntityManager and chunk tracker are fully online first.
-            active=new State(level,request,donor,stimulus,anchor);
+            active=new State(level,request,donor,stimulus,anchor,mirrorWorld);
             started=true;
             System.out.println("FF-NATIVE-WORKER READY donor="+request.donor()
                 +" stimulus="+request.stimulus()+" requireAttack="+request.requireAttack()
@@ -387,6 +433,13 @@ public final class NativeAiWorkerServer {
     @SubscribeEvent
     public static void onStop(ServerStoppedEvent event) {
         if (active!=null) {
+            if(active.mirrorWorld!=null) {
+                try { active.mirrorWorld.close(active.level); }
+                catch(RuntimeException cleanupFailure) {
+                    System.err.println("FF-NATIVE-WORKER MIRROR_CLEANUP_FAILURE "
+                        +cleanupFailure.getClass().getName()+": "+cleanupFailure.getMessage());
+                }
+            }
             for (int cx=-1;cx<=0;cx++) for (int cz=-1;cz<=0;cz++)
                 ARENA_TICKETS.forceChunk(active.level,ARENA_OWNER,cx,cz,false,true);
         }
