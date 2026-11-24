@@ -223,6 +223,7 @@ jobs:
             run-supervisor-smoke/logs/**
             run-supervisor-smoke/crash-reports/**
             run-supervisor-smoke/freakyfriday-workers/session-*/worker.log
+            run-supervisor-smoke/freakyfriday-workers/worker-debug-*.log
 
   build:
     name: NeoForge Minecraft ${{ matrix.minecraft }}
