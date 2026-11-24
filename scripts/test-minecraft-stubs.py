@@ -421,6 +421,16 @@ public final class PlayerPlayerGameTests {
    net.neoforged.neoforge.registries.DeferredRegister.createItems("stub-player-player-tests");
 }
 ''',
+'dev/freakyfriday/mind/NativeMindWorkerSupervisor.java':'''package dev.freakyfriday.mind;
+public final class NativeMindWorkerSupervisor {
+ public static String startPlayerMob(net.minecraft.server.level.ServerPlayer p,
+   net.minecraft.world.entity.Mob m){return "stub";}
+ public static String startMobPair(net.minecraft.server.level.ServerPlayer p,
+   net.minecraft.world.entity.Mob a,net.minecraft.world.entity.Mob b){return "stub";}
+ public static boolean cancelByAccount(java.util.UUID id){return false;}
+ public static void clearOnServerStop(){}
+}
+''',
 'dev/freakyfriday/mind/NativeMindSenseGameTests.java':'''package dev.freakyfriday.mind;
 public final class NativeMindSenseGameTests {
  public static final net.neoforged.neoforge.registries.DeferredRegister.Items FUNCTIONS =
@@ -662,7 +672,7 @@ public static void main(String[] args){
 # They must not be passed to the legacy headless harness whose fake APIs do not
 # implement actual packet serialization, GUI rendering or client registration.
 real_api_only = {'NativeBrainSwap.java', 'GoalMindRuntime.java', 'MinecraftBodyPort.java', 'MinecraftPlayerBodyPort.java', 'MinecraftBodyPortFactory.java', 'MinecraftHostProbe.java', 'LiveBodyProbe.java', 'DetachedMindHostProbe.java', 'ProbeBodySnapshot.java', 'ProbeTelemetry.java', 'DetachedHostMirrorProbe.java', 'DetachedProbeGameTests.java', 'NativeAiSurfaceAudit.java', 'CategoryPickerPayload.java','CategoryPickerNetworking.java',
-                 'CategoryPickerScreen.java','ClientCategoryPickerNetworking.java', 'FFDiagnosticAutoTest.java', 'FFServerSmoke.java', 'NativeAiWorkerServer.java', 'MinecraftMindSenseCapture.java', 'NativeMindMirrorWorld.java', 'NativeMindSenseGameTests.java', 'ReciprocalMobWorkerGameTests.java', 'PlayerCommandBodyRouting.java', 'PlayerCommandRouteGameTests.java', 'UnseenAddonCommandFixture.java', 'PlayerMobGameTests.java', 'PlayerPlayerGameTests.java', 'PlayerPlayerExchange.java', 'PlayerMobPossession.java', 'PossessionNetwork.java', 'PossessionInputPayload.java', 'PossessionViewPayload.java', 'PossessionStatePayload.java', 'PossessionAttackPayload.java', 'PossessionMotion.java', 'PossessionCombat.java', 'ClientPossession.java', 'ClientOccupiedBodyUI.java', 'ClientSelectionHud.java', 'SelectionHudPayload.java', 'SelectionHudSync.java'}
+                 'CategoryPickerScreen.java','ClientCategoryPickerNetworking.java', 'FFDiagnosticAutoTest.java', 'FFServerSmoke.java', 'NativeAiWorkerServer.java', 'NativeMindWorkerSupervisor.java', 'MinecraftMindSenseCapture.java', 'NativeMindMirrorWorld.java', 'NativeMindSenseGameTests.java', 'ReciprocalMobWorkerGameTests.java', 'PlayerCommandBodyRouting.java', 'PlayerCommandRouteGameTests.java', 'UnseenAddonCommandFixture.java', 'PlayerMobGameTests.java', 'PlayerPlayerGameTests.java', 'PlayerPlayerExchange.java', 'PlayerMobPossession.java', 'PossessionNetwork.java', 'PossessionInputPayload.java', 'PossessionViewPayload.java', 'PossessionStatePayload.java', 'PossessionAttackPayload.java', 'PossessionMotion.java', 'PossessionCombat.java', 'ClientPossession.java', 'ClientOccupiedBodyUI.java', 'ClientSelectionHud.java', 'SelectionHudPayload.java', 'SelectionHudSync.java'}
 all_prod=[p for p in (ROOT/'src/main/java').rglob('*.java') if p.name not in real_api_only] + list((ROOT/'src/platform/minecraft-26.2/java').rglob('*.java'))
 full_cmd=['javac','-d',str(OUT)]+list(map(str,STUB.rglob('*.java')))+list(map(str,all_prod))
 subprocess.run(full_cmd,check=True)

@@ -32,6 +32,7 @@ public final class FreakyFriday {
         NeoForge.EVENT_BUS.register(dev.freakyfriday.mind.NativeAiWorkerServer.class);
         NeoForge.EVENT_BUS.register(BookInteractions.class);
         NeoForge.EVENT_BUS.register(dev.freakyfriday.mind.PlayerMobPossession.class);
+        NeoForge.EVENT_BUS.register(dev.freakyfriday.mind.NativeMindWorkerSupervisor.class);
         NeoForge.EVENT_BUS.register(dev.freakyfriday.mind.SelectionHudSync.class);
         NeoForge.EVENT_BUS.register(dev.freakyfriday.mind.PlayerPlayerExchange.class);
         NeoForge.EVENT_BUS.register(dev.freakyfriday.mind.LiveBodyProbe.class);

@@ -9,6 +9,46 @@ import java.util.Objects;
 public final class NativeMindWorkerLaunchCommand {
     private NativeMindWorkerLaunchCommand() {}
 
+
+    /** Exact JVM/application arguments of the current NeoForge server process. */
+    public static List<String> currentProcessArguments() {
+        var processArguments=ProcessHandle.current().info().arguments();
+        if(processArguments.isPresent() && processArguments.get().length>0)
+            return List.copyOf(java.util.Arrays.asList(processArguments.get()));
+        String command=System.getProperty("sun.java.command","");
+        if(command.isBlank())
+            throw new IllegalStateException("Cannot discover the current NeoForge server main class");
+        List<String> result=new ArrayList<>(
+            java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments());
+        String classPath=System.getProperty("java.class.path","");
+        if(classPath.isBlank())
+            throw new IllegalStateException("Cannot discover the current NeoForge server classpath");
+        result.add("-cp");
+        result.add(classPath);
+        result.addAll(splitCommand(command));
+        return List.copyOf(result);
+    }
+
+    private static List<String> splitCommand(String value) {
+        List<String> result=new ArrayList<>();
+        StringBuilder token=new StringBuilder();
+        boolean quoted=false, escaped=false, present=false;
+        for(int i=0;i<value.length();i++) {
+            char ch=value.charAt(i);
+            if(escaped) { token.append(ch); escaped=false; present=true; continue; }
+            if(ch=='\\' && quoted) { escaped=true; continue; }
+            if(ch=='"') { quoted=!quoted; present=true; continue; }
+            if(Character.isWhitespace(ch) && !quoted) {
+                if(present) { result.add(token.toString()); token.setLength(0); present=false; }
+            } else { token.append(ch); present=true; }
+        }
+        if(escaped || quoted)
+            throw new IllegalArgumentException("Malformed current Java command line");
+        if(present) result.add(token.toString());
+        if(result.isEmpty()) throw new IllegalStateException("Current Java command line is empty");
+        return result;
+    }
+
     public static List<String> build(String javaExecutable,List<String> parentArguments,
             Path workerRoot,int heapMegabytes) {
         Objects.requireNonNull(javaExecutable,"javaExecutable");

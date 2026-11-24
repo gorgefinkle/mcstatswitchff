@@ -81,7 +81,7 @@ public final class MinecraftPlayerBodyPort implements BodyActionGate.BodyPort {
         if (!Double.isFinite(nativeSpeed) || nativeSpeed <= 0.0) {
             return BodyActionGate.Result.blocked("Player body has no usable movement speed");
         }
-        double step = Math.min(distance, nativeSpeed * multiplier);
+        double step = Math.min(distance, nativeSpeed * 20.0 * multiplier);
         Vec3 displacement = new Vec3(dx / distance * step, 0.0, dz / distance * step);
         body.move(MoverType.SELF, displacement);
         return BodyActionGate.Result.executed();

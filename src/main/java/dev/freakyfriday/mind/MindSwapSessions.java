@@ -91,6 +91,7 @@ public final class MindSwapSessions {
         PENDING.remove(playerId);
         LAST_INTERACTION.remove(playerId);
         PAIRS.remove(playerId);
+        NativeMindWorkerSupervisor.cancelByAccount(playerId);
         PlayerMobPossession.clearOnLogout(playerId);
         PlayerPlayerExchange.clearOnLogout(playerId);
     }
@@ -102,10 +103,12 @@ public final class MindSwapSessions {
         // Without clearing this stamp a cancel + immediate reselect of
         // the same mob on the same game tick is silently discarded.
         LAST_INTERACTION.remove(p.getUUID());
+        boolean workers=NativeMindWorkerSupervisor.cancelByAccount(p.getUUID());
         boolean returned=PlayerMobPossession.end(p);
         boolean players=PlayerPlayerExchange.cancel(p);
         message(p, players
             ? "Reciprocal player-body control ended for both accounts."
+            : workers ? "Native mind exchange ended; original physical bodies and AI restored."
             : returned ? "Returned to your player body; mob AI restored."
             : "Mind swap selection cancelled.");
     }
@@ -118,6 +121,7 @@ public final class MindSwapSessions {
 
     /** No static selection state may leak into a newly launched server. */
     public static void clearOnServerStop() {
+        NativeMindWorkerSupervisor.clearOnServerStop();
         PENDING.clear();
         PAIRS.clear();
         LAST_INTERACTION.clear();
@@ -338,25 +342,33 @@ public final class MindSwapSessions {
 
         if ((first==p && target instanceof net.minecraft.world.entity.Mob)
                 || (target==p && first instanceof net.minecraft.world.entity.Mob)) {
+            net.minecraft.world.entity.Mob mob=first==p
+                ? (net.minecraft.world.entity.Mob)target
+                : (net.minecraft.world.entity.Mob)first;
+            String error=NativeMindWorkerSupervisor.startPlayerMob(p,mob);
             PENDING.remove(p.getUUID());
             SelectionHudSync.clear(p);
-            message(p,"Reciprocal player/mob mind transfer is not implemented yet. "
-                +"No possession, AI, or body state was changed.");
+            if(error!=null) {
+                message(p,"Player/mob reciprocal exchange REJECTED: "+error);
+            } else {
+                message(p,"Reciprocal exchange active: your input controls the Mob body, "
+                    +"and its native mind drives your original player body. "
+                    +"Use /freakyfriday cancel to return.");
+            }
             return;
         }
 
         if (first instanceof net.minecraft.world.entity.Mob mobA
                 && target instanceof net.minecraft.world.entity.Mob mobB) {
-            String error=NativeBrainSwap.exchange(mobA,mobB);
+            String error=NativeMindWorkerSupervisor.startMobPair(p,mobA,mobB);
             PENDING.remove(p.getUUID());
+            PAIRS.remove(p.getUUID());
             SelectionHudSync.clear(p);
-            if (error!=null) {
-                message(p,"Native mind exchange REJECTED: "+error);
+            if(error!=null) {
+                message(p,"Mob/mob reciprocal exchange REJECTED: "+error);
             } else {
-                message(p,"Native goal/Brain controllers exchanged between "
-                    +mobA.getDisplayName().getString()+" and "
-                    +mobB.getDisplayName().getString()
-                    +". Watch their ACTUAL behavior; cross-species abilities are not certified.");
+                message(p,"Reciprocal mob minds exchanged. Each native mind now drives "
+                    +"the other original physical body. Use /freakyfriday cancel to return.");
             }
             return;
         }

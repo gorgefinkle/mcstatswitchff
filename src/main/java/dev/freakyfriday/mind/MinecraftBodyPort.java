@@ -7,6 +7,8 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.MoverType;
+import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.monster.Creeper;
 
@@ -60,9 +62,16 @@ public final class MinecraftBodyPort implements BodyActionGate.BodyPort {
             double speed=parse(intent.arguments(),"speed",1.0);
             if(speed<=0 || speed>2 || dx*dx+dy*dy+dz*dz>144)
                 return BodyActionGate.Result.blocked("Invalid relative movement request");
-            if(!body.getNavigation().moveTo(
-                    body.getX()+dx,body.getY()+dy,body.getZ()+dz,speed))
-                return BodyActionGate.Result.blocked("Recipient cannot navigate to requested offset");
+            double distance=Math.hypot(dx,dz);
+            if(distance<0.05) return BodyActionGate.Result.executed();
+            double nativeSpeed=body.getAttributeValue(Attributes.MOVEMENT_SPEED);
+            if(!Double.isFinite(nativeSpeed) || nativeSpeed<=0)
+                return BodyActionGate.Result.blocked("Recipient body has no usable native movement speed");
+            // Each worker observation represents multiple donor-world ticks.
+            // Project a bounded segment using the recipient's own speed and
+            // collision resolver; the Mob's native AI remains disabled.
+            double step=Math.min(distance,nativeSpeed*20.0*speed);
+            body.move(MoverType.SELF,new Vec3(dx/distance*step,0,dz/distance*step));
             return BodyActionGate.Result.executed();
         }));
         CAPABILITIES.register(LOOK_OFFSET, capability(Mob.class, (body, intent) -> {
@@ -71,8 +80,14 @@ public final class MinecraftBodyPort implements BodyActionGate.BodyPort {
             double dz=parse(intent.arguments(),"dz",Double.NaN);
             if(dx*dx+dy*dy+dz*dz>144)
                 return BodyActionGate.Result.blocked("Invalid relative look request");
-            body.getLookControl().setLookAt(
-                body.getX()+dx,body.getY()+dy,body.getZ()+dz);
+            double horizontal=Math.hypot(dx,dz);
+            if(horizontal+Math.abs(dy)<1.0e-6)
+                return BodyActionGate.Result.blocked("Look vector cannot be zero");
+            float yaw=(float)Math.toDegrees(Math.atan2(-dx,dz));
+            float pitch=(float)-Math.toDegrees(Math.atan2(dy,horizontal));
+            body.setYRot(yaw);
+            body.setYHeadRot(yaw);
+            body.setXRot(Math.max(-90.0f,Math.min(90.0f,pitch)));
             return BodyActionGate.Result.executed();
         }));
         CAPABILITIES.register(JUMP, capability(Mob.class, (body, intent) -> {

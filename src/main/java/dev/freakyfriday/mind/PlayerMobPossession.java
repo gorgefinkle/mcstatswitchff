@@ -282,6 +282,10 @@ public final class PlayerMobPossession {
                 in.yaw(),in.pitch());
             if ((player.level().getGameTime()&1L)==0
                     && !Boolean.getBoolean("freakyfriday.thirdPartyFixture")) {
+                if(s.reciprocal) {
+                    sendCamera(player,new PossessionViewPayload(body.getId(),true,
+                        player.getX(),player.getY(),player.getZ()));
+                }
                 net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(
                     player,new PossessionStatePayload(body.getId(),in.sequence(),
                         body.getX(),body.getY(),body.getZ(),
