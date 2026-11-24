@@ -16,7 +16,7 @@ import java.util.UUID;
  * mirror cannot accidentally retain stale targets or stale terrain forever.
  */
 public record NativeMindMirrorDelta(
-        UUID bodyId, UUID mindId, long fromTick, long toTick,
+        UUID bodyId, UUID mindId, String dimension, long fromTick, long toTick,
         NativeMindSenseFrame.BodySense body,
         List<NativeMindSenseFrame.EntitySense> addedEntities,
         List<NativeMindSenseFrame.EntitySense> changedEntities,
@@ -29,6 +29,7 @@ public record NativeMindMirrorDelta(
     public NativeMindMirrorDelta {
         Objects.requireNonNull(bodyId);
         Objects.requireNonNull(mindId);
+        Objects.requireNonNull(dimension);
         Objects.requireNonNull(body);
         addedEntities = List.copyOf(addedEntities);
         changedEntities = List.copyOf(changedEntities);
@@ -44,7 +45,7 @@ public record NativeMindMirrorDelta(
             NativeMindSenseFrame previous, NativeMindSenseFrame current) {
         Objects.requireNonNull(current);
         if (previous == null) {
-            return new NativeMindMirrorDelta(current.bodyId(), current.mindId(),
+            return new NativeMindMirrorDelta(current.bodyId(), current.mindId(), current.dimension(),
                 -1, current.tick(), current.body(), current.entities(), List.of(),
                 List.of(), current.blocks(), List.of());
         }
@@ -84,7 +85,7 @@ public record NativeMindMirrorDelta(
 
         List<UUID> removed = new ArrayList<>(oldEntities.keySet());
         removed.sort(UUID::compareTo);
-        return new NativeMindMirrorDelta(current.bodyId(), current.mindId(),
+        return new NativeMindMirrorDelta(current.bodyId(), current.mindId(), current.dimension(),
             previous.tick(), current.tick(), current.body(), added, changed,
             removed, changedBlocks, removedBlocks);
     }
