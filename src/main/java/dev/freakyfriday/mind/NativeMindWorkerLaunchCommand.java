@@ -102,8 +102,8 @@ public final class NativeMindWorkerLaunchCommand {
         // flags. The child working directory is also set to this root by the
         // supervisor before start(), so its config, saves and request files
         // cannot resolve through the live server's run directory.
-        command.add("--gameDir");
-        command.add(root.toString());
+        // ProcessBuilder.directory(root) supplies the child game directory;
+        // --gameDir is not a server CLI option in current NeoForge 26.2/26.3.
         command.add("--universe");
         command.add(root.toString());
         command.add("--world");

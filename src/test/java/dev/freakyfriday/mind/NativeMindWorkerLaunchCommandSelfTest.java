@@ -37,7 +37,7 @@ public final class NativeMindWorkerLaunchCommandSelfTest {
         check(command.indexOf("--universe")>command.indexOf("@libraries/neoforge/unix_args.txt"),
             "child universe overrides are passed to the server launch target");
         check(command.contains("--world") && command.contains("world")
-                && !command.contains("--level-name"),
+                && !command.contains("--level-name") && !command.contains("--gameDir"),
             "current dedicated-server CLI receives supported world option, not legacy level-name");
         check(!command.contains("--server-ip") && !command.contains("--online-mode")
                 && !command.contains("--max-players") && !command.contains("--view-distance")
