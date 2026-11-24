@@ -165,7 +165,7 @@ public final class NativeMindWorkerSupervisor {
             }
             Files.writeString(root.resolve("eula.txt"),"eula=true\n");
             Files.writeString(root.resolve("server.properties"),
-                "online-mode=false\nserver-port=0\nlevel-name=world\n"
+                "online-mode=false\nserver-port=0\nlevel-name=ff-native-mind-worker-world\n"
                 +"difficulty=normal\ngamemode=survival\n"
                 +"spawn-monsters=true\nspawn-animals=true\n"
                 +"simulation-distance=2\nview-distance=2\nmax-players=1\n"
