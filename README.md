@@ -1,5 +1,17 @@
 # Freaky Friday — R0.15.4 Dual-Instance Native Host Feasibility
 
+
+> **Gameplay safety notice (Nov 24, 2026):** Reciprocal Player↔Mob and Mob↔Mob
+> exchanges are temporarily disabled on this branch. The previous experimental
+> runtime launched one or two additional NeoForge server JVMs per exchange,
+> disabled the real mobs' native AI, and replayed only a narrow action stream.
+> This caused the extra Minecraft instances and the frozen/arrested-body
+> behavior reported during gameplay. The runtime now fails closed before
+> changing either body or launching a worker. Player-only possession remains
+> a separate experimental feature and is not a complete two-way mind swap.
+> Re-enable reciprocal exchange only after a single-server controller runtime
+> passes simultaneous, independent two-direction gameplay acceptance.
+
 **Development branch:** `feature/dual-instance-host-poc`  
 **Minecraft targets:** 26.2 and 26.3 / NeoForge / Java 25
 
