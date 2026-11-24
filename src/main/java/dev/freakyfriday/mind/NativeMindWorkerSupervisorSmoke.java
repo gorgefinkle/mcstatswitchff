@@ -14,6 +14,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 
@@ -109,10 +110,6 @@ public final class NativeMindWorkerSupervisorSmoke {
         villager.setPos(x,y,z);
         villager.setNoAi(true);
         villager.setNoGravity(true);
-        // Both reciprocal donor minds can legitimately choose to attack this
-        // shared sensory stimulus. The smoke verifies their action routing,
-        // not lethal damage to its disposable target fixture.
-        villager.setInvulnerable(true);
         villager.setPersistenceRequired();
         if(!level.addFreshEntity(villager))
             throw new IllegalStateException("Could not add smoke Villager");
@@ -241,6 +238,15 @@ public final class NativeMindWorkerSupervisorSmoke {
         cleanupMobPhase();
         cleanupMobPair();
         if(server!=null) server.halt(false);
+    }
+
+    @SubscribeEvent
+    public static void protectSmokeTarget(LivingIncomingDamageEvent event) {
+        // Both reciprocal donor minds can legitimately select this shared
+        // sensory stimulus. The smoke verifies routing/action execution, not
+        // whether two real mobs can kill a disposable fixture before checks.
+        if(enabled() && target!=null && event.getEntity()==target)
+            event.setCanceled(true);
     }
 
     @SubscribeEvent
