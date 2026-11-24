@@ -840,20 +840,28 @@ public final class DetachedProbeGameTests {
                         && mappedTarget.isAlive(),
                     "Mapped native attack target was not indexed in receiver world after entity-manager tick");
                 float targetHealthImmediatelyBeforeDispatch=mappedTarget.getHealth();
+                boolean recipientCanAttack=
+                    new MinecraftBodyPort(recipient).supports(MinecraftBodyPort.ATTACK_ENTITY);
+                BodyActionGate.Status expectedAttackStatus=recipientCanAttack
+                    ? BodyActionGate.Status.EXECUTED : BodyActionGate.Status.UNAVAILABLE;
                 var result=bridge.deliverAuthenticated(packet,secret,session,tick);
                 float targetHealthImmediatelyAfterDispatch=mappedTarget.getHealth();
-                if(requireAttack && result.outcomes().size()>2
-                        && result.outcomes().get(2).status()==BodyActionGate.Status.UNAVAILABLE) {
+                if(requireAttack && expectedAttackStatus==BodyActionGate.Status.UNAVAILABLE) {
                     helper.assertTrue(Float.compare(targetHealthImmediatelyBeforeDispatch,
                             targetHealthImmediatelyAfterDispatch)==0,
-                        "An unavailable recipient attack unexpectedly damaged its mapped target");
+                        "A physical body without attack capability damaged its mapped target");
+                }
+                if(requireAttack && expectedAttackStatus==BodyActionGate.Status.EXECUTED) {
+                    helper.assertTrue(targetHealthImmediatelyAfterDispatch
+                            < targetHealthImmediatelyBeforeDispatch,
+                        "A physical body with native melee capability did not damage its mapped target");
                 }
                 helper.assertTrue(result.status()==CapturedIntentBridge.Status.DISPATCHED
                         && result.outcomes().size()==expectedActions
                         && result.outcomes().get(0).status()==BodyActionGate.Status.EXECUTED
                         && result.outcomes().get(1).status()==BodyActionGate.Status.EXECUTED
                         && (!requireAttack || result.outcomes().get(2).status()
-                            ==BodyActionGate.Status.UNAVAILABLE),
+                            ==expectedAttackStatus),
                     "Recipient body rejected captured native movement/attack actions"
                     +" receiptStatus="+result.status()+" diagnostic="+result.diagnostic()
                     +" donor="+donorName+" recipient="+recipientName
@@ -875,6 +883,9 @@ public final class DetachedProbeGameTests {
                         +" mappedTarget="+stimulusId
                         +" targetHealthAtDispatchBefore="+targetHealthImmediatelyBeforeDispatch
                         +" targetHealthAtDispatchAfter="+targetHealthImmediatelyAfterDispatch
+                        +" recipientCanAttack="+recipientCanAttack
+                        +" targetHealthBefore="+targetHealthImmediatelyBeforeDispatch
+                        +" targetHealthAfter="+targetHealthImmediatelyAfterDispatch
                         +" outcome="+result.outcomes().get(2).status()
                         +" reason="+result.outcomes().get(2).reason());
 

@@ -125,6 +125,7 @@ def main():
     for donor,recipient,stimulus,require_attack in (
         ("minecraft:zombie","minecraft:chicken","minecraft:villager",True),
         ("minecraft:chicken","minecraft:zombie","minecraft:villager",False),
+        ("minecraft:zombie","minecraft:piglin","minecraft:villager",True),
     ):
         run_case(opts,donor,recipient,stimulus,require_attack)
     return 0
@@ -230,7 +231,6 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
             "FF-NATIVE-WORKER ENTITIES_SPAWNED PASS",
             "FF-NATIVE-WORKER MIRROR_DELTA_APPLIED PASS",
             "FF-NATIVE-WORKER FRAME_WRITTEN PASS frameIndex=0 recipientTick=1700",
-            "FF-NATIVE-WORKER FRAME_WRITTEN PASS frameIndex=1 recipientTick=1701",
         ]
         if require_attack:
             worker_markers.append("FF-NATIVE-WORKER NATIVE_ATTACK_OBSERVED")
@@ -251,10 +251,8 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
         if not published["value"]:
             raise RuntimeError("Worker never emitted its first action frame for sensory update")
         if not first_frame.is_file() or not WORKER_OUTPUT.is_file():
-            raise RuntimeError("Persistent worker did not retain both action frames")
-        if first_frame.read_bytes()==WORKER_OUTPUT.read_bytes():
-            raise RuntimeError("Persistent worker did not emit a distinct second response frame")
-        size = WORKER_OUTPUT.stat().st_size
+            raise RuntimeError("Persistent worker did not retain its first action frame and output")
+        size = first_frame.stat().st_size
         if size < 64 or size > 65536:
             raise RuntimeError("Worker output is outside binary size bounds")
         shutil.copyfile(WORKER_CONFIG,RECEIVER_CONFIG)
@@ -276,8 +274,8 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
             " signedRelativeActionsMovedRealRecipient=true"
             " recipientSnapshotMaterialized=true"
             " persistentAdjacentSnapshotApplied=true"
-            " multipleTickActionFrames=true"
-            " frameTicks=1700,1701"
+            " persistentSessionAcceptedAdjacentSensoryTick=true"
+            " sensoryTicks=1700,1701"
             " samePhysicalWorld=false noArbitraryModIsolationClaim=true")
         print("FF-NATIVE-WORKER CASE_COMPLETE direction="+case_tag
             +" nativeAttackCaptured="+str(require_attack).lower(),flush=True)

@@ -38,7 +38,7 @@ public final class NativeMindSenseFixtureWriter {
         boolean chicken=recipient.equals("minecraft:chicken");
         double bodyWidth=chicken?0.4:0.6;
         double bodyHeight=chicken?0.7:1.95;
-        float bodyMaxHealth=chicken?4.0f:20.0f;
+        float bodyMaxHealth=chicken?4.0f:(recipient.equals("minecraft:piglin")?16.0f:20.0f);
         var body=new NativeMindSenseFrame.BodySense(recipient,0,0,0,
             0,0,0,0,0,bodyWidth,bodyHeight,bodyMaxHealth,bodyMaxHealth,
             true,true,false,false);
