@@ -9,8 +9,9 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ClientInformation;
 import com.mojang.authlib.GameProfile;
-import net.neoforged.neoforge.common.util.FakePlayerFactory;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import dev.freakyfriday.FreakyFriday;
@@ -674,12 +675,15 @@ public final class DetachedProbeGameTests {
                 NativeAiWorkerServer.setEntityTickingChunk(level,owner,cx,cz,forced);
     }
 
-    private static ServerPlayer fakePlayer(ServerLevel level,UUID id) {
+    private static ServerPlayer workerPlayer(ServerLevel level,UUID id) {
         String shortId=id.toString().replace("-","");
         String name="FF"+shortId.substring(0,9);
-        ServerPlayer player=FakePlayerFactory.get(level,new GameProfile(id,name));
+        // A genuine ServerPlayer body with native Player.attack and a
+        // test-owned UUID, not a special fake-player class.
+        ServerPlayer player=new ServerPlayer(level.getServer(),level,
+            new GameProfile(id,name),ClientInformation.createDefault());
+        player.gameMode.changeGameModeForPlayer(GameType.SURVIVAL);
         level.addNewPlayer(player);
-        player.gameMode.changeGameModeForPlayer(net.minecraft.world.level.GameType.SURVIVAL);
         player.setNoGravity(true);
         for(int tick=0;tick<30;tick++) player.tick();
         player.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
@@ -756,7 +760,7 @@ public final class DetachedProbeGameTests {
             var factoryT=net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getValue(tId);
             net.minecraft.world.entity.LivingEntity entityR;
             if("minecraft:player".equals(recipientType)) {
-                entityR=fakePlayer(level,recipientId);
+                entityR=workerPlayer(level,recipientId);
             } else {
                 var factoryR=net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getValue(rId);
                 var createdR=factoryR.create(level,EntitySpawnReason.COMMAND);
@@ -766,7 +770,7 @@ public final class DetachedProbeGameTests {
             var entityD=factoryD.create(level,EntitySpawnReason.COMMAND);
             net.minecraft.world.entity.LivingEntity entityT;
             if("minecraft:player".equals(stimulusType)) {
-                entityT=fakePlayer(level,stimulusId);
+                entityT=workerPlayer(level,stimulusId);
             } else {
                 var createdT=factoryT.create(level,EntitySpawnReason.COMMAND);
                 entityT=createdT instanceof net.minecraft.world.entity.LivingEntity living
