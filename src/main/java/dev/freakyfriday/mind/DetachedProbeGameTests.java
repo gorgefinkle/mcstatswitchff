@@ -682,7 +682,9 @@ public final class DetachedProbeGameTests {
         // test-owned UUID, not a special fake-player class.
         ServerPlayer player=new ServerPlayer(level.getServer(),level,
             new GameProfile(id,name),ClientInformation.createDefault());
-        player.gameMode.changeGameModeForPlayer(GameType.SURVIVAL);
+        // ServerPlayer defaults to survival. Do not invoke changeGameModeForPlayer
+        // here: that constructs a player-info packet and reads connection latency,
+        // but this isolated test-owned body has no network connection.
         level.addNewPlayer(player);
         player.setNoGravity(true);
         for(int tick=0;tick<30;tick++) player.tick();
