@@ -228,7 +228,12 @@ public final class PlayerMobGameTests {
                     && receipt.tick()==currentTick+1
                     && stream.nextTick()==currentTick+1
                     && !stream.hasOutstandingRequest(),
-                "Sequential authenticated worker tick did not reach original player body");
+                "Sequential authenticated worker tick did not reach original player body"
+                    +" sample="+sample+" requestTick="+request.tick()
+                    +" admittedFrameTick="+admitted.tick()+" receipt="+receipt
+                    +" nextSensoryTick="+stream.nextTick()
+                    +" outstanding="+stream.hasOutstandingRequest()
+                    +" streamState="+stream.state()+" fault="+stream.fault());
         }
         long reverseTick=stream.nextTick();
         stream.close();
