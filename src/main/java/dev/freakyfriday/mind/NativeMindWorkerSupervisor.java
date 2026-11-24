@@ -167,7 +167,7 @@ public final class NativeMindWorkerSupervisor {
             Files.writeString(root.resolve("server.properties"),
                 "online-mode=false\nserver-port=0\nlevel-name=ff-native-mind-worker-world\n"
                 +"difficulty=normal\ngamemode=survival\n"
-                +"spawn-monsters=true\nspawn-animals=true\n"
+                +"level-seed=0\nlevel-type=minecraft:flat\ngenerate-structures=false\n"
                 +"simulation-distance=2\nview-distance=2\nmax-players=1\n"
                 +"spawn-protection=0\n");
             NativeMindSessionChannel channel=new NativeMindSessionChannel(
