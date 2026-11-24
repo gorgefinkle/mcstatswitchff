@@ -775,10 +775,13 @@ public final class DetachedProbeGameTests {
                     && level.addFreshEntity(originalDonorBody)
                     && level.addFreshEntity(targetBody),
                 "Genuine receiver/target Mob entities not registered");
-            helper.assertTrue(level.getEntity(stimulusId)==targetBody,
-                "Mapped native attack target did not register in receiver world");
-            helper.assertTrue(level.getEntity(recipientId)==receiverBody,
-                "Signed frame must refer to the actual physical recipient");
+            // addFreshEntity admits entities before every ServerLevel UUID
+            // lookup path is necessarily populated in this GameTest tick.
+            // Keep the actual object references and assert world lookup only
+            // after Minecraft has completed its entity-manager tick below.
+            helper.assertTrue(targetBody.getUUID().equals(stimulusId)
+                    && receiverBody.getUUID().equals(recipientId),
+                "Signed frame must retain the physical recipient and target identities");
             float healthBefore=receiverBody.getHealth();
             float donorHealthBefore=originalDonorBody.getHealth();
             java.util.UUID originalMind=java.util.UUID.randomUUID();
@@ -833,6 +836,9 @@ public final class DetachedProbeGameTests {
                 helper.assertTrue(level.getEntity(recipientId)==recipient
                         && recipient.isAlive(),
                     "Real recipient not registered/alive at native dispatch tick");
+                helper.assertTrue(level.getEntity(stimulusId)==mappedTarget
+                        && mappedTarget.isAlive(),
+                    "Mapped native attack target was not indexed in receiver world after entity-manager tick");
                 float targetHealthImmediatelyBeforeDispatch=mappedTarget.getHealth();
                 var result=bridge.deliverAuthenticated(packet,secret,session,tick);
                 float targetHealthImmediatelyAfterDispatch=mappedTarget.getHealth();
