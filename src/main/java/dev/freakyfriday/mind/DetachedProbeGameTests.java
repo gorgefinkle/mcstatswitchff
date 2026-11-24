@@ -756,10 +756,10 @@ public final class DetachedProbeGameTests {
             // chunks; the native AI action must then move THAT same entity.
             receiverBody.setPersistenceRequired();
             originalDonorBody.setPersistenceRequired();
-            ServerPlayer spectatorAnchor=helper.makeMockServerPlayerInLevel();
-            var spectatorPos=helper.absolutePos(new BlockPos(2,1,2));
-            spectatorAnchor.setPos(spectatorPos.getX()+0.5,
-                spectatorPos.getY(),spectatorPos.getZ()+0.5);
+            // The arena already owns explicit full entity-ticking tickets.
+            // Do not create a mock player here: GameTest batches can run
+            // another mock-player workflow concurrently, and the synthetic
+            // player connection is global to the test server.
             // Disable only the recipient's own goals in this disposable test
             // fixture, while keeping its ACTUAL native navigation/controller
             // running to obey the donor's observed relative movement.
