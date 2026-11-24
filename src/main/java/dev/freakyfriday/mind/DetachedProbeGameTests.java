@@ -10,6 +10,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import com.mojang.authlib.GameProfile;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import dev.freakyfriday.FreakyFriday;
@@ -684,6 +685,10 @@ public final class DetachedProbeGameTests {
         if(!player.getUUID().equals(id))
             throw new IllegalStateException("Fake player did not retain the requested physical body UUID");
         level.addNewPlayer(player);
+        // Player-body combat must use its real survival attack pipeline.
+        // FakePlayerFactory provides the dummy packet listener required for
+        // this mode packet; a bare ServerPlayer cannot safely receive it.
+        player.gameMode.changeGameModeForPlayer(GameType.SURVIVAL);
         player.setNoGravity(true);
         for(int tick=0;tick<30;tick++) player.tick();
         player.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
