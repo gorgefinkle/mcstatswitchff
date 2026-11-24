@@ -7,7 +7,7 @@ public final class NativeMindSenseFrameSelfTest {
     public static void main(String[] args) {
         UUID body=UUID.randomUUID(), mind=UUID.randomUUID(), target=UUID.randomUUID();
         var self=new NativeMindSenseFrame.BodySense("minecraft:chicken",
-            10,64,-3,0.1,0,0,90,0,4,4,true,true,false,false);
+            0,0,0,0.1,0,0,90,0,4,4,true,true,false,false);
         var entity=new NativeMindSenseFrame.EntitySense(target,"minecraft:zombie",
             2,0,-1,0,0,0,20,20,true,true,true);
         var block=new NativeMindSenseFrame.BlockSense(0,-1,0,
@@ -33,7 +33,10 @@ public final class NativeMindSenseFrameSelfTest {
             new NativeMindSenseFrame.BodySense("minecraft:chicken",Double.NaN,
             64,-3,0,0,0,0,0,4,4,true,true,false,false),List.of(),List.of()); }
         catch(IllegalArgumentException expected) { rejected++; }
-        assert rejected==4;
-        System.out.println("PASS NativeMindSenseFrameSelfTest: 8 assertions; recipient-relative bounded sensory contract");
+        try { new NativeMindSenseFrame.BodySense("minecraft:chicken",
+            10,64,-3,0,0,0,0,0,4,4,true,true,false,false); }
+        catch(IllegalArgumentException expected) { rejected++; }
+        assert rejected==5;
+        System.out.println("PASS NativeMindSenseFrameSelfTest: 9 assertions; body-local bounded sensory contract");
     }
 }
