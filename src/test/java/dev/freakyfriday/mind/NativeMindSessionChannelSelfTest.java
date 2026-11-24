@@ -31,8 +31,8 @@ public final class NativeMindSessionChannelSelfTest {
         UUID session=UUID.randomUUID(), body=UUID.randomUUID(), mind=UUID.randomUUID();
         byte[] key=CapturedIntentWireCodec.generateKey();
         var channel=new NativeMindSessionChannel(session,body,mind,key,40,2);
-        var request=channel.begin(senses(body,mind,40,true));
-        check(request.tick()==40 && request.deadlineTick()==42,"request tick/deadline");
+        var request=channel.begin(senses(body,mind,40,true),100);
+        check(request.tick()==40 && request.deadlineTick()==102,"sensory/host deadline clocks are separate");
         check(channel.hasOutstandingRequest(),"request remains outstanding");
         check(request.sensoryWire().length>32,"authenticated sensory wire emitted");
         rejects(()->channel.begin(senses(body,mind,41,true)),"must not pipeline requests");
@@ -44,8 +44,8 @@ public final class NativeMindSessionChannelSelfTest {
 
         byte[] key2=CapturedIntentWireCodec.generateKey();
         var healthy=new NativeMindSessionChannel(session,body,mind,key2,5,2);
-        var req5=healthy.begin(senses(body,mind,5,true));
-        rejects(()->healthy.complete(response(session,body,mind,5,key2),8),
+        var req5=healthy.begin(senses(body,mind,5,true),50);
+        rejects(()->healthy.complete(response(session,body,mind,5,key2),53),
             "late response must reject");
         check(healthy.state()==NativeMindSessionChannel.State.FAULTED,
             "late response closes admission");
@@ -53,12 +53,13 @@ public final class NativeMindSessionChannelSelfTest {
         byte[] key3=CapturedIntentWireCodec.generateKey();
         var stream=new NativeMindSessionChannel(session,body,mind,key3,100,2);
         for(long tick=100;tick<120;) {
-            var req=stream.begin(senses(body,mind,tick,true));
-            var accepted=stream.complete(response(session,body,mind,tick,key3),tick+1);
-            check(req.tick()==tick && accepted.tick()==tick+1,
-                "sensory tick rebased to authoritative dispatch tick "+tick);
-            check(stream.nextTick()==tick+2 && !stream.hasOutstandingRequest(),
-                "next request follows the dispatch tick "+tick);
+            long hostTick=tick*10;
+            var req=stream.begin(senses(body,mind,tick,true),hostTick);
+            var accepted=stream.complete(response(session,body,mind,tick,key3),hostTick+1);
+            check(req.tick()==tick && accepted.tick()==hostTick+1,
+                "sensory sequence rebased to actual host dispatch tick "+tick);
+            check(stream.nextTick()==tick+1 && !stream.hasOutstandingRequest(),
+                "next sensory sequence remains consecutive despite host tick gaps "+tick);
             tick=stream.nextTick();
         }
         check(stream.state()==NativeMindSessionChannel.State.ACTIVE,
@@ -66,9 +67,9 @@ public final class NativeMindSessionChannelSelfTest {
 
         byte[] key4=CapturedIntentWireCodec.generateKey();
         var timeout=new NativeMindSessionChannel(session,body,mind,key4,7,1);
-        timeout.begin(senses(body,mind,7,true));
-        check(!timeout.expire(8),"deadline tick itself remains admissible");
-        check(timeout.expire(9),"missing reply expires after deadline");
+        timeout.begin(senses(body,mind,7,true),100);
+        check(!timeout.expire(101),"deadline tick itself remains admissible");
+        check(timeout.expire(102),"missing reply expires after host deadline");
         check(timeout.state()==NativeMindSessionChannel.State.FAULTED,
             "timeout faults stream");
 

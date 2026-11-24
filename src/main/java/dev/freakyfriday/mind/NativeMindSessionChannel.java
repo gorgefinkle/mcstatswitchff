@@ -41,6 +41,7 @@ public final class NativeMindSessionChannel implements AutoCloseable {
     private State state = State.ACTIVE;
     private long nextTick;
     private long outstandingTick = -1;
+    private long requestHostTick = -1;
     private long deadlineTick = -1;
     private String fault = "";
 
@@ -63,10 +64,22 @@ public final class NativeMindSessionChannel implements AutoCloseable {
     public synchronized boolean hasOutstandingRequest() { return outstandingTick >= 0; }
     public synchronized String fault() { return fault; }
 
-    /** Encode one current recipient snapshot; no pipelining or tick skipping. */
+    /** Backwards-compatible one-clock entrypoint used by codec-only tests. */
     public synchronized Request begin(NativeMindSenseFrame senses) {
+        return begin(senses, senses.tick());
+    }
+
+    /**
+     * Encode one body-local sensory sequence while measuring the response
+     * deadline against the REAL server tick. A worker may need several server
+     * ticks to boot or process the snapshot; those host ticks must not corrupt
+     * the strict consecutive sensory sequence consumed by NativeMindMirrorState.
+     */
+    public synchronized Request begin(NativeMindSenseFrame senses,long hostTick) {
         requireActive();
         Objects.requireNonNull(senses);
+        if (hostTick < 0)
+            throw new IllegalArgumentException("Negative host tick");
         if (outstandingTick >= 0)
             throw new IllegalStateException("Previous native-AI tick is still outstanding");
         if (!bodyId.equals(senses.bodyId()) || !mindId.equals(senses.mindId()))
@@ -80,7 +93,8 @@ public final class NativeMindSessionChannel implements AutoCloseable {
         }
         byte[] wire = NativeMindSenseWireCodec.encode(senses, key);
         outstandingTick = nextTick;
-        deadlineTick = Math.addExact(nextTick, deadlineTicks);
+        requestHostTick = hostTick;
+        deadlineTick = Math.addExact(hostTick, deadlineTicks);
         return new Request(sessionId, bodyId, mindId, outstandingTick,
             deadlineTick, wire);
     }
@@ -95,7 +109,7 @@ public final class NativeMindSessionChannel implements AutoCloseable {
         requireActive();
         if (outstandingTick < 0)
             throw new IllegalStateException("No native-AI request is outstanding");
-        if (receivedAtTick < outstandingTick)
+        if (receivedAtTick < requestHostTick)
             throw new IllegalArgumentException("Response receipt tick moved backwards");
         if (receivedAtTick > deadlineTick) {
             fault("Native-AI response missed deadline at tick " + deadlineTick);
@@ -114,8 +128,9 @@ public final class NativeMindSessionChannel implements AutoCloseable {
             CapturedIntentBridge.Frame dispatchFrame = new CapturedIntentBridge.Frame(
                 bodyId, mindId, receivedAtTick, frame.actions());
             outstandingTick = -1;
+            requestHostTick = -1;
             deadlineTick = -1;
-            nextTick = Math.addExact(receivedAtTick, 1);
+            nextTick = Math.addExact(envelope.frame().tick(), 1);
             return dispatchFrame;
         } catch (RuntimeException invalid) {
             fault("Rejected worker response: " + invalid.getMessage());
@@ -136,6 +151,7 @@ public final class NativeMindSessionChannel implements AutoCloseable {
             state = State.FAULTED;
             fault = Objects.requireNonNullElse(reason, "Native-AI session faulted");
             outstandingTick = -1;
+            requestHostTick = -1;
             deadlineTick = -1;
             Arrays.fill(key, (byte) 0);
         }
