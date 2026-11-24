@@ -36,14 +36,15 @@ public final class NativeMindSenseFixtureWriter {
             throw new IllegalArgumentException("Fixture HMAC key must be 256 bits");
 
         boolean chicken=recipient.equals("minecraft:chicken");
+        boolean player=recipient.equals("minecraft:player");
         double bodyWidth=chicken?0.4:0.6;
-        double bodyHeight=chicken?0.7:1.95;
+        double bodyHeight=chicken?0.7:player?1.8:1.95;
         float bodyMaxHealth=chicken?4.0f:(recipient.equals("minecraft:piglin")?16.0f:20.0f);
         var body=new NativeMindSenseFrame.BodySense(recipient,0,0,0,
             0,0,0,0,0,bodyWidth,bodyHeight,bodyMaxHealth,bodyMaxHealth,
             true,true,false,false);
 
-        double targetWidth=0.6,targetHeight=1.95;
+        double targetWidth=0.6,targetHeight=stimulus.equals("minecraft:player")?1.8:1.95;
         var target=new NativeMindSenseFrame.EntitySense(stimulusId,stimulus,
             targetDx,0,0,0,0,0,0,0,targetWidth,targetHeight,20,20,
             true,true,true);

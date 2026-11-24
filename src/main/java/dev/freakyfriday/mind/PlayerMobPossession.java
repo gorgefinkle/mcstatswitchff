@@ -36,13 +36,15 @@ public final class PlayerMobPossession {
         final float originalYaw,originalPitch;
         final boolean originalNoAi;
         final boolean originalNoGravity;
+        final boolean reciprocal;
         Input input = new Input(0,0,false,0,0,0);
         long lastInputTick;
         long lastAttackTick=Long.MIN_VALUE/4;
         long lastAttackSequence;
-        Session(ServerPlayer player, Mob body) {
+        Session(ServerPlayer player, Mob body, boolean reciprocal) {
             this.player = player;
             this.body = body;
+            this.reciprocal = reciprocal;
             this.anchor = player.position();
             this.originalYaw=player.getYRot();
             this.originalPitch=player.getXRot();
@@ -99,7 +101,34 @@ public final class PlayerMobPossession {
         if (!body.getPassengers().isEmpty() || body.isPassenger())
             return "Cannot possess a mounted mob yet.";
 
-        Session session = new Session(player,body);
+        return begin(player,body,false);
+    }
+
+    /**
+     * Atomic reciprocal variant for a future full player↔mob exchange:
+     * authenticated player input continues to drive the Mob body while an
+     * isolated mob-mind worker drives the original ServerPlayer body.
+     * This does not start that worker; it only applies the player-side half.
+     */
+    public static synchronized String beginReciprocal(ServerPlayer player,Mob body) {
+        return begin(player,body,true);
+    }
+
+    private static synchronized String begin(ServerPlayer player,Mob body,boolean reciprocal) {
+        if (player == null || body == null || !player.isAlive() || !body.isAlive())
+            return "Both bodies must be alive.";
+        if (player.level()!=body.level())
+            return "Both bodies must be in the same loaded dimension.";
+        if (player.isRemoved() || body.isRemoved())
+            return "Both bodies must be active.";
+        if (ACTIVE.containsKey(player.getUUID()))
+            return "Already controlling a mob. Use /freakyfriday cancel to return.";
+        if (BODY_OWNERS.containsKey(body.getUUID()))
+            return "That mob is already controlled by a player.";
+        if (!body.getPassengers().isEmpty() || body.isPassenger())
+            return "Cannot possess a mounted mob yet.";
+
+        Session session = new Session(player,body,reciprocal);
         ACTIVE.put(player.getUUID(),session);
         BODY_OWNERS.put(body.getUUID(),player.getUUID());
         body.getNavigation().stop();
@@ -233,18 +262,22 @@ public final class PlayerMobPossession {
                 }
                 continue;
             }
-            // Original player's actual body remains in place; do not transfer
-            // account authority or inventory to the mob. Packet movement of
-            // original LocalPlayer is countered by server-owned anchor.
-            player.setDeltaMovement(Vec3.ZERO);
-            if (player.position().distanceToSqr(s.anchor)>0.0001)
-                player.setPos(s.anchor.x,s.anchor.y,s.anchor.z);
+            // In one-way possession the account's original player body stays
+            // anchored. In reciprocal mode it is the mob mind's physical body,
+            // so do not freeze or teleport it while player input drives the Mob.
+            if(!s.reciprocal) {
+                player.setDeltaMovement(Vec3.ZERO);
+                if (player.position().distanceToSqr(s.anchor)>0.0001)
+                    player.setPos(s.anchor.x,s.anchor.y,s.anchor.z);
+            }
 
             Input in=(player.level().getGameTime()-s.lastInputTick <= 8)
                 ? s.input:new Input(0,0,false,s.input.yaw(),s.input.pitch(),s.input.sequence());
-            player.setYRot(s.originalYaw);
-            player.setXRot(s.originalPitch);
-            player.setYHeadRot(s.originalYaw);
+            if(!s.reciprocal) {
+                player.setYRot(s.originalYaw);
+                player.setXRot(s.originalPitch);
+                player.setYHeadRot(s.originalYaw);
+            }
             PossessionMotion.step(body,in.forward(),in.strafe(),in.jump(),
                 in.yaw(),in.pitch());
             if ((player.level().getGameTime()&1L)==0

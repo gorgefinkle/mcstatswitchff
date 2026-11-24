@@ -91,7 +91,7 @@ public final class NativeAiWorkerServer {
         final ServerLevel level;
         final Request request;
         final Mob donor;
-        Mob stimulus;
+        net.minecraft.world.entity.LivingEntity stimulus;
         final BlockPos anchor;
         final NativeMindMirrorWorld mirrorWorld;
         final boolean stimulusAlreadyRegistered;
@@ -235,7 +235,7 @@ public final class NativeAiWorkerServer {
             Mob donor=construct(level,request.donor());
             donor.setPos(0.5,121,0.5);
             donor.setPersistenceRequired();
-            Mob stimulus;
+            net.minecraft.world.entity.LivingEntity stimulus;
             NativeMindMirrorWorld mirrorWorld=null;
             NativeMindMirrorState mirrorState=null;
             NativeMindSenseFrame previousSense=null;
@@ -276,12 +276,12 @@ public final class NativeAiWorkerServer {
                 startupMirror=mirrorWorld;
                 NativeMindMirrorWorld.Report report=mirrorWorld.reconcile(level,donor,mirrorSnapshot);
                 Entity mirroredStimulus=mirrorWorld.managedEntity(request.stimulusId());
-                if(!(mirroredStimulus instanceof Mob mob)
-                        || !BuiltInRegistries.ENTITY_TYPE.getKey(mob.getType()).toString()
+                if(!(mirroredStimulus instanceof net.minecraft.world.entity.LivingEntity living)
+                        || !BuiltInRegistries.ENTITY_TYPE.getKey(living.getType()).toString()
                             .equals(request.stimulus()))
-                    throw new IllegalStateException("Authenticated sensory frame did not materialize requested stimulus mob");
-                stimulus=mob;
-                stimulus.setPersistenceRequired();
+                    throw new IllegalStateException("Authenticated sensory frame did not materialize requested stimulus living entity");
+                stimulus=living;
+                if(stimulus instanceof Mob mob) mob.setPersistenceRequired();
                 System.out.println("FF-NATIVE-WORKER MIRROR_RECONCILE PASS"
                     +" entitiesAdded="+report.addedEntities()
                     +" blocksChanged="+report.changedBlocks()
@@ -411,7 +411,8 @@ public final class NativeAiWorkerServer {
         if (!started || active==null || active.failed) return;
         State state=active;
         state.age++;
-        Mob donor=state.donor, stimulus=state.stimulus;
+        Mob donor=state.donor;
+        net.minecraft.world.entity.LivingEntity stimulus=state.stimulus;
         if(!state.spawned) {
             if(state.age<5)return;
             boolean donorAdded=state.level.addFreshEntity(donor);

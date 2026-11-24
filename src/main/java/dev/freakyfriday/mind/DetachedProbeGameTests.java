@@ -688,7 +688,9 @@ public final class DetachedProbeGameTests {
                 && java.nio.file.Files.isRegularFile(nextPacketPath),
             "A two-frame worker fixture must be complete; partial or stale sessions are rejected");
         ServerLevel level=helper.getLevel();
-        Mob receiverBody=null, originalDonorBody=null, targetBody=null;
+        net.minecraft.world.entity.LivingEntity receiverBody=null;
+        Mob originalDonorBody=null;
+        net.minecraft.world.entity.LivingEntity targetBody=null;
         UUID ticketOwner=UUID.randomUUID();
         int[] ticketBounds=arenaChunkBounds(helper,1,12,1,12);
         setArenaChunks(level,ticketOwner,ticketBounds,true);
@@ -730,15 +732,25 @@ public final class DetachedProbeGameTests {
             var factoryR=net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getValue(rId);
             var factoryD=net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getValue(dId);
             var factoryT=net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getValue(tId);
-            var entityR=factoryR.create(level,EntitySpawnReason.COMMAND);
+            net.minecraft.world.entity.LivingEntity entityR;
+            if("minecraft:player".equals(recipientType)) {
+                entityR=helper.makeMockServerPlayerInLevel();
+            } else {
+                entityR=factoryR.create(level,EntitySpawnReason.COMMAND);
+            }
             var entityD=factoryD.create(level,EntitySpawnReason.COMMAND);
-            var entityT=factoryT.create(level,EntitySpawnReason.COMMAND);
-            helper.assertTrue(entityR instanceof Mob && entityD instanceof Mob
-                    && entityT instanceof Mob,
-                "Native donor, recipient and target must be genuine Mob entities");
-            receiverBody=(Mob)entityR;
+            net.minecraft.world.entity.LivingEntity entityT;
+            if("minecraft:player".equals(stimulusType)) {
+                entityT=helper.makeMockServerPlayerInLevel();
+            } else {
+                entityT=factoryT.create(level,EntitySpawnReason.COMMAND);
+            }
+            helper.assertTrue(entityR!=null && entityD instanceof Mob
+                    && entityT!=null,
+                "Native donor, recipient and target factories must create living bodies");
+            receiverBody=entityR;
             originalDonorBody=(Mob)entityD;
-            targetBody=(Mob)entityT;
+            targetBody=entityT;
             var start=helper.absolutePos(new BlockPos(6,1,6));
             for(int x=1;x<=12;x++)for(int z=1;z<=12;z++) {
                 level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,0,z)),
@@ -751,9 +763,11 @@ public final class DetachedProbeGameTests {
             targetBody.setPos(start.getX()+2.5,start.getY(),start.getZ()+0.5);
             receiverBody.setUUID(recipientId);
             targetBody.setUUID(stimulusId);
-            targetBody.setNoAi(true);
-            targetBody.setNoGravity(true);
-            targetBody.setPersistenceRequired();
+            if(targetBody instanceof Mob targetMob) {
+                targetMob.setNoAi(true);
+                targetMob.setNoGravity(true);
+                targetMob.setPersistenceRequired();
+            }
             // This is an isolated GameTest, not a normal mob spawn. Keep
             // the actual Mob bodies alive while the server registers their
             // chunks; the native AI action must then move THAT same entity.
@@ -766,9 +780,11 @@ public final class DetachedProbeGameTests {
             // Disable only the recipient's own goals in this disposable test
             // fixture, while keeping its ACTUAL native navigation/controller
             // running to obey the donor's observed relative movement.
-            receiverBody.goalSelector.removeAllGoals(goal->true);
-            receiverBody.targetSelector.removeAllGoals(goal->true);
-            receiverBody.setNoAi(false);
+            if(receiverBody instanceof Mob recipientMob) {
+                recipientMob.goalSelector.removeAllGoals(goal->true);
+                recipientMob.targetSelector.removeAllGoals(goal->true);
+                recipientMob.setNoAi(false);
+            }
             originalDonorBody.setNoAi(true);
             // Recipient must use its real gravity/ground contact and native
             // navigation. The original-donor fixture is the only body held.
@@ -789,11 +805,25 @@ public final class DetachedProbeGameTests {
             float donorHealthBefore=originalDonorBody.getHealth();
             java.util.UUID originalMind=java.util.UUID.randomUUID();
             var bridge=new CapturedIntentBridge();
-            bridge.register(new MinecraftBodyPort(receiverBody),
-                new MindLedger.Mind(originalMind,MindLedger.Kind.NPC,recipientType));
+            bridge.register(MinecraftBodyPortFactory.create(receiverBody),
+                new MindLedger.Mind(originalMind,
+                    receiverBody instanceof ServerPlayer ? MindLedger.Kind.PLAYER : MindLedger.Kind.NPC,
+                    recipientType));
             bridge.register(new MinecraftBodyPort(originalDonorBody),
                 new MindLedger.Mind(donorMind,MindLedger.Kind.NPC,donorType));
             bridge.exchange(recipientId,originalDonorBody.getUUID());
+            final ServerPlayer reciprocalPlayer=receiverBody instanceof ServerPlayer player
+                ? player : null;
+            final double originalDonorX=originalDonorBody.getX();
+            final double originalDonorZ=originalDonorBody.getZ();
+            if(reciprocalPlayer!=null) {
+                String possessionIssue=PlayerMobPossession.beginReciprocal(
+                    reciprocalPlayer,originalDonorBody);
+                helper.assertTrue(possessionIssue==null,
+                    "Reciprocal player→mob input half did not start: "+possessionIssue);
+                PlayerMobPossession.input(reciprocalPlayer,
+                    new PlayerMobPossession.Input(1,0,false,90,0,1));
+            }
 
             byte[] packet=java.nio.file.Files.readAllBytes(packetPath);
             helper.assertTrue(packet.length>0
@@ -843,8 +873,9 @@ public final class DetachedProbeGameTests {
             try{bridge.deliverAuthenticated(corrupt,secret,session,tick);}
             catch(IllegalArgumentException expected){tamperRejected=true;}
             helper.assertTrue(tamperRejected,"Receiver admitted tampered native worker frame");
-            final Mob recipient=receiverBody, donor=originalDonorBody,
-                mappedTarget=targetBody;
+            final net.minecraft.world.entity.LivingEntity recipient=receiverBody;
+            final Mob donor=originalDonorBody;
+            final net.minecraft.world.entity.LivingEntity mappedTarget=targetBody;
             final double originalX=recipient.getX(), originalZ=recipient.getZ();
             final String donorName=donorType, recipientName=recipientType;
             // Minecraft entity/nav initialization runs in subsequent server
@@ -859,7 +890,7 @@ public final class DetachedProbeGameTests {
                     "Mapped native attack target was not indexed in receiver world after entity-manager tick");
                 float targetHealthImmediatelyBeforeDispatch=mappedTarget.getHealth();
                 boolean recipientCanAttack=
-                    new MinecraftBodyPort(recipient).supports(MinecraftBodyPort.ATTACK_ENTITY);
+                    MinecraftBodyPortFactory.create(recipient).supports(MinecraftBodyPort.ATTACK_ENTITY);
                 BodyActionGate.Status expectedAttackStatus=recipientCanAttack
                     ? BodyActionGate.Status.EXECUTED : BodyActionGate.Status.UNAVAILABLE;
                 var result=bridge.deliverAuthenticated(packet,secret,session,tick);
@@ -934,6 +965,14 @@ public final class DetachedProbeGameTests {
                             recipient.getZ()-originalZ);
                         double movedAfterSecond=Math.hypot(recipient.getX()-secondStartX,
                             recipient.getZ()-secondStartZ);
+                        if(reciprocalPlayer!=null) {
+                            double playerMindMovedMob=Math.hypot(
+                                donor.getX()-originalDonorX,donor.getZ()-originalDonorZ);
+                            helper.assertTrue(playerMindMovedMob>0.05,
+                                "Player mind did not physically move the opposite Mob body"
+                                +" moved="+playerMindMovedMob);
+                            PlayerMobPossession.end(reciprocalPlayer);
+                        }
                         helper.assertTrue(moved>0.20 && movedAfterSecond>0.04,
                             "REAL recipient did not physically follow both donor-native frames"
                             +" donor="+donorName+" recipient="+recipientName
@@ -955,6 +994,7 @@ public final class DetachedProbeGameTests {
                             +" completeNativeMindTransfer=false");
                         helper.succeed();
                     } finally {
+                        if(reciprocalPlayer!=null) PlayerMobPossession.end(reciprocalPlayer);
                         recipient.discard();
                         donor.discard();
                         mappedTarget.discard();
@@ -964,9 +1004,11 @@ public final class DetachedProbeGameTests {
             });
             });
         } catch(Exception failure) {
-            if(receiverBody!=null)receiverBody.discard();
+            if(receiverBody instanceof ServerPlayer player)
+                PlayerMobPossession.end(player);
+            if(receiverBody!=null && !(receiverBody instanceof ServerPlayer))receiverBody.discard();
             if(originalDonorBody!=null)originalDonorBody.discard();
-            if(targetBody!=null)targetBody.discard();
+            if(targetBody!=null && !(targetBody instanceof ServerPlayer))targetBody.discard();
             setArenaChunks(level,ticketOwner,ticketBounds,false);
             throw new AssertionError("External native AI worker receiver failure",failure);
         }
