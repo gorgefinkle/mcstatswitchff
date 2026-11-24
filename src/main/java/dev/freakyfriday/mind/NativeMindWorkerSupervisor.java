@@ -334,12 +334,33 @@ public final class NativeMindWorkerSupervisor {
         }
     }
 
+    /**
+     * Reserve every physical body and the initiating account as one operation.
+     *
+     * Validate the complete reservation before mutating either index. The old
+     * putIfAbsent loop could reserve body[0], then throw because body[1] was
+     * already occupied. Its caller would stop the workers and restore AI, but
+     * the first BY_BODY entry would remain as a ghost session that blocked
+     * future swaps and retained the PairSession indefinitely.
+     *
+     * All callers hold this class monitor (the public start methods are
+     * synchronized), so no other session can race between preflight and commit.
+     */
     private static void register(PairSession pair) {
-        for(UUID body:pair.bodyIds) {
-            if(BY_BODY.putIfAbsent(body,pair)!=null)
-                throw new IllegalStateException("A physical body was claimed during exchange startup: "+body);
+        java.util.HashSet<UUID> uniqueBodies = new java.util.HashSet<>();
+        for (UUID body : pair.bodyIds) {
+            if (body == null || !uniqueBodies.add(body))
+                throw new IllegalStateException("A mind exchange cannot reserve a null or duplicate body UUID");
+            if (BY_BODY.containsKey(body))
+                throw new IllegalStateException("A physical body was claimed during exchange startup: " + body);
         }
-        BY_ACCOUNT.put(pair.requester.getUUID(),pair);
+        UUID accountId = pair.requester.getUUID();
+        if (BY_ACCOUNT.containsKey(accountId))
+            throw new IllegalStateException("The initiating account already owns a mind exchange session: " + accountId);
+
+        // Commit only after every body and account has passed preflight.
+        for (UUID body : pair.bodyIds) BY_BODY.put(body, pair);
+        BY_ACCOUNT.put(accountId, pair);
     }
 
     @SubscribeEvent
