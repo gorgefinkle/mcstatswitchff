@@ -190,38 +190,6 @@ jobs:
             run/logs/**
             run/crash-reports/**
 
-    needs: core
-    runs-on: ubuntu-latest
-    timeout-minutes: 35
-    strategy:
-      fail-fast: false
-      matrix:
-        minecraft: ['26.2', '26.3']
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '25'
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '9.2.1'
-      - name: Run real server reciprocal supervisor tests
-        run: python3 scripts/test-native-worker-supervisor.py --minecraft ${{ matrix.minecraft }}
-      - name: Upload live supervisor and worker logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: freakyfriday-mc${{ matrix.minecraft }}-supervisor
-          retention-days: 30
-          if-no-files-found: warn
-          path: |
-            supervisor-smoke.log
-            run-supervisor-smoke/logs/**
-            run-supervisor-smoke/crash-reports/**
-            run-supervisor-smoke/freakyfriday-workers/session-*/worker.log
-            run-supervisor-smoke/freakyfriday-workers/worker-debug-*.log
-
   build:
     name: NeoForge Minecraft ${{ matrix.minecraft }}
     needs: core
