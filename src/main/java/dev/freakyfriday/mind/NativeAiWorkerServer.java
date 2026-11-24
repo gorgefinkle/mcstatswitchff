@@ -98,8 +98,10 @@ public final class NativeAiWorkerServer {
         final NativeMindMirrorState mirrorState;
         NativeMindSenseFrame previousSense;
         final Path sensesInbox;
-        final double startX, startZ;
-        int age, targetTicks, navigationTicks;
+        double lastReportedX, lastReportedZ;
+        long currentRecipientTick;
+        int frameIndex, age, targetTicks, navigationTicks;
+        boolean attackObservedEver;
         boolean produced;
         boolean spawned;
         boolean genericStimulusApplied;
@@ -121,8 +123,9 @@ public final class NativeAiWorkerServer {
             this.mirrorState=mirrorState;
             this.previousSense=previousSense;
             this.sensesInbox=sensesInbox;
-            this.startX=donor.getX();
-            this.startZ=donor.getZ();
+            this.lastReportedX=donor.getX();
+            this.lastReportedZ=donor.getZ();
+            this.currentRecipientTick=request.recipientTick();
         }
     }
 
@@ -312,7 +315,7 @@ public final class NativeAiWorkerServer {
      */
     private static void applyPendingSense(State state) {
         if(state.mirrorWorld==null || state.mirrorState==null
-                || state.sensesInbox==null || state.produced) return;
+                || state.sensesInbox==null) return;
         Path processing=state.sensesInbox.resolveSibling(
             state.sensesInbox.getFileName().toString()+".processing");
         if(!Files.exists(state.sensesInbox,java.nio.file.LinkOption.NOFOLLOW_LINKS))
@@ -346,6 +349,14 @@ public final class NativeAiWorkerServer {
                 throw new IllegalStateException("Updated sensory frame removed or changed the required native AI target");
             state.stimulus=mob;
             state.previousSense=next;
+            state.currentRecipientTick=next.tick();
+            state.produced=false;
+            state.attackedTarget=null;
+            state.attackedTargetType=null;
+            state.targetTicks=0;
+            state.navigationTicks=0;
+            state.observedMovement=null;
+            state.age=0;
             System.out.println("FF-NATIVE-WORKER MIRROR_DELTA_APPLIED PASS"
                 +" fromTick="+delta.fromTick()+" toTick="+delta.toTick()
                 +" entitiesAdded="+report.addedEntities()
@@ -375,6 +386,7 @@ public final class NativeAiWorkerServer {
             return;
         if(event.getSource().getEntity()==state.donor) {
             state.attackedTarget=event.getEntity().getUUID();
+            state.attackObservedEver=true;
             state.attackedTargetType=event.getEntity().getType().toString();
             // Do not let the shadow donor damage the worker's target. The
             // physical recipient will perform the mapped attack in its world.
@@ -384,7 +396,7 @@ public final class NativeAiWorkerServer {
 
     @SubscribeEvent
     public static void onServerTick(ServerTickEvent.Post event) {
-        if (!started || active==null || active.produced) return;
+        if (!started || active==null) return;
         State state=active;
         state.age++;
         Mob donor=state.donor, stimulus=state.stimulus;
@@ -471,7 +483,7 @@ public final class NativeAiWorkerServer {
         // through the very same native navigation seam. No entity-type
         // conditional or species recipe decides the action.
         var movement=NativeMindObservation.observe(
-            state.startX,donor.getY(),state.startZ,
+            state.lastReportedX,donor.getY(),state.lastReportedZ,
             donor.getX(),donor.getY(),donor.getZ(),
             state.navigationTicks>=2);
         if(movement!=null)state.observedMovement=movement;
@@ -480,12 +492,12 @@ public final class NativeAiWorkerServer {
         // native damage pipeline. The incoming hit is canceled only in this
         // disposable worker so the mapped recipient can perform it once.
         if(state.observedMovement!=null
-                && (!state.request.requireAttack() || state.attackedTarget!=null)) {
+                && (!state.request.requireAttack() || state.attackObservedEver)) {
             try {
                 var frame=NativeMindObservation.frame(
                     state.request.recipientBody(),
                     state.request.sourceMind(),
-                    state.request.recipientTick(),state.observedMovement,
+                    state.currentRecipientTick,state.observedMovement,
                     state.attackedTarget);
                 byte[] signed=CapturedIntentWireCodec.encode(
                     new CapturedIntentWireCodec.Envelope(
@@ -499,6 +511,11 @@ public final class NativeAiWorkerServer {
                     Files.move(tmp,OUTPUT,StandardCopyOption.REPLACE_EXISTING);
                 }
                 state.produced=true;
+                long completedFrame=state.frameIndex++;
+                state.lastReportedX=donor.getX();
+                state.lastReportedZ=donor.getZ();
+                state.attackedTarget=null;
+                state.attackedTargetType=null;
                 System.out.println("FF-NATIVE-WORKER NATIVE_NAVIGATION_OBSERVED"
                     +" donor="+state.request.donor()
                     +" nativeTargetTicks="+state.targetTicks
@@ -513,6 +530,8 @@ public final class NativeAiWorkerServer {
                         +" targetType="+state.attackedTargetType
                         +" damageCancelledInWorker=true");
                 System.out.println("FF-NATIVE-WORKER FRAME_WRITTEN PASS"
+                    +" frameIndex="+completedFrame
+                    +" recipientTick="+state.currentRecipientTick
                     +" signedBytes="+signed.length
                     +" donorNativeAiActuallyTicked=true"
                     +" attackCaptured="+(state.attackedTarget!=null)

@@ -214,16 +214,16 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
             "FF-NATIVE-WORKER MIRROR_RECONCILE PASS",
             "FF-NATIVE-WORKER ENTITIES_SPAWNED PASS",
             "FF-NATIVE-WORKER MIRROR_DELTA_APPLIED PASS",
-            "FF-NATIVE-WORKER NATIVE_NAVIGATION_OBSERVED",
-            "FF-NATIVE-WORKER FRAME_WRITTEN PASS",
+            "FF-NATIVE-WORKER FRAME_WRITTEN PASS frameIndex=0",
+            "FF-NATIVE-WORKER FRAME_WRITTEN PASS frameIndex=1",
         ]
         if require_attack:
             worker_markers.append("FF-NATIVE-WORKER NATIVE_ATTACK_OBSERVED")
         published={"value":False}
+        first_frame=WORKER_DIR / "ff-worker-frame-first.bin"
         def publish_next_senses(line):
-            if "FF-NATIVE-WORKER ENTITIES_SPAWNED PASS" in line and not published["value"]:
-                # The producer consumes only complete packets. Atomic rename
-                # is the publication boundary shared with the worker tick.
+            if "FF-NATIVE-WORKER FRAME_WRITTEN PASS frameIndex=0" in line and not published["value"]:
+                shutil.copyfile(WORKER_OUTPUT,first_frame)
                 os.replace(senses_next_pending,senses_inbox)
                 published["value"]=True
                 print("FF-NATIVE-WORKER PUBLISHED_NEXT_SENSES tick="+str(tick+1),flush=True)
@@ -235,14 +235,17 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
             on_line=publish_next_senses,
         )
         if not published["value"]:
-            raise RuntimeError("Worker never reached a tick boundary for the next sensory frame")
-        if not WORKER_OUTPUT.is_file():
+            raise RuntimeError("Worker never emitted its first action frame for sensory update")
+        if not first_frame.is_file() or not WORKER_OUTPUT.is_file():
+            raise RuntimeError("Persistent worker did not retain both action frames")
+        if first_frame.read_bytes()==WORKER_OUTPUT.read_bytes():
+            raise RuntimeError("Persistent worker did not emit a distinct second response frame")
             raise RuntimeError("Native AI worker emitted no signed packet")
         size = WORKER_OUTPUT.stat().st_size
         if size < 64 or size > 65536:
             raise RuntimeError("Worker output is outside binary size bounds")
         shutil.copyfile(WORKER_CONFIG,RECEIVER_CONFIG)
-        shutil.copyfile(WORKER_OUTPUT,RECEIVER_OUTPUT)
+        shutil.copyfile(first_frame,RECEIVER_OUTPUT)
 
         print("FF-NATIVE-WORKER starting independent NeoForge receiver GameTest")
         run_until_markers(
@@ -260,12 +263,13 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
             " signedRelativeActionsMovedRealRecipient=true"
             " recipientSnapshotMaterialized=true"
             " persistentAdjacentSnapshotApplied=true"
+            " multipleTickActionFrames=true"
             " samePhysicalWorld=false noArbitraryModIsolationClaim=true")
     finally:
         # Never store the session fixture with normal game-test logs or
         # accidentally reuse old signed packets in future tests.
         for item in (RECEIVER_CONFIG, RECEIVER_OUTPUT, senses_file,
-                     senses_next_pending,senses_inbox):
+                     senses_next_pending,senses_inbox,first_frame):
             try:
                 item.unlink(missing_ok=True)
             except OSError:
