@@ -36,8 +36,8 @@ public final class NativeMindSessionChannelSelfTest {
         check(channel.hasOutstandingRequest(),"request remains outstanding");
         check(request.sensoryWire().length>32,"authenticated sensory wire emitted");
         rejects(()->channel.begin(senses(body,mind,41,true)),"must not pipeline requests");
-        rejects(()->channel.complete(response(session,body,mind,41,key),40),
-            "future/stale response tick must reject and fault");
+        rejects(()->channel.complete(response(session,body,mind,41,key),100),
+            "wrong sensory tick at the current host tick must reject and fault");
         check(channel.state()==NativeMindSessionChannel.State.FAULTED,
             "mismatched response faults the session");
         rejects(()->channel.begin(senses(body,mind,41,true)),"faulted session cannot resume");
