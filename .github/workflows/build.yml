@@ -186,8 +186,7 @@ jobs:
           retention-days: 30
           if-no-files-found: warn
           path: |
-            native-worker-server.log
-            native-worker-receiver.log
+            native-worker-*.log
             run-ai-worker/logs/**
             run/logs/**
             run/crash-reports/**

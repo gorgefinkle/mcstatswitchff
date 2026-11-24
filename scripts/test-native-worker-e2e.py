@@ -131,6 +131,13 @@ def main():
 
 def run_case(opts, donor, recipient, stimulus, require_attack):
     """Do not change capture/execution rules for different mob types."""
+    case_tag=donor.split(":")[-1]+"-to-"+recipient.split(":")[-1]
+    fixture_log=ROOT / ("native-worker-fixture-"+case_tag+".log")
+    next_fixture_log=ROOT / ("native-worker-next-fixture-"+case_tag+".log")
+    worker_log=ROOT / ("native-worker-server-"+case_tag+".log")
+    receiver_log=ROOT / ("native-worker-receiver-"+case_tag+".log")
+    print("FF-NATIVE-WORKER CASE_START direction="+case_tag
+        +" requireAttack="+str(require_attack).lower(),flush=True)
     # Each experiment uses a fresh disposable native world. Without this,
     # previously spawned mobs can alter native targeting/wandering when the
     # second species is tested.
@@ -194,7 +201,7 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
         ]
         run_until_markers(
             cmd_base + ["writeNativeMindSenseFixture"] + arguments + fixture_args,
-            ROOT / "native-worker-fixture.log",
+            fixture_log,
             ("FF-SENSE fixture_written PASS",),
             env,
             timeout=180,
@@ -211,7 +218,7 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
         ]
         run_until_markers(
             cmd_base + ["writeNativeMindSenseFixture"] + arguments + next_fixture_args,
-            ROOT / "native-worker-next-fixture.log",
+            next_fixture_log,
             ("FF-SENSE fixture_written PASS",),
             env,
             timeout=180,
@@ -236,7 +243,7 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
                 print("FF-NATIVE-WORKER PUBLISHED_NEXT_SENSES tick="+str(tick+1),flush=True)
         run_until_markers(
             cmd_base + ["runAiWorker"] + arguments,
-            ROOT / "native-worker-server.log",
+            worker_log,
             tuple(worker_markers),
             env,
             on_line=publish_next_senses,
@@ -256,7 +263,7 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
         print("FF-NATIVE-WORKER starting independent NeoForge receiver GameTest")
         run_until_markers(
             cmd_base + ["runGameTestServer"] + arguments,
-            ROOT / "native-worker-receiver.log",
+            receiver_log,
             ("FF-NATIVE-WORKER TWO_JVM_LIMITED_INTENT_CAPTURE PASS",
              "ALL_REQUIRED_GAME_TESTS_PASSED"),
             env,
@@ -272,6 +279,8 @@ def run_case(opts, donor, recipient, stimulus, require_attack):
             " multipleTickActionFrames=true"
             " frameTicks=1700,1701"
             " samePhysicalWorld=false noArbitraryModIsolationClaim=true")
+        print("FF-NATIVE-WORKER CASE_COMPLETE direction="+case_tag
+            +" nativeAttackCaptured="+str(require_attack).lower(),flush=True)
     finally:
         # Never store the session fixture with normal game-test logs or
         # accidentally reuse old signed packets in future tests.
