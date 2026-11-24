@@ -129,3 +129,58 @@ tests above. The first synthetic-stub CI attempt after adding the capture
 class failed because the legacy stub harness tried compiling a Minecraft API
 class without Minecraft stubs; the class has now been excluded from that
 legacy harness and remains subject to the real NeoForge 26.2/26.3 builds.
+
+## Current implementation evidence (P09 worker-stream increment)
+
+The branch has progressed beyond the earlier one-shot worker proof. The following
+specific bounded path is now implemented and CI-tested:
+
+- NativeMindSenseFrame and its authenticated codec carry body-local physical
+  geometry/orientation, nearby living-entity identity/type/relative pose/velocity,
+  and bounded block/fluid state properties. Unloaded block positions are explicit
+  unknowns, not air.
+- NativeMindMirrorState computes and atomically applies adjacent-tick entity
+  and block deltas. NativeMindMirrorWorld materializes those observations in
+  the separate worker ServerLevel, including no-AI mob target copies and
+  UUID-stable FakePlayers for observed player targets. It restores managed
+  temporary entities and overwritten blocks on shutdown or reconciliation fault.
+- NativeAiWorkerServer can remain alive across adjacent authenticated sensory
+  frames. It claims a single inbox update atomically, rejects invalid/out-of-order
+  deltas, reconciles the mirror, and emits another bounded native navigation/
+  optional attack frame for the newly observed recipient tick. A silence guard
+  now retires an abandoned worker after 10 worker ticks without fresh senses.
+- The two-JVM CI harness now proves two successive recipient observations
+  (1700, 1701) in one worker session, verifies the second worker action frame,
+  authenticates and dispatches both frames to the same real receiver entity, and
+  checks that the receiver physically moves after the updated observation. It
+  runs for Minecraft 26.2 and 26.3.
+
+This is an important persistent mirror/transport milestone, but it is still a
+**limited integration probe**. The CI harness builds the sensory inputs using
+NativeMindSenseFixtureWriter; it does not yet drive the worker from live
+MinecraftMindSenseCapture output in a normal server session. The worker is
+started by the dedicated Gradle runAiWorker test run, and the receiver is a
+second dedicated GameTest server. No in-game server supervisor currently
+launches, monitors, restarts, or schedules these workers for book-selected
+minds. The ordinary Freaky Friday book route intentionally remains fail-closed.
+
+Still unimplemented for the actual product:
+- a live per-mind worker process supervisor and tick scheduler in the server;
+- actual live MinecraftMindSenseCapture output fed to that worker and
+  authenticated replies dispatched by the normal server tick loop;
+- complete donor-side effect interception and data actions for projectiles,
+  status effects, sounds, inventory, block/entity interactions, building,
+  abilities, mounts, and mod-specific hooks;
+- sufficient world context for pathfinding/Brain POIs, memory modules, fluids,
+  collision edge cases, time/weather, dimensions and modded capabilities;
+- reciprocal multi-worker scheduling for both minds in a two-body exchange;
+- player-to-mob and mob-to-player reciprocal control, including player input,
+  camera/view ownership, packets, and multiplayer observers;
+- persistence/recovery across process restart, unload/reload, death, reversal,
+  and dimension change.
+
+A second native movement frame is not proof of complete Brain/Goal or modded
+behavior transfer. The public book workflow must remain blocked until the
+actual reciprocal requirements at the top of this document pass in a normal
+playable world. The current two-JVM CI evidence is deliberately labelled
+completeNativeMindTransfer=false.
