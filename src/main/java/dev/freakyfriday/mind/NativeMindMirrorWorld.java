@@ -79,10 +79,9 @@ public final class NativeMindMirrorWorld implements AutoCloseable {
         requireServerThread(level);
         if(anchor.level()!=level || anchor.isRemoved())
             throw new IllegalArgumentException("Mirror anchor must be a live entity in the worker level");
-        String actualDimension=level.dimension().identifier().toString();
-        if(!actualDimension.equals(snapshot.dimension()))
-            throw new IllegalArgumentException("Recipient dimension is not available in worker level: "
-                +snapshot.dimension()+" vs "+actualDimension);
+        // The worker's disposable simulation dimension is deliberately
+        // independent of the recipient's source dimension. The source
+        // dimension remains part of the mirror identity/delta contract.
         if(ownerLevel!=null && ownerLevel!=level)
             throw new IllegalStateException("A mirror instance cannot span ServerLevels");
         if(bodyId==null) {
@@ -239,16 +238,17 @@ public final class NativeMindMirrorWorld implements AutoCloseable {
             throw new IllegalStateException("Worker does not have recipient entity type "+sense.entityType());
         EntityType<?> type=BuiltInRegistries.ENTITY_TYPE.getValue(id);
         Entity entity=type.create(level,EntitySpawnReason.COMMAND);
-        if(!(entity instanceof Mob mob))
-            throw new IllegalStateException("Recipient sensory target is not a mirrorable Mob: "+sense.entityType());
+        if(!(entity instanceof LivingEntity living))
+            throw new IllegalStateException("Recipient sensory target is not a mirrorable LivingEntity: "
+                +sense.entityType());
         if(Math.abs(entity.getBbWidth()-sense.width())>0.01
                 || Math.abs(entity.getBbHeight()-sense.height())>0.01)
             throw new IllegalStateException("Recipient target geometry cannot be represented by worker type "
                 +sense.entityType());
-        if(Math.abs(mob.getMaxHealth()-sense.maxHealth())>0.05)
+        if(Math.abs(living.getMaxHealth()-sense.maxHealth())>0.05)
             throw new IllegalStateException("Recipient target health attributes differ in worker type "
                 +sense.entityType());
-        return mob;
+        return living;
     }
 
     private static void position(Entity entity,Entity anchor,

@@ -282,8 +282,10 @@ public final class NativeAiWorkerServer {
                     request.recipientBody(),request.sourceMind(),request.recipientTick());
                 if(!request.recipient().equals(senses.body().entityType()))
                     throw new IllegalArgumentException("Recipient body type does not match authenticated sensory snapshot");
-                if(!"minecraft:overworld".equals(senses.dimension()))
-                    throw new IllegalArgumentException("This worker fixture currently mirrors only the overworld");
+                // Source dimensions are preserved as identity metadata in
+                // the snapshot. Every remote mind is simulated in the
+                // disposable worker overworld; only body-relative terrain,
+                // fluids and entities are projected into that arena.
                 mirrorState=new NativeMindMirrorState();
                 previousSense=senses;
                 if(request.sensesInboxFile()!=null) {
