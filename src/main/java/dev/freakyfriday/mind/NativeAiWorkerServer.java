@@ -94,6 +94,7 @@ public final class NativeAiWorkerServer {
         final Mob stimulus;
         final BlockPos anchor;
         final NativeMindMirrorWorld mirrorWorld;
+        final boolean stimulusAlreadyRegistered;
         final double startX, startZ;
         int age, targetTicks, navigationTicks;
         boolean produced;
@@ -111,6 +112,7 @@ public final class NativeAiWorkerServer {
             this.stimulus=stimulus;
             this.anchor=anchor;
             this.mirrorWorld=mirrorWorld;
+            this.stimulusAlreadyRegistered=mirrorWorld!=null;
             this.startX=donor.getX();
             this.startZ=donor.getZ();
         }
@@ -295,7 +297,11 @@ public final class NativeAiWorkerServer {
         if(!state.spawned) {
             if(state.age<5)return;
             boolean donorAdded=state.level.addFreshEntity(donor);
-            boolean stimulusAdded=state.level.addFreshEntity(stimulus);
+            // The sensory mirror reconciler already registered its entities
+            // in the worker ServerLevel. Calling addFreshEntity a second time
+            // for that same stimulus necessarily fails duplicate admission.
+            boolean stimulusAdded=state.stimulusAlreadyRegistered
+                || state.level.addFreshEntity(stimulus);
             if(!donorAdded || !stimulusAdded) {
                 state.produced=true;
                 System.err.println("FF-NATIVE-WORKER WORLD_REGISTRATION_FAILED"
@@ -310,13 +316,15 @@ public final class NativeAiWorkerServer {
             return;
         }
         if (state.age < 8) return;
-        if (state.level.getEntity(donor.getUUID())!=donor
-                || state.level.getEntity(stimulus.getUUID())!=stimulus) {
+        boolean stimulusRegistered=state.mirrorWorld!=null
+            ? state.mirrorWorld.managedEntity(stimulus.getUUID())==stimulus
+            : state.level.getEntity(stimulus.getUUID())==stimulus;
+        if (state.level.getEntity(donor.getUUID())!=donor || !stimulusRegistered) {
             if (state.age>=100) {
                 System.err.println("FF-NATIVE-WORKER WORLD_REGISTRATION_FAILED"
                     +" age="+state.age
                     +" donorFound="+(state.level.getEntity(donor.getUUID())==donor)
-                    +" stimulusFound="+(state.level.getEntity(stimulus.getUUID())==stimulus)
+                    +" stimulusFound="+stimulusRegistered
                     +" donorRemoved="+donor.isRemoved()
                     +" donorRemovalReason="+donor.getRemovalReason()
                     +" stimulusRemoved="+stimulus.isRemoved()
