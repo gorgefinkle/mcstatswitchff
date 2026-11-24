@@ -459,10 +459,12 @@ public final class NativeMindWorkerSupervisor {
     }
 
     private static void registerPair(PairSession pair) {
+        java.util.HashSet<UUID> uniqueBodies=new java.util.HashSet<>();
         for(UUID body:pair.bodyIds) {
-            if(BY_BODY.putIfAbsent(body,pair)!=null)
+            if(body==null||!uniqueBodies.add(body)||BY_BODY.containsKey(body))
                 throw new IllegalStateException("Physical body already belongs to an exchange: "+body);
         }
+        for(UUID body:pair.bodyIds) BY_BODY.put(body,pair);
         BY_ACCOUNT.computeIfAbsent(pair.requester.getUUID(), ignored -> new java.util.HashSet<>())
             .add(pair);
     }
