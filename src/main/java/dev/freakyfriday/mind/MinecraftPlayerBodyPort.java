@@ -127,8 +127,9 @@ public final class MinecraftPlayerBodyPort implements BodyActionGate.BodyPort {
         float attackStrength=body.getAttackStrengthScale(0.5f);
         double attackDamage=body.getAttributeValue(
             net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE);
-        boolean targetInvulnerable=target.isInvulnerableTo(
-            body.damageSources().playerAttack(body));
+        // Let the real player attack pipeline decide protection,
+        // invulnerability and damage. This port must not predict a hit from
+        // a partial replica of Entity's damage rules.
         body.attack(target);
         float healthAfter=target instanceof net.minecraft.world.entity.LivingEntity living
             ? living.getHealth() : Float.NaN;
@@ -138,7 +139,6 @@ public final class MinecraftPlayerBodyPort implements BodyActionGate.BodyPort {
                 +" target="+target.getUUID()
                 +" attackStrength="+attackStrength
                 +" attackDamage="+attackDamage
-                +" targetInvulnerable="+targetInvulnerable
                 +" creative="+body.isCreative()
                 +" spectator="+body.isSpectator()
                 +" mainHand="+body.getMainHandItem()
