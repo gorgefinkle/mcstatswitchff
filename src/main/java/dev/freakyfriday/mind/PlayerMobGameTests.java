@@ -171,7 +171,10 @@ public final class PlayerMobGameTests {
                 new BodyActionGate.Intent(BodyActionGate.LOOK_OFFSET,
                     java.util.Map.of("dx","0","dy","0","dz","1")),
                 new BodyActionGate.Intent(BodyActionGate.MOVE_OFFSET,
-                    java.util.Map.of("dx","0","dz","3","speed","1")),
+                    // Keep the subsequent native player attack inside melee
+                    // reach while still exercising a real collision-resolved
+                    // second movement segment.
+                    java.util.Map.of("dx","0","dz","3","speed","0.2")),
                 new BodyActionGate.Intent(BodyActionGate.ATTACK_ENTITY,
                     java.util.Map.of("targetId",target.getUUID().toString()))));
         var incomingMobResult=bridge.deliver(incomingMobFrame);
@@ -180,7 +183,10 @@ public final class PlayerMobGameTests {
                 && incomingMobResult.outcomes().stream().allMatch(
                     result->result.status()==BodyActionGate.Status.EXECUTED)
                 && target.getHealth()<bridgeTargetHealth,
-            "Mob controller frame did not drive the original player body's native action adapter");
+            "Mob controller frame did not drive the original player body's native action adapter"
+            +" result="+incomingMobResult+" playerPos="+player.position()
+            +" targetPos="+target.position()+" targetHealth="+target.getHealth()
+            +" startZ="+startZ);
 
         // Exercise the actual recipient-world sensory capture and the new
         // authenticated per-tick worker-session contract before reversing the
