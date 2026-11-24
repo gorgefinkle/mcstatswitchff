@@ -241,6 +241,9 @@ public final class NativeAiWorkerServer {
 
     @SubscribeEvent
     public static void onServerStart(ServerStartedEvent event) {
+        System.out.println("FF-NATIVE-WORKER START_EVENT"
+            +" workerProperty="+System.getProperty(WORKER_PROP)
+            +" workerRootProperty="+System.getProperty("freakyfriday.workerRoot"));
         if (!Boolean.getBoolean(WORKER_PROP)) return;
         if (active != null) throw new IllegalStateException("Only one native worker session");
         NativeMindMirrorWorld startupMirror=null;
