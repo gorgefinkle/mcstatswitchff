@@ -98,6 +98,7 @@ public final class NativeAiWorkerServer {
         final NativeMindMirrorState mirrorState;
         NativeMindSenseFrame previousSense;
         final Path sensesInbox;
+        final double startX, startZ;
         double lastReportedX, lastReportedZ;
         long currentRecipientTick;
         int frameIndex, age, targetTicks, navigationTicks;
@@ -123,6 +124,8 @@ public final class NativeAiWorkerServer {
             this.mirrorState=mirrorState;
             this.previousSense=previousSense;
             this.sensesInbox=sensesInbox;
+            this.startX=donor.getX();
+            this.startZ=donor.getZ();
             this.lastReportedX=donor.getX();
             this.lastReportedZ=donor.getZ();
             this.currentRecipientTick=request.recipientTick();
@@ -514,8 +517,8 @@ public final class NativeAiWorkerServer {
                 long completedFrame=state.frameIndex++;
                 state.lastReportedX=donor.getX();
                 state.lastReportedZ=donor.getZ();
-                state.attackedTarget=null;
-                state.attackedTargetType=null;
+                UUID completedAttackTarget=state.attackedTarget;
+                String completedAttackType=state.attackedTargetType;
                 System.out.println("FF-NATIVE-WORKER NATIVE_NAVIGATION_OBSERVED"
                     +" donor="+state.request.donor()
                     +" nativeTargetTicks="+state.targetTicks
@@ -524,18 +527,20 @@ public final class NativeAiWorkerServer {
                     +" nativeOffsetX="+state.observedMovement.dx()
                     +" nativeOffsetZ="+state.observedMovement.dz()
                     +" originalWorldIsWorker=true");
-                if(state.attackedTarget!=null)
+                if(completedAttackTarget!=null)
                     System.out.println("FF-NATIVE-WORKER NATIVE_ATTACK_OBSERVED"
-                        +" target="+state.attackedTarget
-                        +" targetType="+state.attackedTargetType
+                        +" target="+completedAttackTarget
+                        +" targetType="+completedAttackType
                         +" damageCancelledInWorker=true");
                 System.out.println("FF-NATIVE-WORKER FRAME_WRITTEN PASS"
                     +" frameIndex="+completedFrame
                     +" recipientTick="+state.currentRecipientTick
                     +" signedBytes="+signed.length
                     +" donorNativeAiActuallyTicked=true"
-                    +" attackCaptured="+(state.attackedTarget!=null)
+                    +" attackCaptured="+(completedAttackTarget!=null)
                     +" actionCapture=native_navigation_plus_observed_attack");
+                state.attackedTarget=null;
+                state.attackedTargetType=null;
             } catch (Exception failure) {
                 state.produced=true;
                 System.err.println("FF-NATIVE-WORKER FRAME_FAILURE "
