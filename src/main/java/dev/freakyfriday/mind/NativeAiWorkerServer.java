@@ -115,6 +115,8 @@ public final class NativeAiWorkerServer {
 
     private static State active;
     private static boolean started;
+    private static boolean workerRequested;
+    private static net.minecraft.server.MinecraftServer requestedServer;
 
     private record Request(UUID session, UUID recipientBody, UUID sourceMind,
                            UUID stimulusId, long recipientTick, String donor,
@@ -245,13 +247,22 @@ public final class NativeAiWorkerServer {
             +" workerProperty="+System.getProperty(WORKER_PROP)
             +" workerRootProperty="+System.getProperty("freakyfriday.workerRoot"));
         if (!Boolean.getBoolean(WORKER_PROP)) return;
-        if (active != null) throw new IllegalStateException("Only one native worker session");
+        if (active != null || workerRequested)
+            throw new IllegalStateException("Only one native worker session");
+        // 26.2's ServerStartedEvent still runs inside the startup lifecycle.
+        // Queue all chunk tickets, terrain writes and mirrored entity admission
+        // for the first normal server tick, after the EntityManager is online.
+        requestedServer=event.getServer();
+        workerRequested=true;
+        System.out.println("FF-NATIVE-WORKER START_DEFERRED until first server tick");
+    }
+
+    private static void initializeWorker(ServerLevel level) {
         NativeMindMirrorWorld startupMirror=null;
         ServerLevel startupLevel=null;
         try {
             checkWorkerPath();
             Request request=readRequest();
-            ServerLevel level=event.getServer().overworld();
             if (level==null) throw new IllegalStateException("No worker overworld");
             startupLevel=level;
             // A disposable fully loaded, clear-sight stone test arena.
@@ -377,6 +388,7 @@ public final class NativeAiWorkerServer {
                 +failure.getClass().getName()+": "+failure.getMessage());
             throw new IllegalStateException("Native worker must fail closed",failure);
         }
+
     }
 
     /**
@@ -470,6 +482,14 @@ public final class NativeAiWorkerServer {
 
     @SubscribeEvent
     public static void onServerTick(ServerTickEvent.Post event) {
+        if(Boolean.getBoolean(WORKER_PROP) && workerRequested && active==null) {
+            net.minecraft.server.MinecraftServer server=requestedServer;
+            requestedServer=null;
+            workerRequested=false;
+            if(server==null) throw new IllegalStateException("Worker startup was queued without a server");
+            initializeWorker(server.overworld());
+            return;
+        }
         if (!started || active==null || active.failed) return;
         State state=active;
         state.age++;
@@ -703,5 +723,7 @@ public final class NativeAiWorkerServer {
         }
         active=null;
         started=false;
+        workerRequested=false;
+        requestedServer=null;
     }
 }
