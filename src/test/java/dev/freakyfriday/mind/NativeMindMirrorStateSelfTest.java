@@ -66,7 +66,7 @@ public final class NativeMindMirrorStateSelfTest {
             List.of(UUID.randomUUID()),List.of(),List.of())),
             "removing an entity absent from mirror rejected");
         check(state.snapshot()==stable,"invalid entity removal is atomic");
-        rejects(()->state.apply(delta(body,mind,21,22,List.of(),List.of(),
+        rejects(()->state.apply(delta(body,mind,21,22,List.of(),List.of(entity(a,3)),
             List.of(a),List.of(),List.of())),
             "removing an entity and also changing it rejected at delta construction");
         check(state.snapshot()==stable,"conflicting entity operations leave state unchanged");
