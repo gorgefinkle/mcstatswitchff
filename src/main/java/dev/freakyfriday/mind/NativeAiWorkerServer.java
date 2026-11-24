@@ -53,10 +53,27 @@ public final class NativeAiWorkerServer {
         if(configured==null || configured.isBlank())
             return Path.of("").toAbsolutePath().normalize();
         Path root=Path.of(configured).toAbsolutePath().normalize();
-        Path base=Path.of(System.getProperty("user.dir","."))
-            .toAbsolutePath().normalize().resolve("freakyfriday-workers").normalize();
-        if(!root.startsWith(base) || root.equals(base))
-            throw new IllegalStateException("Native worker root must be an owned child of freakyfriday-workers");
+        Path parent=root.getParent();
+        if(parent==null || !"freakyfriday-workers".equals(
+                    parent.getFileName()==null ? "" : parent.getFileName().toString())
+                || root.getFileName()==null
+                || !root.getFileName().toString().startsWith("session-")
+                || Files.isSymbolicLink(parent) || Files.isSymbolicLink(root))
+            throw new IllegalStateException(
+                "Native worker root must be a non-symlink session directory directly inside freakyfriday-workers");
+
+        // The parent supervisor deliberately sets ProcessBuilder.directory(root)
+        // so the child loads server.properties, logs and saves from its private
+        // directory. In this production mode user.dir therefore EQUALS root.
+        // Test/legacy launches may instead start from the parent server directory.
+        Path working=Path.of(System.getProperty("user.dir","."))
+            .toAbsolutePath().normalize();
+        if(!working.equals(root)) {
+            Path ownedBase=working.resolve("freakyfriday-workers").normalize();
+            if(!root.startsWith(ownedBase) || root.equals(ownedBase))
+                throw new IllegalStateException(
+                    "Native worker root is not owned by the current server working directory");
+        }
         return root;
     }
 
