@@ -196,3 +196,13 @@ tasks.register("runNativeMindMirrorDeltaSelfTest", JavaExec) {
     enableAssertions = true
 }
 tasks.named('check') { dependsOn tasks.named('runNativeMindMirrorDeltaSelfTest') }
+
+tasks.register("runNativeMindMirrorStateSelfTest", JavaExec) {
+    group = 'verification'
+    description = 'Verify atomic worker mirror state reconciliation and replay rejection'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.freakyfriday.mind.NativeMindMirrorStateSelfTest'
+    enableAssertions = true
+}
+tasks.named('check') { dependsOn tasks.named('runNativeMindMirrorStateSelfTest') }
