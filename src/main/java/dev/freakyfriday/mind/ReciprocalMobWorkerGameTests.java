@@ -5,17 +5,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Properties;
 import java.util.UUID;
-import java.util.function.Consumer;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.level.block.Blocks;
-import net.neoforged.neoforge.registries.DeferredHolder;
-import net.neoforged.neoforge.registries.DeferredRegister;
 
 /**
  * Bilateral M↔M integration acceptance. Two independent native-worker JVMs
@@ -25,12 +21,6 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 public final class ReciprocalMobWorkerGameTests {
     private ReciprocalMobWorkerGameTests() {}
 
-    public static final DeferredRegister<Consumer<GameTestHelper>> FUNCTIONS =
-        DeferredRegister.create(BuiltInRegistries.TEST_FUNCTION,"freakyfriday");
-
-    public static final DeferredHolder<Consumer<GameTestHelper>,Consumer<GameTestHelper>>
-        RECIPROCAL_MOB_PAIR = FUNCTIONS.register(
-            "reciprocal_mob_worker_pair",()->ReciprocalMobWorkerGameTests::verify);
 
     private static Properties load(Path path) throws Exception {
         Properties properties=new Properties();
@@ -243,7 +233,12 @@ public final class ReciprocalMobWorkerGameTests {
                                             && Float.compare(chickenBody.getHealth(),chickenHealth)==0
                                             && Float.compare(zombieBody.getHealth(),zombieHealth)==0
                                             && Float.compare(targetBody.getHealth(),villagerHealth)==0,
-                                        "Mob↔mob exchange replaced physical bodies, changed health or leaked attack effects");
+                                        "Mob↔mob exchange changed physical state: "
+                                            +"chickenId="+chickenBody.getUUID().equals(chickenId)
+                                            +" zombieId="+zombieBody.getUUID().equals(zombieId)
+                                            +" chickenHealth="+chickenBody.getHealth()+"/"+chickenHealth
+                                            +" zombieHealth="+zombieBody.getHealth()+"/"+zombieHealth
+                                            +" villagerHealth="+targetBody.getHealth()+"/"+villagerHealth);
                                     System.out.println("FF-NATIVE-WORKER RECIPROCAL_MOB_PAIR PASS"
                                         +" zombieMindToChickenBody="+chickenMoved
                                         +" chickenMindToZombieBody="+zombieMoved
