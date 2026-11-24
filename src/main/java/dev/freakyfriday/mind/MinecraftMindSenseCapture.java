@@ -60,6 +60,7 @@ public final class MinecraftMindSenseCapture {
             bodyType, 0.0, 0.0, 0.0,
             velocity.x, velocity.y, velocity.z,
             body.getYRot(), body.getXRot(),
+            body.getBbWidth(), body.getBbHeight(),
             body.getHealth(), body.getMaxHealth(),
             body.isAlive(), body.onGround(), body.isInWater(), body.isInLava());
 
@@ -84,8 +85,9 @@ public final class MinecraftMindSenseCapture {
                 entity.getUUID(),
                 BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).toString(),
                 entity.getX()-body.getX(), entity.getY()-body.getY(), entity.getZ()-body.getZ(),
-                motion.x, motion.y, motion.z, health, maxHealth,
-                entity.isAlive(), visible, entity.onGround()));
+                motion.x, motion.y, motion.z,
+                entity.getYRot(), entity.getXRot(), entity.getBbWidth(), entity.getBbHeight(),
+                health, maxHealth, entity.isAlive(), visible, entity.onGround()));
         }
 
         BlockPos origin = body.blockPosition();
@@ -95,8 +97,14 @@ public final class MinecraftMindSenseCapture {
                 for (int dz=-HORIZONTAL_BLOCK_RADIUS; dz<=HORIZONTAL_BLOCK_RADIUS; dz++) {
                     BlockPos pos = origin.offset(dx,dy,dz);
                     // Never force-load a neighboring chunk just to observe it.
-                    // Missing samples remain unknown to the remote mind.
-                    if (!level.hasChunkAt(pos)) continue;
+                    // Explicit UNKNOWN samples prevent unloaded chunks being
+                    // misrepresented as air or mistaken for removed terrain.
+                    if (!level.hasChunkAt(pos)) {
+                        blocks.add(new NativeMindSenseFrame.BlockSense(
+                            dx,dy,dz,"minecraft:air","minecraft:empty",
+                            false,true,false,Map.of()));
+                        continue;
+                    }
                     BlockState state = level.getBlockState(pos);
                     String blockType = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
                     String fluidType = BuiltInRegistries.FLUID.getKey(
@@ -105,7 +113,7 @@ public final class MinecraftMindSenseCapture {
                         dx,dy,dz,blockType,fluidType,
                         state.isFaceSturdy(level,pos,Direction.UP),
                         state.getCollisionShape(level,pos).isEmpty(),
-                        blockProperties(state)));
+                        true,blockProperties(state)));
                 }
             }
         }

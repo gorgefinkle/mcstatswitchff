@@ -28,7 +28,7 @@ public final class NativeMindSenseWireCodec {
     public static final int MAX_WIRE_BYTES=262144;
     private static final int SIGNATURE_BYTES=32;
     private static final int MAGIC=0x46464d53; // FFMS
-    private static final int VERSION=2;
+    private static final int VERSION=3;
     private static final int MAX_STRING_BYTES=NativeMindSenseFrame.MAX_IDENTIFIER_CHARS;
 
     public static byte[] encode(NativeMindSenseFrame frame, byte[] key) {
@@ -47,6 +47,7 @@ public final class NativeMindSenseWireCodec {
             out.writeDouble(body.x()); out.writeDouble(body.y()); out.writeDouble(body.z());
             out.writeDouble(body.velocityX()); out.writeDouble(body.velocityY()); out.writeDouble(body.velocityZ());
             out.writeFloat(body.yaw()); out.writeFloat(body.pitch());
+            out.writeDouble(body.width()); out.writeDouble(body.height());
             out.writeFloat(body.health()); out.writeFloat(body.maxHealth());
             out.writeBoolean(body.alive()); out.writeBoolean(body.onGround());
             out.writeBoolean(body.inWater()); out.writeBoolean(body.inLava());
@@ -55,6 +56,8 @@ public final class NativeMindSenseWireCodec {
                 writeUuid(out,entity.id()); writeString(out,entity.entityType());
                 out.writeDouble(entity.dx()); out.writeDouble(entity.dy()); out.writeDouble(entity.dz());
                 out.writeDouble(entity.velocityX()); out.writeDouble(entity.velocityY()); out.writeDouble(entity.velocityZ());
+                out.writeFloat(entity.yaw()); out.writeFloat(entity.pitch());
+                out.writeDouble(entity.width()); out.writeDouble(entity.height());
                 out.writeFloat(entity.health()); out.writeFloat(entity.maxHealth());
                 out.writeBoolean(entity.alive()); out.writeBoolean(entity.visible()); out.writeBoolean(entity.onGround());
             }
@@ -63,6 +66,7 @@ public final class NativeMindSenseWireCodec {
                 out.writeByte(block.dx()); out.writeByte(block.dy()); out.writeByte(block.dz());
                 writeString(out,block.blockType()); writeString(out,block.fluidType());
                 out.writeBoolean(block.sturdyTop()); out.writeBoolean(block.collisionEmpty());
+                out.writeBoolean(block.known());
                 var properties = new java.util.TreeMap<>(block.properties());
                 out.writeByte(properties.size());
                 for (var property : properties.entrySet()) {
@@ -106,9 +110,12 @@ public final class NativeMindSenseWireCodec {
             String entityType=readString(in);
             double x=in.readDouble(),y=in.readDouble(),z=in.readDouble();
             double vx=in.readDouble(),vy=in.readDouble(),vz=in.readDouble();
-            float yaw=in.readFloat(),pitch=in.readFloat(),health=in.readFloat(),maxHealth=in.readFloat();
+            float yaw=in.readFloat(),pitch=in.readFloat();
+            double bodyWidth=in.readDouble(),bodyHeight=in.readDouble();
+            float health=in.readFloat(),maxHealth=in.readFloat();
             var body=new NativeMindSenseFrame.BodySense(entityType,x,y,z,vx,vy,vz,yaw,pitch,
-                health,maxHealth,in.readBoolean(),in.readBoolean(),in.readBoolean(),in.readBoolean());
+                bodyWidth,bodyHeight,health,maxHealth,
+                in.readBoolean(),in.readBoolean(),in.readBoolean(),in.readBoolean());
             int entityCount=in.readUnsignedShort();
             if(entityCount>NativeMindSenseFrame.MAX_ENTITIES)
                 throw new IllegalArgumentException("Entity count exceeds sensory bound");
@@ -117,9 +124,12 @@ public final class NativeMindSenseWireCodec {
                 UUID id=readUuid(in); String type=readString(in);
                 double dx=in.readDouble(),dy=in.readDouble(),dz=in.readDouble();
                 double evx=in.readDouble(),evy=in.readDouble(),evz=in.readDouble();
+                float eyaw=in.readFloat(),epitch=in.readFloat();
+                double ewidth=in.readDouble(),eheight=in.readDouble();
                 float eh=in.readFloat(),em=in.readFloat();
                 entities.add(new NativeMindSenseFrame.EntitySense(id,type,dx,dy,dz,evx,evy,evz,
-                    eh,em,in.readBoolean(),in.readBoolean(),in.readBoolean()));
+                    eyaw,epitch,ewidth,eheight,eh,em,
+                    in.readBoolean(),in.readBoolean(),in.readBoolean()));
             }
             int blockCount=in.readUnsignedShort();
             if(blockCount>NativeMindSenseFrame.MAX_BLOCKS)
@@ -129,6 +139,7 @@ public final class NativeMindSenseWireCodec {
                 int dx=in.readByte(),dy=in.readByte(),dz=in.readByte();
                 String block=readString(in),fluid=readString(in);
                 boolean sturdyTop=in.readBoolean(), collisionEmpty=in.readBoolean();
+                boolean known=in.readBoolean();
                 int propertyCount=in.readUnsignedByte();
                 if (propertyCount > NativeMindSenseFrame.MAX_BLOCK_PROPERTIES)
                     throw new IllegalArgumentException("Block property count exceeds sensory bound");
@@ -139,7 +150,7 @@ public final class NativeMindSenseWireCodec {
                         throw new IllegalArgumentException("Duplicate block property in sensory frame");
                 }
                 blocks.add(new NativeMindSenseFrame.BlockSense(dx,dy,dz,block,fluid,
-                    sturdyTop,collisionEmpty,properties));
+                    sturdyTop,collisionEmpty,known,properties));
             }
             if(in.available()!=0) throw new IllegalArgumentException("Trailing sensory frame bytes");
             return new NativeMindSenseFrame(bodyId,mindId,tick,dimension,body,entities,blocks);

@@ -11,9 +11,9 @@ public final class NativeMindSenseWireCodecSelfTest {
         var self=new NativeMindSenseFrame.BodySense("minecraft:chicken",
             0,0,0,0.1,0,0,90,0,4,4,true,true,false,false);
         var entity=new NativeMindSenseFrame.EntitySense(target,"minecraft:zombie",
-            2,0,-1,0,0,0,20,20,true,true,true);
+            2,0,-1,0,0,0,35,0,0.6,1.8,20,20,true,true,true);
         var block=new NativeMindSenseFrame.BlockSense(0,-1,0,
-            "minecraft:oak_log","minecraft:empty",true,false,
+            "minecraft:oak_log","minecraft:empty",true,false,true,
             java.util.Map.of("axis","y","waterlogged","false"));
         var frame=new NativeMindSenseFrame(body,mind,123,"minecraft:overworld",
             self,List.of(entity),List.of(block));

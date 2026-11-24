@@ -11,7 +11,7 @@ public final class NativeMindSenseFrameSelfTest {
         var entity=new NativeMindSenseFrame.EntitySense(target,"minecraft:zombie",
             2,0,-1,0,0,0,20,20,true,true,true);
         var block=new NativeMindSenseFrame.BlockSense(0,-1,0,
-            "minecraft:oak_log","minecraft:empty",true,false,
+            "minecraft:oak_log","minecraft:empty",true,false,true,
             java.util.Map.of("axis","y","waterlogged","false"));
         var frame=new NativeMindSenseFrame(body,mind,123,"minecraft:overworld",
             self,List.of(entity),List.of(block));
@@ -20,6 +20,8 @@ public final class NativeMindSenseFrameSelfTest {
         assert frame.blocks().get(0).blockType().equals("minecraft:oak_log");
         assert frame.blocks().get(0).properties().equals(
             java.util.Map.of("axis","y","waterlogged","false"));
+        assert frame.body().width()==0.7 && frame.body().height()==0.7;
+        assert frame.entities().get(0).width()==0.0;
         int rejected=0;
         try { new NativeMindSenseFrame(body,mind,123,"minecraft:overworld",
             self,List.of(entity,entity),List.of()); }
@@ -42,7 +44,10 @@ public final class NativeMindSenseFrameSelfTest {
         try { new NativeMindSenseFrame.BlockSense(0,0,0,"minecraft:stone",
             "minecraft:empty",true,false,java.util.Map.of("bad key","value")); }
         catch(IllegalArgumentException expected) { rejected++; }
-        assert rejected==6;
-        System.out.println("PASS NativeMindSenseFrameSelfTest: 9 assertions; body-local bounded sensory contract");
+        try { new NativeMindSenseFrame.BlockSense(0,0,0,"minecraft:air",
+            "minecraft:empty",false,true,false,java.util.Map.of("lit","true")); }
+        catch(IllegalArgumentException expected) { rejected++; }
+        assert rejected==7;
+        System.out.println("PASS NativeMindSenseFrameSelfTest: 12 assertions; body-local geometry and bounded sensory contract");
     }
 }
