@@ -413,12 +413,14 @@ def run_reciprocal_mob_pair(opts):
         shutil.copyfile(chicken_request,RECEIVER_DIR/"ff-worker-request-reverse.properties")
         shutil.copyfile(zombie_first,RECEIVER_DIR/"ff-worker-frame-reverse.bin")
         shutil.copyfile(zombie_second,RECEIVER_DIR/"ff-worker-frame-next-reverse.bin")
+        reciprocal_env=env.copy()
+        reciprocal_env["FF_RECIPROCAL_E2E"]="true"
         run_until_markers(
             cmd_base+["runGameTestServer"]+arguments,
             ROOT/"reciprocal-mob-receiver.log",
             ("FF-NATIVE-WORKER RECIPROCAL_MOB_PAIR PASS",
              "ALL_REQUIRED_GAME_TESTS_PASSED"),
-            env)
+            reciprocal_env)
         print("FF-NATIVE-WORKER RECIPROCAL_MOB_TO_MOB PASS"
             +" minecraft="+opts.minecraft
             +" zombieMindToChickenBody=true"
