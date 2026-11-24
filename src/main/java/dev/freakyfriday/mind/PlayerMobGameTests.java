@@ -195,6 +195,12 @@ public final class PlayerMobGameTests {
             long currentTick=streamTick+sample;
             var senses=MinecraftMindSenseCapture.capture(
                 player,mobMind.identity(),currentTick);
+            var mappedTarget=senses.entities().stream()
+                .filter(entity->entity.id().equals(target.getUUID())).findFirst().orElse(null);
+            helper.assertTrue(senses.body().x()==0.0 && senses.body().y()==0.0
+                    && senses.body().z()==0.0 && mappedTarget!=null && mappedTarget.visible()
+                    && Math.abs(mappedTarget.dx()-(target.getX()-player.getX()))<0.001,
+                "Player-body senses leaked world coordinates or omitted real target visibility");
             var request=stream.begin(senses);
             helper.assertTrue(request.tick()==currentTick
                     && request.sensoryWire().length>32,
