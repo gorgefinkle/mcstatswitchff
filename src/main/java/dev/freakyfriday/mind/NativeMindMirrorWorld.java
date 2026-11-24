@@ -228,9 +228,10 @@ public final class NativeMindMirrorWorld implements AutoCloseable {
 
     @SuppressWarnings({"rawtypes","unchecked"})
     private static BlockState withProperty(BlockState state,Property property,String value) {
-        Object parsed=property.getValue(value).orElseThrow(
-            ()->new IllegalArgumentException("Invalid property value "+property.getName()+"="+value));
-        return state.setValue(property,(Comparable)parsed);
+        var parsed=property.getValue(value);
+        if(parsed.isEmpty())
+            throw new IllegalArgumentException("Invalid property value "+property.getName()+"="+value);
+        return state.setValue(property,(Comparable)parsed.get());
     }
 
     private static void requireServerThread(ServerLevel level) {
