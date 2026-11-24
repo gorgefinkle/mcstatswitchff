@@ -95,7 +95,6 @@ public final class NativeMindWorkerSupervisorSmoke {
         if(villager==null) throw new IllegalStateException("Could not construct smoke Villager");
         villager.setPos(x,y,z);
         villager.setPersistenceRequired();
-        villager.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(0.0);
         if(!level.addFreshEntity(villager))
             throw new IllegalStateException("Could not add smoke Villager");
         return villager;
@@ -136,11 +135,13 @@ public final class NativeMindWorkerSupervisorSmoke {
                     secondMob.getZ()-secondStartZ);
                 if(firstMoved>0.20 && secondMoved>0.20) {
                     requireHealthy(firstMob,secondMob,target);
-                    if(!firstMob.getUUID().equals(originalIds[1])
-                            || !secondMob.getUUID().equals(originalIds[2]))
+                    if(!firstMob.getUUID().equals(originalIds[0])
+                            || !secondMob.getUUID().equals(originalIds[1])
+                            || !target.getUUID().equals(originalIds[2]))
                         throw new IllegalStateException("Mob↔Mob exchange replaced a physical entity UUID");
                     NativeMindWorkerSupervisor.cancelByAccount(account.getUUID());
-                    if(!firstMob.isNoAi() || !secondMob.isNoAi())
+                    if(firstMob.isNoAi()!=firstOriginalNoAi
+                            || secondMob.isNoAi()!=secondOriginalNoAi)
                         throw new IllegalStateException("Cancelling M↔M did not restore each body's original AI policy");
                     System.out.println("FF-SUPERVISOR MOB_MOB_RECIPROCAL PASS"
                         +" firstMindToSecondBody="+secondMoved
@@ -171,6 +172,8 @@ public final class NativeMindWorkerSupervisorSmoke {
         firstStartX=firstMob.getX();firstStartZ=firstMob.getZ();
         secondStartX=secondMob.getX();secondStartZ=secondMob.getZ();
         originalIds=new UUID[]{firstMob.getUUID(),secondMob.getUUID(),target.getUUID()};
+        boolean firstOriginalNoAi=firstMob.isNoAi();
+        boolean secondOriginalNoAi=secondMob.isNoAi();
         String error=NativeMindWorkerSupervisor.startMobPair(account,firstMob,secondMob);
         if(error!=null) throw new IllegalStateException("Mob↔Mob supervisor start rejected: "+error);
         System.out.println("FF-SUPERVISOR MOB_MOB_STARTED PASS");
