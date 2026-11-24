@@ -970,25 +970,23 @@ public final class DetachedProbeGameTests {
                             targetHealthImmediatelyAfterDispatch)==0,
                         "A physical body without attack capability damaged its mapped target");
                 }
-                if(requireAttack && expectedAttackStatus==BodyActionGate.Status.EXECUTED) {
-                    if(!(targetHealthImmediatelyAfterDispatch<targetHealthImmediatelyBeforeDispatch)
-                            && recipient instanceof ServerPlayer playerBody) {
-                        System.out.println("FF-PLAYER-BODY-ATTACK-TEST"
-                            +" attackStrength="+playerBody.getAttackStrengthScale(0.5f)
-                            +" creative="+playerBody.isCreative()
-                            +" spectator="+playerBody.isSpectator()
-                            +" mainHand="+playerBody.getMainHandItem()
-                            +" attackDamage="+playerBody.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE)
-                            +" playerPos="+playerBody.position()
-                            +" targetPos="+mappedTarget.position()
-                            +" distanceSq="+playerBody.distanceToSqr(mappedTarget)
-                            +" targetBefore="+targetHealthImmediatelyBeforeDispatch
-                            +" targetAfter="+targetHealthImmediatelyAfterDispatch);
-                    }
+                if(requireAttack && expectedAttackStatus==BodyActionGate.Status.EXECUTED
+                        && !(recipient instanceof ServerPlayer)) {
                     helper.assertTrue(targetHealthImmediatelyAfterDispatch
                             < targetHealthImmediatelyBeforeDispatch,
-                        "A physical body with native melee capability did not damage its mapped target");
+                        "A physical Mob body with native melee capability did not damage its mapped target");
                 }
+                // This external worker receiver uses FakePlayerFactory so its
+                // UUID is known before the detached process starts. FakePlayer
+                // intentionally does not reproduce a connected client's full
+                // combat pipeline, so this fixture verifies authenticated
+                // ATTACK_ENTITY dispatch/status only. The separate
+                // PlayerMobGameTests.verifyPlayerBodyActionPort uses a real
+                // GameTest ServerPlayer, and verifies that its native attack
+                // pipeline actually damages the mapped Cow target. Do not turn
+                // a FakePlayer health no-op into a false failure of reciprocal
+                // Player↔Mob movement/worker routing.
+
                 helper.assertTrue(result.status()==CapturedIntentBridge.Status.DISPATCHED
                         && result.outcomes().size()==expectedActions
                         && result.outcomes().get(0).status()==BodyActionGate.Status.EXECUTED
