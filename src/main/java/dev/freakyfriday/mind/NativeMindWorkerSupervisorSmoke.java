@@ -72,6 +72,7 @@ public final class NativeMindWorkerSupervisorSmoke {
             if(error!=null) throw new IllegalStateException("Player↔Mob supervisor start rejected: "+error);
             PlayerMobPossession.input(account,
                 new PlayerMobPossession.Input(1,0,false,0,0,++sequence));
+            phase=1;
             System.out.println("FF-SUPERVISOR PLAYER_MOB_STARTED PASS");
         } catch(Exception failure) {
             fail("PLAYER_MOB",failure);
