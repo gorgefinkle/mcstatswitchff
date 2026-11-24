@@ -180,6 +180,7 @@ public final class NativeMindWorkerSupervisor {
                 NativeMindWorkerLaunchCommand.currentProcessArguments(),
                 root,WORKER_HEAP_MEGABYTES);
             ProcessBuilder builder=new ProcessBuilder(command)
+                .directory(root.toFile())
                 .redirectErrorStream(true).redirectOutput(root.resolve("worker.log").toFile());
             builder.environment().put("FF_WORKER_KEY_HEX",HexFormat.of().formatHex(key));
             Process process=builder.start();

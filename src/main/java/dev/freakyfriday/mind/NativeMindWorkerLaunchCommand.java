@@ -68,35 +68,46 @@ public final class NativeMindWorkerLaunchCommand {
         command.add("-Dfreakyfriday.workerRoot="+root);
         command.add("-Xms256M");
         command.add("-Xmx"+heapMegabytes+"M");
-        for(String argument:parentArguments) {
+        // Keep the exact NeoForge launch bootstrap and classpath, but strip
+        // the parent's game-directory/world/port overrides. Those options
+        // belong to the disposable child server, not the live parent.
+        for(int i=0;i<parentArguments.size();i++) {
+            String argument=parentArguments.get(i);
             if(argument==null || argument.isBlank()) continue;
             if(argument.startsWith("-Xms") || argument.startsWith("-Xmx")
                     || argument.startsWith("-Dfreakyfriday.aiWorker=")
                     || argument.startsWith("-Dfreakyfriday.workerRoot=")
                     || argument.startsWith("-Dfreakyfriday.thirdPartyFixture=")
                     || argument.startsWith("-Dfreakyfriday.supervisorSmoke=")
-                    || argument.startsWith("-Dneoforge.enabledGameTestNamespaces="))
+                    || argument.startsWith("-Dneoforge.enabledGameTestNamespaces=")
+                    || argument.equals("--nogui") || argument.equals("nogui"))
+                continue;
+            if(argument.equals("--gameDir") || argument.equals("--universe")
+                    || argument.equals("--world") || argument.equals("--port")
+                    || argument.equals("--server") || argument.equals("--serverId")
+                    || argument.equals("--pidFile")) {
+                if(i+1<parentArguments.size()) i++;
+                continue;
+            }
+            if(argument.startsWith("--gameDir=") || argument.startsWith("--universe=")
+                    || argument.startsWith("--world=") || argument.startsWith("--port=")
+                    || argument.startsWith("--server=") || argument.startsWith("--serverId=")
+                    || argument.startsWith("--pidFile="))
                 continue;
             command.add(argument);
         }
-        // The worker gets its own world root and an ephemeral local server
-        // port. The process shares no live world handles with its parent.
+        // Current server CLI uses --world (not the removed legacy
+        // --level-name option). Network/runtime settings are read from the
+        // isolated root's server.properties file, not passed as unknown CLI
+        // flags. The child working directory is also set to this root by the
+        // supervisor before start(), so its config, saves and request files
+        // cannot resolve through the live server's run directory.
+        command.add("--gameDir");
+        command.add(root.toString());
         command.add("--universe");
         command.add(root.toString());
-        command.add("--level-name");
+        command.add("--world");
         command.add("world");
-        command.add("--port");
-        command.add("0");
-        command.add("--server-ip");
-        command.add("127.0.0.1");
-        command.add("--online-mode");
-        command.add("false");
-        command.add("--max-players");
-        command.add("1");
-        command.add("--view-distance");
-        command.add("2");
-        command.add("--simulation-distance");
-        command.add("2");
         command.add("--nogui");
         return List.copyOf(command);
     }

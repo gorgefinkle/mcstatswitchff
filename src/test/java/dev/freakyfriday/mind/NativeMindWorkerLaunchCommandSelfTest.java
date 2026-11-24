@@ -36,6 +36,20 @@ public final class NativeMindWorkerLaunchCommandSelfTest {
             "NeoForge launch argument files are preserved");
         check(command.indexOf("--universe")>command.indexOf("@libraries/neoforge/unix_args.txt"),
             "child universe overrides are passed to the server launch target");
+        check(command.contains("--world") && command.contains("world")
+                && !command.contains("--level-name"),
+            "current dedicated-server CLI receives supported world option, not legacy level-name");
+        check(!command.contains("--server-ip") && !command.contains("--online-mode")
+                && !command.contains("--max-players") && !command.contains("--view-distance")
+                && !command.contains("--simulation-distance"),
+            "network and simulation settings are loaded from isolated server.properties");
+        var isolated=NativeMindWorkerLaunchCommand.build("java",
+            List.of("Main","--gameDir","/parent/run","--universe","/parent/world",
+                "--world","parent","--port","25565","--nogui"),
+            Path.of("/tmp/ff-worker/test"),768);
+        check(!isolated.contains("/parent/run") && !isolated.contains("/parent/world")
+                && !isolated.contains("parent") && !isolated.contains("25565"),
+            "parent game data and port overrides cannot leak into child command");
         rejects(()->NativeMindWorkerLaunchCommand.build("java",List.of(),Path.of("worker"),768),
             "missing parent launch args rejected");
         rejects(()->NativeMindWorkerLaunchCommand.build("java",List.of("Main"),Path.of("worker"),128),

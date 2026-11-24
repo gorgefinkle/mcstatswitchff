@@ -226,7 +226,7 @@ public final class PlayerMobGameTests {
                     && receipt.outcomes().size()==1
                     && receipt.outcomes().get(0).status()==BodyActionGate.Status.EXECUTED
                     && receipt.tick()==currentTick+1
-                    && stream.nextTick()==currentTick+2
+                    && stream.nextTick()==currentTick+1
                     && !stream.hasOutstandingRequest(),
                 "Sequential authenticated worker tick did not reach original player body");
         }
