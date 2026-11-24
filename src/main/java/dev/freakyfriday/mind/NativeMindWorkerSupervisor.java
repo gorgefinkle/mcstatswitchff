@@ -42,7 +42,9 @@ public final class NativeMindWorkerSupervisor {
     private static final int WORKER_HEAP_MEGABYTES=768;
     private static final int MAX_FRAME_BYTES=CapturedIntentWireCodec.MAX_WIRE_BYTES;
     private static final Map<UUID,PairSession> BY_BODY=new java.util.HashMap<>();
-    private static final Map<UUID,PairSession> BY_ACCOUNT=new java.util.HashMap<>();
+    // Requester is an index/manager, not necessarily a participant body. One
+    // requester may own several independent Mob↔Mob sessions at once.
+    private static final Map<UUID,java.util.Set<PairSession>> BY_ACCOUNT=new java.util.HashMap<>();
 
     private static final class Worker {
         final LivingEntity recipient;
@@ -280,8 +282,7 @@ public final class NativeMindWorkerSupervisor {
         if(PlayerMobPossession.hasSession(player.getUUID())
                 ||PlayerPlayerExchange.active(player.getUUID())
                 ||BY_BODY.containsKey(player.getUUID())
-                ||BY_BODY.containsKey(mob.getUUID())
-                ||BY_ACCOUNT.containsKey(player.getUUID()))
+                ||BY_BODY.containsKey(mob.getUUID()))
             return "One of these participants already belongs to an active exchange.";
 
         CapturedIntentBridge bridge=new CapturedIntentBridge();
@@ -325,7 +326,6 @@ public final class NativeMindWorkerSupervisor {
         if(!supportedRuntime())
             return "Live native workers are unavailable in this test/worker environment.";
         if(BY_BODY.containsKey(first.getUUID())||BY_BODY.containsKey(second.getUUID())
-                ||BY_ACCOUNT.containsKey(requester.getUUID())
                 ||PlayerMobPossession.hasSession(requester.getUUID())
                 ||PlayerPlayerExchange.active(requester.getUUID()))
             return "One of these participants already belongs to an active exchange.";
@@ -360,16 +360,14 @@ public final class NativeMindWorkerSupervisor {
     }
 
     /**
-     * Reserve every physical body and the initiating account as one operation.
+     * Reserve every physical body atomically. The requester index is not a
+     * participant lock: a Mob↔Mob session does not occupy the requester's
+     * player body, so that same player may initiate another exchange with a
+     * different pair (including a Player↔Mob exchange using their own body).
      *
-     * Validate the complete reservation before mutating either index. The old
-     * putIfAbsent loop could reserve body[0], then throw because body[1] was
-     * already occupied. Its caller would stop the workers and restore AI, but
-     * the first BY_BODY entry would remain as a ghost session that blocked
-     * future swaps and retained the PairSession indefinitely.
-     *
-     * All callers hold this class monitor (the public start methods are
-     * synchronized), so no other session can race between preflight and commit.
+     * Validate the complete body reservation before mutating either index.
+     * All callers hold this class monitor, so no other session can race between
+     * preflight and commit.
      */
     private static void register(PairSession pair) {
         java.util.HashSet<UUID> uniqueBodies = new java.util.HashSet<>();
@@ -379,13 +377,10 @@ public final class NativeMindWorkerSupervisor {
             if (BY_BODY.containsKey(body))
                 throw new IllegalStateException("A physical body was claimed during exchange startup: " + body);
         }
-        UUID accountId = pair.requester.getUUID();
-        if (BY_ACCOUNT.containsKey(accountId))
-            throw new IllegalStateException("The initiating account already owns a mind exchange session: " + accountId);
-
-        // Commit only after every body and account has passed preflight.
+        // Commit body ownership only after every physical participant passes.
         for (UUID body : pair.bodyIds) BY_BODY.put(body, pair);
-        BY_ACCOUNT.put(accountId, pair);
+        BY_ACCOUNT.computeIfAbsent(pair.requester.getUUID(), ignored -> new java.util.HashSet<>())
+            .add(pair);
     }
 
     @SubscribeEvent
@@ -464,8 +459,19 @@ public final class NativeMindWorkerSupervisor {
     }
 
     private static void registerPair(PairSession pair) {
-        for(UUID body:pair.bodyIds) BY_BODY.put(body,pair);
-        BY_ACCOUNT.put(pair.requester.getUUID(),pair);
+        for(UUID body:pair.bodyIds) {
+            if(BY_BODY.putIfAbsent(body,pair)!=null)
+                throw new IllegalStateException("Physical body already belongs to an exchange: "+body);
+        }
+        BY_ACCOUNT.computeIfAbsent(pair.requester.getUUID(), ignored -> new java.util.HashSet<>())
+            .add(pair);
+    }
+
+    private static void unindexRequester(PairSession pair) {
+        java.util.Set<PairSession> sessions=BY_ACCOUNT.get(pair.requester.getUUID());
+        if(sessions==null) return;
+        sessions.remove(pair);
+        if(sessions.isEmpty()) BY_ACCOUNT.remove(pair.requester.getUUID());
     }
 
     private static void endPair(PairSession pair,String reason,boolean notify) {
@@ -481,24 +487,24 @@ public final class NativeMindWorkerSupervisor {
                 pair.secondMob.body.setNoAi(pair.secondMob.originalNoAi);
         }
         for(UUID body:pair.bodyIds) BY_BODY.remove(body,pair);
-        BY_ACCOUNT.remove(pair.requester.getUUID(),pair);
+        unindexRequester(pair);
         if(notify&&!pair.requester.isRemoved())
             pair.requester.sendSystemMessage(Component.literal("[Freaky Friday] "+reason));
     }
 
     public static synchronized boolean cancelByAccount(UUID account) {
-        PairSession pair=BY_ACCOUNT.get(account);
-        if(pair==null) {
-            for(PairSession candidate:new java.util.HashSet<>(BY_BODY.values())) {
-                if(candidate.requester.getUUID().equals(account)
-                        ||(candidate.playerAccount!=null
-                            &&candidate.playerAccount.getUUID().equals(account))) {
-                    pair=candidate; break;
-                }
-            }
+        java.util.Set<PairSession> owned=new java.util.HashSet<>(
+            BY_ACCOUNT.getOrDefault(account,java.util.Set.of()));
+        // Also include any session where this account is the occupied player
+        // body, even if another operator originally requested it.
+        for(PairSession candidate:new java.util.HashSet<>(BY_BODY.values())) {
+            if(candidate.playerAccount!=null
+                    &&candidate.playerAccount.getUUID().equals(account))
+                owned.add(candidate);
         }
-        if(pair==null) return false;
-        endPair(pair,"Native mind exchange cancelled; original body ownership restored.",true);
+        if(owned.isEmpty()) return false;
+        for(PairSession pair:owned)
+            endPair(pair,"Native mind exchange cancelled; original body ownership restored.",true);
         return true;
     }
 
