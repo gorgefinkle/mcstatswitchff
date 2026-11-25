@@ -68,13 +68,14 @@ public final class MinecraftPlayerBodyPort implements BodyActionGate.BodyPort {
      */
     private BodyActionGate.Result move(BodyActionGate.Intent intent) {
         double dx = number(intent, "dx");
+        double dy = optionalNumber(intent, "dy", 0.0);
         double dz = number(intent, "dz");
         double multiplier = optionalNumber(intent, "speed", 1.0);
-        if (multiplier <= 0.0 || multiplier > 2.0
-                || dx * dx + dz * dz > 144.0) {
+        double distanceSquared = dx * dx + dy * dy + dz * dz;
+        if (multiplier <= 0.0 || multiplier > 2.0 || distanceSquared > 144.0) {
             return BodyActionGate.Result.blocked("Movement request outside player-body bounds");
         }
-        double distance = Math.hypot(dx, dz);
+        double distance = Math.sqrt(distanceSquared);
         if (distance < 0.05) return BodyActionGate.Result.executed();
 
         double nativeSpeed = body.getAttributeValue(Attributes.MOVEMENT_SPEED);
@@ -82,7 +83,8 @@ public final class MinecraftPlayerBodyPort implements BodyActionGate.BodyPort {
             return BodyActionGate.Result.blocked("Player body has no usable movement speed");
         }
         double step = Math.min(distance, nativeSpeed * 20.0 * multiplier);
-        Vec3 displacement = new Vec3(dx / distance * step, 0.0, dz / distance * step);
+        Vec3 displacement = new Vec3(
+            dx / distance * step, dy / distance * step, dz / distance * step);
         body.move(MoverType.SELF, displacement);
         return BodyActionGate.Result.executed();
     }
