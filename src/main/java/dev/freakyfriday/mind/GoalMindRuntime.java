@@ -496,14 +496,18 @@ public final class GoalMindRuntime {
         boolean originalFirstNoAi=first.isNoAi();
         boolean originalSecondNoAi=second.isNoAi();
         final MindLedger.Mind firstMind,secondMind;
-        DetachedController firstController=null,secondController=null;
-        boolean ledgerExchanged=false;
         try {
             registerOriginalIfMissing(first);
             registerOriginalIfMissing(second);
             firstMind=OWNERS.controlling(first.getUUID());
             secondMind=OWNERS.controlling(second.getUUID());
+        } catch(RuntimeException failure) {
+            return "Could not reserve both native mind identities: "+failure.getMessage();
+        }
 
+        DetachedController firstController=null,secondController=null;
+        boolean ledgerExchanged=false;
+        try {
             // Each mind runs on a same-EntityType proxy, so owner-bound
             // Zombie/Chicken/modded Goal lambdas stay valid. The proxy is
             // located at the other body's real position and projects native
