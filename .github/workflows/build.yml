@@ -91,7 +91,9 @@ jobs:
           grep -Fq 'FF-GAMEPLAY native_body_speed PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY solid_wall_collision PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY player_player_reciprocal_movement PASS' gametest.log
+          grep -Fq 'FF-GAMEPLAY player_player_reciprocal_attack PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY player_player_cancel_restores_both PASS' gametest.log
+          grep -Fq 'FF-GAMEPLAY mob_mob_reciprocal_attack PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY native_fall_profiles PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY native_goal_mind_exchange PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY occupied_mob_death_returns_player PASS' gametest.log
@@ -102,6 +104,7 @@ jobs:
           grep -Fq 'FF-GAMEPLAY invalid_entity_attack_guard PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY player_mob_reciprocal_gate PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY player_mob_native_mind_proxy PASS' gametest.log
+          grep -Fq 'FF-GAMEPLAY player_mob_reciprocal_attack PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY stale_selection_and_reciprocal_gate PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY player_body_action_port PASS' gametest.log
           grep -Fq 'FF-NATIVE-PROBE inventory PASS' gametest.log
