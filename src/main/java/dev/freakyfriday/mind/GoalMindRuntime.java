@@ -326,9 +326,26 @@ public final class GoalMindRuntime {
             proxy.setXRot(physicalBody.getXRot());
             proxy.setYHeadRot(physicalBody.getYHeadRot());
             proxy.setOnGround(physicalBody.onGround());
-            // Preserve proxy-owned momentum/goal state between ticks. Only
-            // its position is resynchronized to the real physical recipient.
+            // An unregistered entity is intentionally absent from the
+            // world's entity tick list, so Mob.isEffectiveAi() is false and a
+            // plain proxy.tick() skips Mob.serverAiStep entirely. Run the same
+            // native AI stages explicitly, in vanilla order, then let the real
+            // proxy tick perform its normal travel/collision calculation.
             pendingAttack=null;
+            proxy.getSensing().tick();
+            boolean fullGoalPass=proxy.tickCount==0
+                ||((proxy.tickCount+proxy.getId())&1)==0;
+            if(fullGoalPass) {
+                proxy.targetSelector.tick();
+                proxy.goalSelector.tick();
+            } else {
+                proxy.targetSelector.tickRunningGoals(false);
+                proxy.goalSelector.tickRunningGoals(false);
+            }
+            proxy.getNavigation().tick();
+            proxy.getMoveControl().tick();
+            proxy.getLookControl().tick();
+            proxy.getJumpControl().tick();
             proxy.tick();
             Vec3 moved=proxy.position().subtract(origin);
             Entity target=proxy.getTarget();
