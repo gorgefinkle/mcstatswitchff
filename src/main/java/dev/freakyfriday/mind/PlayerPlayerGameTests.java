@@ -101,29 +101,38 @@ public final class PlayerPlayerGameTests {
                 helper.assertTrue(fred.getUUID().equals(fredId)
                         && sally.getUUID().equals(sallyId),
                     "Reciprocal control replaced an actual physical player");
-                var opponentDamage=level.damageSources().mobAttack(opponent);
-                helper.assertTrue(fred.hurtServer(level,opponentDamage,2.0f)
-                        &&sally.hurtServer(level,opponentDamage,2.0f)
-                        &&fred.getHealth()<fredHealth&&sally.getHealth()<sallyHealth,
-                    "The opposing Skeleton could not independently damage both original player bodies during the swap");
-                helper.assertTrue(PlayerPlayerExchange.active(fredId)
-                        &&PlayerPlayerExchange.active(sallyId),
-                    "Nonfatal opponent damage incorrectly ended reciprocal Player↔Player control");
-                helper.assertTrue(PlayerPlayerExchange.cancel(sally),
-                    "The other swapped player cannot end the exchange");
-                helper.assertTrue(!PlayerPlayerExchange.active(fredId)
-                        && !PlayerPlayerExchange.active(sallyId)
-                        && !PlayerCommandBodyRouting.hasRoute(fredId)
-                        && !PlayerCommandBodyRouting.hasRoute(sallyId),
-                    "Cancel left body control or command routing swapped");
-                System.out.println("FF-GAMEPLAY player_player_reciprocal_movement PASS"
-                    +" fredBodyFromSally="+(fred.getX()-fredX)
-                    +" sallyBodyFromFred="+(sally.getZ()-sallyZ)
-                    +" intactPhysicalPlayers=true");
-                System.out.println("FF-GAMEPLAY player_player_cancel_restores_both PASS"
-                    +" immediateExchange=true noConsentRequired=true");
-                helper.succeed();
-                opponent.discard();
+                // ServerPlayer spawn protection is still active in the
+                // first movement window. Wait beyond that native protection
+                // period, then test ordinary attacker damage against both
+                // original player entities while their controllers remain swapped.
+                helper.runAfterDelay(50,()->{
+                    var opponentDamage=level.damageSources().mobAttack(opponent);
+                    boolean fredHit=fred.hurtServer(level,opponentDamage,2.0f);
+                    boolean sallyHit=sally.hurtServer(level,opponentDamage,2.0f);
+                    helper.assertTrue(fredHit&&sallyHit
+                            &&fred.getHealth()<fredHealth&&sally.getHealth()<sallyHealth,
+                        "The opposing Skeleton could not independently damage both original player bodies"
+                            +" fredHit="+fredHit+" sallyHit="+sallyHit
+                            +" fredHealth="+fred.getHealth()+" sallyHealth="+sally.getHealth());
+                    helper.assertTrue(PlayerPlayerExchange.active(fredId)
+                            &&PlayerPlayerExchange.active(sallyId),
+                        "Nonfatal opponent damage incorrectly ended reciprocal Player↔Player control");
+                    helper.assertTrue(PlayerPlayerExchange.cancel(sally),
+                        "The other swapped player cannot end the exchange");
+                    helper.assertTrue(!PlayerPlayerExchange.active(fredId)
+                            && !PlayerPlayerExchange.active(sallyId)
+                            && !PlayerCommandBodyRouting.hasRoute(fredId)
+                            && !PlayerCommandBodyRouting.hasRoute(sallyId),
+                        "Cancel left body control or command routing swapped");
+                    System.out.println("FF-GAMEPLAY player_player_reciprocal_movement PASS"
+                        +" fredBodyFromSally="+(fred.getX()-fredX)
+                        +" sallyBodyFromFred="+(sally.getZ()-sallyZ)
+                        +" intactPhysicalPlayers=true opponentDamagesBothBodies=true independentHealthPools=true");
+                    System.out.println("FF-GAMEPLAY player_player_cancel_restores_both PASS"
+                        +" immediateExchange=true noConsentRequired=true");
+                    helper.succeed();
+                    opponent.discard();
+                });
             });
         } catch(RuntimeException failure) {
             PlayerPlayerExchange.clearOnLogout(fredId);
