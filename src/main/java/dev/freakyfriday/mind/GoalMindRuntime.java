@@ -660,7 +660,14 @@ public final class GoalMindRuntime {
         if(event.getEntity() instanceof Mob damaged) {
             DetachedController victim=DETACHED_BY_PROXY.get(damaged.getUUID());
             if(victim!=null) {
+                float hostHealthBefore=victim.physicalBody==null?Float.NaN:victim.physicalBody.getHealth();
                 event.setCanceled(true);
+                if(Boolean.getBoolean("freakyfriday.thirdPartyFixture"))
+                    System.out.println("[FF-PROXY-DAMAGE] damagedProxy="+damaged.getUUID()
+                        +" attacker="+event.getSource().getEntity()
+                        +" amount="+event.getAmount()
+                        +" host="+(victim.physicalBody==null?"none":victim.physicalBody.getType())
+                        +" hostHealthBefore="+hostHealthBefore);
                 if(event.getSource().getEntity() instanceof Mob attackerProxy) {
                     DetachedController attacker=DETACHED_BY_PROXY.get(attackerProxy.getUUID());
                     if(attacker!=null&&attacker!=victim) {
@@ -674,6 +681,9 @@ public final class GoalMindRuntime {
                 // PvP, invulnerability and other native damage checks remain
                 // in force because the original DamageSource is preserved.
                 victim.redirectDamageToBody(event.getSource(),event.getAmount());
+                if(Boolean.getBoolean("freakyfriday.thirdPartyFixture"))
+                    System.out.println("[FF-PROXY-DAMAGE] redirected hostHealthAfter="
+                        +(victim.physicalBody==null?Float.NaN:victim.physicalBody.getHealth()));
                 return;
             }
         }
@@ -681,6 +691,10 @@ public final class GoalMindRuntime {
         DetachedController controller=DETACHED_BY_PROXY.get(proxy.getUUID());
         if(controller==null)return;
         event.setCanceled(true);
+        if(Boolean.getBoolean("freakyfriday.thirdPartyFixture"))
+            System.out.println("[FF-PROXY-DAMAGE] attackerProxy="+proxy.getUUID()
+                +" physicalTarget="+event.getEntity().getUUID()
+                +" amount="+event.getAmount()+" recorded=true");
         controller.recordAttack(event.getEntity());
     }
 
