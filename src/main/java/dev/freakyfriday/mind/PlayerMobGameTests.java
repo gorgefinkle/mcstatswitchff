@@ -877,11 +877,13 @@ public final class PlayerMobGameTests {
             // enclosing GameTest's 100-tick budget.
             helper.runAfterDelay(11,()->{
                 body.setPos(player.getX()+1.35,player.getY(),player.getZ());
-                body.setYRot(-90.0f);
-                body.yRotO=-90.0f;
-                body.setYHeadRot(-90.0f);
+                // The Mob body is east of the original Player body,
+                // so +90° faces west toward that Player target.
+                body.setYRot(90.0f);
+                body.yRotO=90.0f;
+                body.setYHeadRot(90.0f);
                 PlayerMobPossession.input(player,
-                    new PlayerMobPossession.Input(0,0,false,-90.0f,0,1));
+                    new PlayerMobPossession.Input(0,0,false,90.0f,0,1));
                 clearHurtCooldown(player);
                 float playerBeforeBodyAttack=player.getHealth();
                 PlayerMobPossession.attack(player,player.getId(),1);
