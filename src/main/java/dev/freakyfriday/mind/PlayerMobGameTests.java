@@ -991,26 +991,45 @@ public final class PlayerMobGameTests {
             "Each physical body must have the opposite native mind proxy");
         float firstProxyHealth=firstBodyMind.getHealth();
         float secondProxyHealth=secondBodyMind.getHealth();
-        firstBodyMind.goalSelector.addGoal(0,new OneShotNativeAttackGoal(firstBodyMind,second));
-        secondBodyMind.goalSelector.addGoal(0,new OneShotNativeAttackGoal(secondBodyMind,first));
+
+        // Phase 1: each mind attacks the OTHER detached mind proxy. Damage
+        // must be redirected to the physical body currently hosting that mind.
+        firstBodyMind.goalSelector.addGoal(0,new OneShotNativeAttackGoal(firstBodyMind,secondBodyMind));
+        secondBodyMind.goalSelector.addGoal(0,new OneShotNativeAttackGoal(secondBodyMind,firstBodyMind));
         helper.runAfterDelay(4,()->{
             helper.assertTrue(first.getHealth()<firstHealth&&second.getHealth()<secondHealth,
-                "Both opposite native minds must damage the other participant's real body"
+                "Attacks on the opposite mind proxies did not damage both real host bodies"
                     +" first="+firstHealth+"->"+first.getHealth()
                     +" second="+secondHealth+"->"+second.getHealth());
             helper.assertTrue(firstBodyMind.getHealth()==firstProxyHealth
                     &&secondBodyMind.getHealth()==secondProxyHealth,
-                "Damage must land on each mind's real physical body, never on its detached decision proxy");
-            helper.assertTrue(GoalMindRuntime.activeSessions(requester)==1,
-                "Nonfatal reciprocal body damage unexpectedly terminated the Mob↔Mob swap");
-            helper.assertTrue(GoalMindRuntime.cancelByAccount(requester),
-                "Mob↔Mob reciprocal attack session did not return cleanly");
-            first.discard();
-            second.discard();
-            System.out.println("FF-GAMEPLAY mob_mob_reciprocal_attack PASS"
-                +" firstMindDamagesSecondBody=true secondMindDamagesFirstBody=true"
-                +" originalHealthPools=true reversible=true");
-            helper.succeed();
+                "Mind-proxy attacks consumed detached proxy health instead of real host-body health");
+
+            // Phase 2: both minds now attack the opposite physical body
+            // directly. This proves the body remains targetable separately
+            // from the mind proxy.
+            float firstAfterMindHit=first.getHealth();
+            float secondAfterMindHit=second.getHealth();
+            firstBodyMind.goalSelector.addGoal(0,new OneShotNativeAttackGoal(firstBodyMind,second));
+            secondBodyMind.goalSelector.addGoal(0,new OneShotNativeAttackGoal(secondBodyMind,first));
+            helper.runAfterDelay(4,()->{
+                helper.assertTrue(first.getHealth()<firstAfterMindHit
+                        &&second.getHealth()<secondAfterMindHit,
+                    "Both opposite native minds must also damage the other physical body directly");
+                helper.assertTrue(firstBodyMind.getHealth()==firstProxyHealth
+                        &&secondBodyMind.getHealth()==secondProxyHealth,
+                    "Direct body attacks modified detached mind proxy health");
+                helper.assertTrue(GoalMindRuntime.activeSessions(requester)==1,
+                    "Nonfatal reciprocal attacks unexpectedly terminated the Mob↔Mob swap");
+                helper.assertTrue(GoalMindRuntime.cancelByAccount(requester),
+                    "Mob↔Mob reciprocal attack session did not return cleanly");
+                first.discard();
+                second.discard();
+                System.out.println("FF-GAMEPLAY mob_mob_reciprocal_attack PASS"
+                    +" bothMindsAttackOppositeMindProxy=true bothMindsAttackOppositeBody=true"
+                    +" proxyDamageRedirected=true independentBodyHealthPools=true reversible=true");
+                helper.succeed();
+            });
         });
     }
 
