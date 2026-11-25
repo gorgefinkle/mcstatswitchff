@@ -33,19 +33,17 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Dynamic whole-goal AI capturer. No hardcoded species names, goal subclasses,
- * recipe tables, food lists or per-species pairing exceptions.
+ * Native Goal-graph runtime for reciprocal Mob and Player body possession.
+ * Every donor's GoalSelector and target selector is cloned onto an unregistered
+ * proxy of that donor's own EntityType. This keeps owner-typed callbacks and
+ * species/modded Goal implementations valid without grafting them into the
+ * opposite physical entity class.
  *
- * Captures EVERY goal and targeting goal at the instant of selection, including
- * priority, concrete class and reflected object state. Each captured Goal is
- * reconstructed with ALL of its owner-bound services redirected to the new
- * recipient body before either native goal selector is touched.
- *
- * The capturer fails CLOSED when a field, opaque callback or recipient-specific
- * dependency cannot be rebound. It does not falsely promise that arbitrary
- * opaque AI hooks, customServerAiStep or mixed Brain+Goal mobs are portable.
- *
- * No persistence across unload/restart in this experimental checkpoint.
+ * Proxies tick in the same ServerLevel, read real surroundings, and project
+ * movement/look/attack decisions onto the original physical bodies. The real
+ * bodies retain identity, health, attributes, equipment, collision and native
+ * travel. Their autonomous goal lists are suspended for the session and
+ * restored exactly on return. Active Brain controllers remain fail-closed.
  */
 public final class GoalMindRuntime {
     private GoalMindRuntime() {}
@@ -262,10 +260,6 @@ public final class GoalMindRuntime {
     }
 
     /**
-     * The ONLY goal-based exchange entry point. Source discovery and both
-     * complete recipient captures are finished before any selector is changed.
-     */
-    /**
      * Stateless callers cannot safely own a live exchange. Mob↔Mob control
      * must be started through begin(requester,...), which reserves both real
      * bodies, runs same-type native proxies and has a deterministic return.
@@ -353,11 +347,11 @@ public final class GoalMindRuntime {
     }
 
     /**
-     * Create an unregistered, same-server AI proxy. It runs the donor Mob's
-     * native Goal graph against the real recipient surroundings, while the
-     * original Mob body is free for player input. Decisions are projected onto
-     * the real ServerPlayer adapter; the proxy has no independent collision,
-     * health, inventory, network identity or world registration.
+     * Create an unregistered, same-server AI proxy of the donor's real type.
+     * It runs the donor's native Goal graph against the real recipient
+     * surroundings, then projects decisions onto the recipient's original
+     * physical body. The proxy has no independent collision, health, inventory,
+     * network identity or world registration.
      */
     public static DetachedController createDetachedController(Mob donor,LivingEntity physicalBody)
             throws DynamicObjectGraph.Uncapturable {
@@ -366,7 +360,7 @@ public final class GoalMindRuntime {
                 ||donor.level()!=physicalBody.level()
                 ||!(donor.level() instanceof ServerLevel level))
             throw new DynamicObjectGraph.Uncapturable(
-                "The donor Mob and recipient player must be alive in the same server level");
+                "The donor Mob and recipient body must be alive in the same server level");
         if(!supports(donor,donor))
             throw new DynamicObjectGraph.Uncapturable(
                 "The donor Mob uses active Brain AI; its complete Brain runtime is not yet transferable");
@@ -403,6 +397,9 @@ public final class GoalMindRuntime {
     @SubscribeEvent
     public static synchronized void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         UUID playerId=event.getEntity().getUUID();
+        // A player who managed one or more Mob pairs must not leave their
+        // physical bodies reserved or their detached minds ticking after logout.
+        cancelByAccount(playerId);
         for(DetachedController controller:List.copyOf(DETACHED_BY_PROXY.values())) {
             if(controller.excluded.contains(playerId)) controller.close();
         }
