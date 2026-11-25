@@ -104,8 +104,9 @@ public final class GoalMindRuntime {
     private record CompatibleCapture(Snapshot snapshot,int omittedGoals) {}
 
     private static boolean recipientTypeMismatch(DynamicObjectGraph.Uncapturable failure) {
-        return failure.getMessage()!=null
-            &&failure.getMessage().startsWith("AI field incompatible with recipient:");
+        if(failure.getMessage()==null)return false;
+        return failure.getMessage().startsWith("AI field incompatible with recipient:")
+            ||failure.getMessage().startsWith("Captured lambda field incompatible after rebind:");
     }
 
     /**
