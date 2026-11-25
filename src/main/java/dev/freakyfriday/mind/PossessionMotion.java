@@ -56,6 +56,8 @@ public final class PossessionMotion {
         // would double-apply vertical physics to the physical recipient.
         if(Math.abs(strafe)<1.0e-5&&Math.abs(forward)<1.0e-5
                 &&Math.abs(vertical)<1.0e-5&&!jump)return;
+        double nativeSpeed=body.getAttributeValue(Attributes.MOVEMENT_SPEED);
+        body.setSpeed((float)Math.max(0.0,Math.min(1.5,nativeSpeed)));
         boolean originallyNoAi=body.isNoAi();
         if(originallyNoAi)body.setNoAi(false);
         double nativeSpeed=body.getAttributeValue(Attributes.MOVEMENT_SPEED);
@@ -83,6 +85,12 @@ public final class PossessionMotion {
         body.setYHeadRot(yaw);
 
         if(body instanceof Mob mob) {
+            // Mob.travel consumes Mob#getSpeed(), not the attribute directly.
+            // Native MoveControl normally refreshes this value each AI tick;
+            // player-controlled movement bypasses MoveControl, so refresh it
+            // from the physical body's own movement attribute here.
+            double nativeSpeed=mob.getAttributeValue(Attributes.MOVEMENT_SPEED);
+            mob.setSpeed((float)Math.max(0.0,Math.min(1.5,nativeSpeed)));
             boolean originallyNoAi=mob.isNoAi();
             if(originallyNoAi) mob.setNoAi(false);
             double nativeSpeed=mob.getAttributeValue(Attributes.MOVEMENT_SPEED);
