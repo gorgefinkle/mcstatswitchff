@@ -970,28 +970,28 @@ public final class PlayerMobGameTests {
 
         Mob chicken=EntityTypes.CHICKEN.create(level,EntitySpawnReason.COMMAND);
         Mob zombie=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
-        Mob secondChicken=EntityTypes.CHICKEN.create(level,EntitySpawnReason.COMMAND);
-        Mob secondZombie=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
-        helper.assertTrue(chicken!=null&&zombie!=null&&secondChicken!=null&&secondZombie!=null,
+        Mob secondZombieBA=EntityTypes.CHICKEN.create(level,EntitySpawnReason.COMMAND);
+        Mob secondZombieB=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
+        helper.assertTrue(chicken!=null&&zombie!=null&&secondZombieBA!=null&&secondZombieB!=null,
             "Live cross-species exchange fixtures could not be created");
         // Keep both physical bodies about three blocks from the Player
         // stimulus: inside native acquisition range, but outside the
         // Chicken TemptGoal's close-range stop radius.
         BlockPos chickenPos=helper.absolutePos(new BlockPos(3,1,4));
         BlockPos zombiePos=helper.absolutePos(new BlockPos(9,1,4));
-        BlockPos secondChickenPos=helper.absolutePos(new BlockPos(15,1,4));
-        BlockPos secondZombiePos=helper.absolutePos(new BlockPos(19,1,4));
+        BlockPos secondZombieBAPos=helper.absolutePos(new BlockPos(15,1,4));
+        BlockPos secondZombieBPos=helper.absolutePos(new BlockPos(19,1,4));
         chicken.setPos(chickenPos.getX()+0.5,chickenPos.getY(),chickenPos.getZ()+0.5);
         zombie.setPos(zombiePos.getX()+0.5,zombiePos.getY(),zombiePos.getZ()+0.5);
-        secondChicken.setPos(secondChickenPos.getX()+0.5,secondChickenPos.getY(),secondChickenPos.getZ()+0.5);
-        secondZombie.setPos(secondZombiePos.getX()+0.5,secondZombiePos.getY(),secondZombiePos.getZ()+0.5);
+        secondZombieBA.setPos(secondZombieBAPos.getX()+0.5,secondZombieBAPos.getY(),secondZombieBAPos.getZ()+0.5);
+        secondZombieB.setPos(secondZombieBPos.getX()+0.5,secondZombieBPos.getY(),secondZombieBPos.getZ()+0.5);
         helper.assertTrue(level.addFreshEntity(chicken)&&level.addFreshEntity(zombie)
-                &&level.addFreshEntity(secondChicken)&&level.addFreshEntity(secondZombie),
+                &&level.addFreshEntity(secondZombieBA)&&level.addFreshEntity(secondZombieB),
             "Live cross-species bodies failed to register");
         chicken.setPersistenceRequired();
         zombie.setPersistenceRequired();
-        secondChicken.setPersistenceRequired();
-        secondZombie.setPersistenceRequired();
+        secondZombieBA.setPersistenceRequired();
+        secondZombieB.setPersistenceRequired();
 
         List<GoalSnapshot> chickenGoals=snapshotGoals(chicken,false);
         List<GoalSnapshot> chickenTargets=snapshotGoals(chicken,true);
@@ -1019,30 +1019,33 @@ public final class PlayerMobGameTests {
 
         // A requester is only a session manager: an occupied body is exclusive,
         // but a second unrelated pair is allowed under the same requester.
-        String occupiedError=GoalMindRuntime.begin(requester,chicken,secondZombie);
+        String occupiedError=GoalMindRuntime.begin(requester,chicken,secondZombieB);
         helper.assertTrue(occupiedError!=null,
             "An already-occupied physical body was allowed into a second exchange");
-        String secondError=GoalMindRuntime.begin(requester,secondChicken,secondZombie);
+        String secondError=GoalMindRuntime.begin(requester,secondZombieBA,secondZombieB);
         helper.assertTrue(secondError==null&&GoalMindRuntime.activeSessions(requester)==2,
             "One requester could not manage two independent live Mob exchanges: "+secondError);
 
         double chickenStart=chicken.distanceToSqr(target);
         double zombieStart=zombie.distanceToSqr(target);
-        Mob chickenMind=GoalMindRuntime.proxyForGameTest(zombie.getUUID());
-        helper.assertTrue(zombieMind!=null&&chickenMind!=null,
-            "Both opposite native mind proxies must remain available for combat");
-        float chickenHealthBeforeMindAttack=chicken.getHealth();
-        float zombieHealthBeforeMindAttack=zombie.getHealth();
-        float zombieMindProxyHealth=zombieMind.getHealth();
-        float chickenMindProxyHealth=chickenMind.getHealth();
-        // Each mind attacks the physical body now carrying the opposite mind.
-        // The proxy-origin damage event is translated onto that real body.
-        zombieMind.goalSelector.addGoal(0,new OneShotNativeAttackGoal(zombieMind,chickenMind));
-        chickenMind.goalSelector.addGoal(0,new OneShotNativeAttackGoal(chickenMind,zombieMind));
+        Mob secondZombieMindA=GoalMindRuntime.proxyForGameTest(secondZombieA.getUUID());
+        Mob secondZombieMindB=GoalMindRuntime.proxyForGameTest(secondZombieB.getUUID());
+        helper.assertTrue(secondZombieMindA!=null&&secondZombieMindB!=null,
+            "Both second-pair Zombie mind proxies are required for combat");
+        float secondZombieAHealthBeforeMindAttack=secondZombieA.getHealth();
+        float secondZombieBHealthBeforeMindAttack=secondZombieB.getHealth();
+        float secondZombieMindAProxyHealth=secondZombieMindA.getHealth();
+        float secondZombieMindBProxyHealth=secondZombieMindB.getHealth();
+        // Each Zombie mind attacks the other mind proxy. The damage event must
+        // be redirected to the real physical body carrying that opposite mind.
+        secondZombieMindA.goalSelector.addGoal(0,
+            new OneShotNativeAttackGoal(secondZombieMindA,secondZombieMindB));
+        secondZombieMindB.goalSelector.addGoal(0,
+            new OneShotNativeAttackGoal(secondZombieMindB,secondZombieMindA));
         helper.runAfterDelay(40,()->{
             System.clearProperty("freakyfriday.debugProxy");
             helper.assertTrue(chicken.isAlive()&&zombie.isAlive()
-                    &&secondChicken.isAlive()&&secondZombie.isAlive(),
+                    &&secondZombieBA.isAlive()&&secondZombieB.isAlive(),
                 "One of the original physical Mob bodies stopped ticking during the swap");
             double chickenEnd=chicken.distanceToSqr(target);
             double zombieEnd=zombie.distanceToSqr(target);
@@ -1050,25 +1053,30 @@ public final class PlayerMobGameTests {
                 "Both donor-native controllers must independently move their opposite real bodies toward the Player stimulus"
                     +" chicken="+chickenStart+"->"+chickenEnd
                     +" zombie="+zombieStart+"->"+zombieEnd);
-            helper.assertTrue(chicken.getHealth()<chickenHealthBeforeMindAttack
-                    &&zombie.getHealth()<zombieHealthBeforeMindAttack,
-                "Both opposite native minds must damage the other participant's real physical body"
-                    +" chicken="+chickenHealthBeforeMindAttack+"->"+chicken.getHealth()
-                    +" zombie="+zombieHealthBeforeMindAttack+"->"+zombie.getHealth());
-            helper.assertTrue(zombieMind.getHealth()==zombieMindProxyHealth
-                    &&chickenMind.getHealth()==chickenMindProxyHealth,
+            helper.assertTrue(secondZombieA.getHealth()<secondZombieAHealthBeforeMindAttack
+                    &&secondZombieB.getHealth()<secondZombieBHealthBeforeMindAttack,
+                "Both opposite Zombie minds must damage the other participant's real physical body");
+            helper.assertTrue(secondZombieMindA.getHealth()==secondZombieMindAProxyHealth
+                    &&secondZombieMindB.getHealth()==secondZombieMindBProxyHealth,
                 "Proxy mind health changed; attacks must land on the physical bodies");
 
             // A third-party attacker must also hit BOTH original physical
             // bodies during the swap, independently of either mind's attack.
             float chickenHealthBeforeExternal=chicken.getHealth();
             float zombieHealthBeforeExternal=zombie.getHealth();
+            float secondAHealthBeforeExternal=secondZombieA.getHealth();
+            float secondBHealthBeforeExternal=secondZombieB.getHealth();
             var opponentDamage=level.damageSources().mobAttack(opponent);
-            helper.assertTrue(chicken.hurtServer(level,opponentDamage,2.0f)
-                    &&zombie.hurtServer(level,opponentDamage,2.0f)
+            boolean chickenHit=chicken.hurtServer(level,opponentDamage,2.0f);
+            boolean zombieHit=zombie.hurtServer(level,opponentDamage,2.0f);
+            boolean secondAHit=secondZombieA.hurtServer(level,opponentDamage,2.0f);
+            boolean secondBHit=secondZombieB.hurtServer(level,opponentDamage,2.0f);
+            helper.assertTrue(chickenHit&&zombieHit&&secondAHit&&secondBHit
                     &&chicken.getHealth()<chickenHealthBeforeExternal
-                    &&zombie.getHealth()<zombieHealthBeforeExternal,
-                "The opposing Skeleton could not independently damage both swapped physical Mob bodies");
+                    &&zombie.getHealth()<zombieHealthBeforeExternal
+                    &&secondZombieA.getHealth()<secondAHealthBeforeExternal
+                    &&secondZombieB.getHealth()<secondBHealthBeforeExternal,
+                "The opposing Skeleton could not independently damage every swapped physical body");
             helper.assertTrue(GoalMindRuntime.activeSessions(requester)==2,
                 "Incoming damage incorrectly ended one of the live Mob mind/body swaps");
             helper.assertTrue(GoalMindRuntime.cancelByAccount(requester)
@@ -1082,8 +1090,8 @@ public final class PlayerMobGameTests {
                 "Cancel did not preserve the exact original Chicken/Zombie goals and AI flags");
             helper.assertTrue(!GoalMindRuntime.bodyReserved(chicken.getUUID())
                     &&!GoalMindRuntime.bodyReserved(zombie.getUUID())
-                    &&!GoalMindRuntime.bodyReserved(secondChicken.getUUID())
-                    &&!GoalMindRuntime.bodyReserved(secondZombie.getUUID()),
+                    &&!GoalMindRuntime.bodyReserved(secondZombieBA.getUUID())
+                    &&!GoalMindRuntime.bodyReserved(secondZombieB.getUUID()),
                 "Cancelled Mob bodies remained reserved");
 
             System.out.println("FF-GAMEPLAY partial_native_swap_fails_closed PASS"
@@ -1098,8 +1106,8 @@ public final class PlayerMobGameTests {
             chicken.discard();
             zombie.discard();
             opponent.discard();
-            secondChicken.discard();
-            secondZombie.discard();
+            secondZombieBA.discard();
+            secondZombieB.discard();
             helper.succeed();
         });
     }
