@@ -394,20 +394,16 @@ public final class GoalMindRuntime {
             // proxy tick perform its normal travel/collision calculation.
             pendingAttack=null;
             proxy.getSensing().tick();
-            boolean fullGoalPass=proxy.tickCount==0
-                ||((proxy.tickCount+proxy.getId())&1)==0;
-            if(fullGoalPass) {
-                proxy.targetSelector.tick();
-                // Target acquisition may populate the sensory cache after the
-                // first native sensing pass. Refresh it before MeleeAttackGoal
-                // and other line-of-sight-gated action goals evaluate canUse.
-                proxy.getSensing().tick();
-                proxy.goalSelector.tick();
-            } else {
-                proxy.targetSelector.tickRunningGoals(false);
-                proxy.getSensing().tick();
-                proxy.goalSelector.tickRunningGoals(false);
-            }
+            // Match Mob.serverAiStep: both native selectors receive their
+            // ordinary tick every entity tick. GoalSelector already owns its
+            // internal scheduling; imposing a second proxy-side half-rate
+            // scheduler made target goals flicker and starved melee goals.
+            proxy.targetSelector.tick();
+            // Target acquisition may populate the sensory cache after the
+            // first native sensing pass. Refresh it before line-of-sight-gated
+            // action goals evaluate canUse on this same native tick.
+            proxy.getSensing().tick();
+            proxy.goalSelector.tick();
             proxy.getNavigation().tick();
             // These controls are normally ticked from Mob.serverAiStep,
             // which is skipped for an unregistered proxy. Tick the native
