@@ -122,7 +122,17 @@ public final class MinecraftBodyPort implements BodyActionGate.BodyPort {
                 return BodyActionGate.Result.blocked("Mapped attack target is not alive in this world");
             if(body.distanceToSqr(target)>16.0)
                 return BodyActionGate.Result.blocked("Mapped target is outside physical melee reach");
-            boolean hit=body.doHurtTarget(level,target);
+            boolean originalNoAi=body.isNoAi();
+            boolean hit;
+            // Reciprocal swaps suspend autonomous AI on the original physical
+            // body, not its physical combat capabilities. An incoming mind's
+            // attack intent temporarily enables the native attack action only.
+            if(originalNoAi)body.setNoAi(false);
+            try {
+                hit=body.doHurtTarget(level,target);
+            } finally {
+                if(originalNoAi)body.setNoAi(true);
+            }
             return new BodyActionGate.Result(BodyActionGate.Status.EXECUTED,
                 hit ? "Physical body attack accepted" :
                     "Physical body executed attack intent; damage was not confirmed");
