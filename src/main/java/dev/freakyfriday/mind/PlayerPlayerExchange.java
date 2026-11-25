@@ -174,8 +174,13 @@ public final class PlayerPlayerExchange {
             ||!(body.level() instanceof net.minecraft.server.level.ServerLevel level))return;
         long now=level.getGameTime();
         if(now-controller.lastAttackTick<10)return;
-        body.setYRot(controller.input.yaw());
-        body.setXRot(controller.input.pitch());
+        float attackYaw=controller.input.yaw();
+        float attackPitch=controller.input.pitch();
+        body.setYRot(attackYaw);
+        body.yRotO=attackYaw;
+        body.setYHeadRot(attackYaw);
+        body.setXRot(attackPitch);
+        body.xRotO=attackPitch;
         // The authenticated account's original physical body is a valid
         // target even in headless/mock-player environments where it is not
         // present in the ordinary entity lookup. This is exactly the body
