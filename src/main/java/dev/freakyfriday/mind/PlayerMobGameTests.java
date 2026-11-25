@@ -927,7 +927,10 @@ public final class PlayerMobGameTests {
         // A new ServerPlayer may ignore ordinary hostile damage during the
         // initial spawn-protection window. Attacking at tick 3 tests that
         // protection, not possession. Wait for ordinary survival damage.
-        helper.runAfterDelay(50,()->{
+        // This GameTest-created ServerPlayer is not a normal online
+        // PlayerList entry. The server's hostile-damage protection window for
+        // these mock players also outlasts the first 50 ticks.
+        helper.runAfterDelay(70,()->{
             net.minecraft.world.entity.Entity target=
                 PossessionCombat.findValidMeleeTarget(level,zombie,player.getId(),player);
             helper.assertTrue(target==player,
