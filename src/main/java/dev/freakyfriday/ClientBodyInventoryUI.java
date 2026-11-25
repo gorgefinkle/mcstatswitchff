@@ -45,7 +45,7 @@ public final class ClientBodyInventoryUI {
 
     @SubscribeEvent
     public static void onInventoryScreen(ScreenEvent.Opening event) {
-        if(occupiedBody()!=null&&event.getScreen() instanceof InventoryScreen)
+        if(occupiedBody()!=null&&event.getNewScreen() instanceof InventoryScreen)
             event.setCanceled(true);
     }
 
