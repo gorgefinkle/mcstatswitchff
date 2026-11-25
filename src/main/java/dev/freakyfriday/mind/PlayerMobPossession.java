@@ -184,8 +184,13 @@ public final class PlayerMobPossession {
             ||!(body.level() instanceof net.minecraft.server.level.ServerLevel level))return;
         long now=level.getGameTime();
         if(now-session.lastAttackTick<10)return;
-        body.setYRot(session.input.yaw());
-        body.setXRot(session.input.pitch());
+        float attackYaw=session.input.yaw();
+        float attackPitch=session.input.pitch();
+        body.setYRot(attackYaw);
+        body.yRotO=attackYaw;
+        body.setYHeadRot(attackYaw);
+        body.setXRot(attackPitch);
+        body.xRotO=attackPitch;
         net.minecraft.world.entity.Entity victim=
             PossessionCombat.findValidMeleeTarget(level,body,candidateId,sender);
         if(victim==null)return;
