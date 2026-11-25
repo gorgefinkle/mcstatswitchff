@@ -13,6 +13,9 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.Container;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.block.state.BlockState;
@@ -319,6 +322,45 @@ public final class GoalMindRuntime {
             DETACHED_BY_PROXY.put(proxy.getUUID(),this);
         }
 
+        /**
+         * Equipment and container slots belong to the physical body, not the
+         * donor mind. Mirror them into the same-type decision proxy before AI
+         * runs, then project any AI-driven equipment/container changes back.
+         */
+        private static void syncBodyInventoryToProxy(LivingEntity physicalBody,Mob proxy) {
+            for(EquipmentSlot slot:EquipmentSlot.values()) {
+                ItemStack bodyStack=physicalBody.getItemBySlot(slot);
+                if(!ItemStack.matches(bodyStack,proxy.getItemBySlot(slot)))
+                    proxy.setItemSlot(slot,bodyStack.copy());
+            }
+            if(physicalBody instanceof Container bodyContainer
+                    &&proxy instanceof Container proxyContainer
+                    &&bodyContainer.getContainerSize()==proxyContainer.getContainerSize()) {
+                for(int slot=0;slot<bodyContainer.getContainerSize();slot++) {
+                    ItemStack bodyStack=bodyContainer.getItem(slot);
+                    if(!ItemStack.matches(bodyStack,proxyContainer.getItem(slot)))
+                        proxyContainer.setItem(slot,bodyStack.copy());
+                }
+            }
+        }
+
+        private static void syncProxyInventoryToBody(Mob proxy,LivingEntity physicalBody) {
+            for(EquipmentSlot slot:EquipmentSlot.values()) {
+                ItemStack proxyStack=proxy.getItemBySlot(slot);
+                if(!ItemStack.matches(proxyStack,physicalBody.getItemBySlot(slot)))
+                    physicalBody.setItemSlot(slot,proxyStack.copy());
+            }
+            if(proxy instanceof Container proxyContainer
+                    &&physicalBody instanceof Container bodyContainer
+                    &&proxyContainer.getContainerSize()==bodyContainer.getContainerSize()) {
+                for(int slot=0;slot<proxyContainer.getContainerSize();slot++) {
+                    ItemStack proxyStack=proxyContainer.getItem(slot);
+                    if(!ItemStack.matches(proxyStack,bodyContainer.getItem(slot)))
+                        bodyContainer.setItem(slot,proxyStack.copy());
+                }
+            }
+        }
+
         /** Tick one donor-native AI graph at the location of its real recipient body. */
         public synchronized Step tick(LivingEntity physicalBody) {
             if(closed||physicalBody==null||!physicalBody.isAlive()
@@ -332,6 +374,7 @@ public final class GoalMindRuntime {
             proxy.setXRot(physicalBody.getXRot());
             proxy.setYHeadRot(physicalBody.getYHeadRot());
             proxy.setOnGround(physicalBody.onGround());
+            syncBodyInventoryToProxy(physicalBody,proxy);
             // An unregistered entity is intentionally absent from the
             // world's entity tick list, so Mob.isEffectiveAi() is false and a
             // plain proxy.tick() skips Mob.serverAiStep entirely. Run the same
@@ -356,6 +399,7 @@ public final class GoalMindRuntime {
             proxy.getLookControl().tick();
             proxy.getJumpControl().tick();
             proxy.tick();
+            syncProxyInventoryToBody(proxy,physicalBody);
             Vec3 moved=proxy.position().subtract(proxyOrigin);
             Entity target=proxy.getTarget();
             if(target!=null&&excluded.contains(target.getUUID())) {
