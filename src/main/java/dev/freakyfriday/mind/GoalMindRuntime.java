@@ -8,18 +8,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Predicate;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.ai.goal.GoalSelector;
 import net.minecraft.world.entity.ai.goal.WrappedGoal;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.network.chat.Component;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.minecraft.world.item.Item;
@@ -114,8 +118,14 @@ public final class GoalMindRuntime {
     private static CompatibleCapture captureCompatibleFor(
             Mob original,Mob recipient,Snapshot donor)
             throws DynamicObjectGraph.Uncapturable {
+        return captureCompatibleFor(original,recipient,donor,Set.of());
+    }
+
+    private static CompatibleCapture captureCompatibleFor(
+            Mob original,Mob recipient,Snapshot donor,Set<UUID> excludedEntities)
+            throws DynamicObjectGraph.Uncapturable {
         try {
-            return new CompatibleCapture(captureFor(original,recipient,donor),0);
+            return new CompatibleCapture(captureFor(original,recipient,donor,excludedEntities),0);
         } catch(DynamicObjectGraph.Uncapturable wholeGraphFailure) {
             if(!recipientTypeMismatch(wholeGraphFailure)) throw wholeGraphFailure;
         }
@@ -125,7 +135,7 @@ public final class GoalMindRuntime {
         int omitted=0;
         for(Slot slot:donor.goals()) {
             try {
-                captureFor(original,recipient,new Snapshot(List.of(slot),List.of()));
+                captureFor(original,recipient,new Snapshot(List.of(slot),List.of()),excludedEntities);
                 compatibleGoals.add(slot);
             } catch(DynamicObjectGraph.Uncapturable failure) {
                 if(!recipientTypeMismatch(failure)) throw failure;
@@ -134,7 +144,7 @@ public final class GoalMindRuntime {
         }
         for(Slot slot:donor.targets()) {
             try {
-                captureFor(original,recipient,new Snapshot(List.of(),List.of(slot)));
+                captureFor(original,recipient,new Snapshot(List.of(),List.of(slot)),excludedEntities);
                 compatibleTargets.add(slot);
             } catch(DynamicObjectGraph.Uncapturable failure) {
                 if(!recipientTypeMismatch(failure)) throw failure;
@@ -145,11 +155,16 @@ public final class GoalMindRuntime {
             throw new DynamicObjectGraph.Uncapturable(
                 "No native goals are compatible with the recipient body's declared capabilities");
         Snapshot accepted=new Snapshot(compatibleGoals,compatibleTargets);
-        return new CompatibleCapture(captureFor(original,recipient,accepted),omitted);
+        return new CompatibleCapture(captureFor(original,recipient,accepted,excludedEntities),omitted);
     }
 
-    private static Snapshot captureFor(Mob original, Mob recipient, Snapshot donor)
+    private static Snapshot captureFor(Mob original,Mob recipient,Snapshot donor)
             throws DynamicObjectGraph.Uncapturable {
+        return captureFor(original,recipient,donor,Set.of());
+    }
+
+    private static Snapshot captureFor(Mob original,Mob recipient,Snapshot donor,
+            Set<UUID> excludedEntities) throws DynamicObjectGraph.Uncapturable {
         IdentityHashMap<Object, Object> bindings = new IdentityHashMap<>();
         bindings.put(original, recipient);
         bindings.put(original.getNavigation(), recipient.getNavigation());
@@ -162,7 +177,21 @@ public final class GoalMindRuntime {
         DynamicObjectGraph.Rebinding rebinder = new DynamicObjectGraph.Rebinding() {
             @Override
             public Object substitute(Object value) {
-                return bindings.containsKey(value) ? bindings.get(value) : value;
+                if(bindings.containsKey(value)) return bindings.get(value);
+                if(value instanceof Entity entity&&excludedEntities.contains(entity.getUUID()))
+                    return null;
+                return value;
+            }
+
+            @Override
+            @SuppressWarnings("unchecked")
+            public Object afterCopy(Object source,Object copy) {
+                if(!excludedEntities.isEmpty()&&source instanceof Predicate<?>
+                        &&copy instanceof Predicate<?> predicate) {
+                    return new ExcludingEntityPredicate(
+                        (Predicate<Object>)predicate,excludedEntities);
+                }
+                return copy;
             }
 
             @Override
@@ -304,6 +333,131 @@ public final class GoalMindRuntime {
             return "Dynamic AI exchange rejected and original goals restored: "
                 + failure.getMessage();
         }
+    }
+
+
+    /** Prevent a detached controller proxy from sensing its own physical bodies as targets. */
+    private record ExcludingEntityPredicate(Predicate<Object> delegate,Set<UUID> excluded)
+            implements Predicate<Object> {
+        ExcludingEntityPredicate {
+            excluded=Set.copyOf(excluded);
+        }
+        @Override public boolean test(Object candidate) {
+            return candidate instanceof Entity entity&&excluded.contains(entity.getUUID())
+                ? false : delegate.test(candidate);
+        }
+    }
+
+    private static final Map<UUID,DetachedController> DETACHED_BY_PROXY=new HashMap<>();
+
+    /** One in-process native Mob mind used to pilot an original ServerPlayer body. */
+    public static final class DetachedController implements AutoCloseable {
+        public record Step(Vec3 displacement,float yaw,float pitch,Entity attackTarget) {}
+        private final Mob proxy;
+        private final Set<UUID> excluded;
+        private Entity pendingAttack;
+        private boolean closed;
+
+        private DetachedController(Mob proxy,Set<UUID> excluded) {
+            this.proxy=proxy;
+            this.excluded=Set.copyOf(excluded);
+            DETACHED_BY_PROXY.put(proxy.getUUID(),this);
+        }
+
+        public synchronized Step tick(ServerPlayer physicalBody) {
+            if(closed||physicalBody==null||!physicalBody.isAlive()
+                    ||physicalBody.isRemoved()||proxy.isRemoved())
+                return new Step(Vec3.ZERO,physicalBody==null?0:physicalBody.getYRot(),
+                    physicalBody==null?0:physicalBody.getXRot(),null);
+            Vec3 origin=physicalBody.position();
+            proxy.setPos(origin.x,origin.y,origin.z);
+            proxy.setYRot(physicalBody.getYRot());
+            proxy.setXRot(physicalBody.getXRot());
+            proxy.setYHeadRot(physicalBody.getYHeadRot());
+            proxy.setOnGround(physicalBody.onGround());
+            proxy.setDeltaMovement(Vec3.ZERO);
+            pendingAttack=null;
+            proxy.tick();
+            Vec3 moved=proxy.position().subtract(origin);
+            Entity target=proxy.getTarget();
+            if(target!=null&&excluded.contains(target.getUUID())) {
+                proxy.setTarget(null);
+                target=null;
+            }
+            float yaw=proxy.getYRot(),pitch=proxy.getXRot();
+            Entity attack=pendingAttack;
+            pendingAttack=null;
+            // The proxy is a decision worker only; the only persistent
+            // physical entity remains the original ServerPlayer.
+            proxy.setPos(origin.x,origin.y,origin.z);
+            return new Step(new Vec3(moved.x,0,moved.z),yaw,pitch,attack);
+        }
+
+        private synchronized void recordAttack(Entity target) {
+            if(!closed&&target!=null&&!excluded.contains(target.getUUID()))
+                pendingAttack=target;
+        }
+
+        @Override public synchronized void close() {
+            if(closed)return;
+            closed=true;
+            DETACHED_BY_PROXY.remove(proxy.getUUID(),this);
+            if(!proxy.isRemoved())proxy.discard();
+            pendingAttack=null;
+        }
+    }
+
+    /**
+     * Create an unregistered, same-server AI proxy. It runs the donor Mob's
+     * native Goal graph against the real recipient surroundings, while the
+     * original Mob body is free for player input. Decisions are projected onto
+     * the real ServerPlayer adapter; the proxy has no independent collision,
+     * health, inventory, network identity or world registration.
+     */
+    public static DetachedController createDetachedController(Mob donor,ServerPlayer physicalBody)
+            throws DynamicObjectGraph.Uncapturable {
+        if(donor==null||physicalBody==null||!donor.isAlive()||!physicalBody.isAlive()
+                ||donor.isRemoved()||physicalBody.isRemoved()
+                ||donor.level()!=physicalBody.level()
+                ||!(donor.level() instanceof ServerLevel level))
+            throw new DynamicObjectGraph.Uncapturable(
+                "The donor Mob and recipient player must be alive in the same server level");
+        if(!supports(donor,donor))
+            throw new DynamicObjectGraph.Uncapturable(
+                "The donor Mob uses active Brain AI; its complete Brain runtime is not yet transferable");
+        Snapshot donorMind=snapshot(donor);
+        if(donorMind.goals().isEmpty()&&donorMind.targets().isEmpty())
+            throw new DynamicObjectGraph.Uncapturable("The donor Mob has no native Goal controller");
+        Mob proxy=donor.getType().create(level,EntitySpawnReason.COMMAND);
+        if(proxy==null)
+            throw new DynamicObjectGraph.Uncapturable("The donor EntityType could not create a detached AI proxy");
+        proxy.setNoAi(false);
+        proxy.setNoGravity(true);
+        proxy.setSilent(true);
+        proxy.setPersistenceRequired();
+        proxy.setPos(physicalBody.getX(),physicalBody.getY(),physicalBody.getZ());
+        proxy.setYRot(physicalBody.getYRot());
+        proxy.setXRot(physicalBody.getXRot());
+        Set<UUID> excluded=Set.of(donor.getUUID(),physicalBody.getUUID());
+        try {
+            CompatibleCapture capture=captureCompatibleFor(donor,proxy,donorMind,excluded);
+            apply(proxy,capture.snapshot());
+            return new DetachedController(proxy,excluded);
+        } catch(DynamicObjectGraph.Uncapturable|RuntimeException failure) {
+            if(!proxy.isRemoved())proxy.discard();
+            if(failure instanceof DynamicObjectGraph.Uncapturable unsupported) throw unsupported;
+            throw new DynamicObjectGraph.Uncapturable(
+                "Could not initialize the complete detached native Mob mind",failure);
+        }
+    }
+
+    @SubscribeEvent
+    public static synchronized void onDetachedProxyDamage(LivingIncomingDamageEvent event) {
+        if(!(event.getSource().getEntity() instanceof Mob proxy))return;
+        DetachedController controller=DETACHED_BY_PROXY.get(proxy.getUUID());
+        if(controller==null)return;
+        event.setCanceled(true);
+        controller.recordAttack(event.getEntity());
     }
 
     /**
@@ -477,6 +631,9 @@ public final class GoalMindRuntime {
     public static synchronized void clearOnServerStop() {
         for(ActiveSwap session:List.copyOf(new HashSet<>(ACTIVE_BY_BODY.values())))
             end(session,false,"Server stopped; original AI controllers restored.");
+        for(DetachedController controller:List.copyOf(DETACHED_BY_PROXY.values()))
+            controller.close();
+        DETACHED_BY_PROXY.clear();
         ACTIVE_BY_BODY.clear();
         ACTIVE_BY_REQUESTER.clear();
     }
