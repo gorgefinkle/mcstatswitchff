@@ -898,10 +898,11 @@ public final class PlayerMobGameTests {
         Mob secondZombie=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
         helper.assertTrue(chicken!=null&&zombie!=null&&secondChicken!=null&&secondZombie!=null,
             "Live cross-species exchange fixtures could not be created");
-        // Keep both physical bodies well outside the chicken's close-range
-        // TemptGoal stop radius so each incoming controller has room to move.
-        BlockPos chickenPos=helper.absolutePos(new BlockPos(4,1,4));
-        BlockPos zombiePos=helper.absolutePos(new BlockPos(8,1,4));
+        // Keep both physical bodies about three blocks from the Player
+        // stimulus: inside native acquisition range, but outside the
+        // Chicken TemptGoal's close-range stop radius.
+        BlockPos chickenPos=helper.absolutePos(new BlockPos(3,1,4));
+        BlockPos zombiePos=helper.absolutePos(new BlockPos(9,1,4));
         BlockPos secondChickenPos=helper.absolutePos(new BlockPos(15,1,4));
         BlockPos secondZombiePos=helper.absolutePos(new BlockPos(19,1,4));
         chicken.setPos(chickenPos.getX()+0.5,chickenPos.getY(),chickenPos.getZ()+0.5);
