@@ -1003,6 +1003,12 @@ public final class PlayerMobGameTests {
         String firstError=GoalMindRuntime.begin(requester,chicken,zombie);
         helper.assertTrue(firstError==null,
             "Live Chicken↔Zombie native goal exchange failed: "+firstError);
+        // Give the Zombie's native attack goal a real acquired target in the
+        // fixture. Target-selector acquisition is tested separately; this
+        // isolates the cross-species decision-to-recipient movement projection.
+        Mob zombieMind=GoalMindRuntime.proxyForGameTest(chicken.getUUID());
+        helper.assertTrue(zombieMind!=null,"Zombie mind proxy for Chicken body is missing");
+        zombieMind.setTarget(target);
         helper.assertTrue(chicken.goalSelector.getAvailableGoals().isEmpty()
                 &&zombie.goalSelector.getAvailableGoals().isEmpty()
                 &&chicken.targetSelector.getAvailableGoals().isEmpty()
