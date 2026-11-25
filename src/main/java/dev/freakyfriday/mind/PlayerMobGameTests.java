@@ -1077,6 +1077,13 @@ public final class PlayerMobGameTests {
             float zombieHealthBeforeExternal=zombie.getHealth();
             float secondAHealthBeforeExternal=secondZombieA.getHealth();
             float secondBHealthBeforeExternal=secondZombieB.getHealth();
+            // Clear only the test entities' vanilla hurt cooldown so the
+            // independent third-party hits are not rejected by the immediately
+            // preceding reciprocal mind attacks.
+            chicken.setInvulnerableTime(0);
+            zombie.setInvulnerableTime(0);
+            secondZombieA.setInvulnerableTime(0);
+            secondZombieB.setInvulnerableTime(0);
             var opponentDamage=level.damageSources().mobAttack(opponent);
             boolean chickenHit=chicken.hurtServer(level,opponentDamage,2.0f);
             boolean zombieHit=zombie.hurtServer(level,opponentDamage,2.0f);
