@@ -661,11 +661,14 @@ public final class PlayerMobGameTests {
                 "New first-body selection did not restart its countdown");
             MindSwapSessions.select(player,player);
             helper.assertTrue(MindSwapSessions.selectionRemainingTicks(player)==0
-                    && !PlayerMobPossession.hasSession(owner),
-                "Incomplete reciprocal player/mob runtime did not fail closed");
-            helper.assertTrue(!chicken.isNoAi(),
-                "Rejected pair disabled native Chicken AI");
-            System.out.println("FF-GAMEPLAY stale_selection_and_reciprocal_gate PASS");
+                    &&PlayerMobPossession.hasSession(owner)&&chicken.isNoAi(),
+                "Explicit second selection did not start reciprocal Player/Chicken control");
+            helper.assertTrue(PlayerMobPossession.end(player),
+                "Explicit self selection did not cancel the reciprocal body session");
+            helper.assertTrue(!chicken.isNoAi()&&!PlayerMobPossession.hasSession(owner),
+                "Explicit self selection cancel did not restore the original Chicken body");
+            System.out.println("FF-GAMEPLAY stale_selection_and_reciprocal_gate PASS"
+                +" actualReciprocalStarted=true exactBodyRestored=true");
             chicken.discard();
             MindSwapSessions.clearOnLogout(owner);
             helper.succeed();
