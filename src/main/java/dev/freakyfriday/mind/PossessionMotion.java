@@ -19,6 +19,19 @@ import net.minecraft.world.phys.Vec3;
  * they are not disguised as Mobs and have no Mob navigation or JumpControl.
  */
 public final class PossessionMotion {
+    // One unit of native Mob input is calibrated to the common vanilla
+    // ground-speed baseline. The actual recipient attribute scales that
+    // input, so a turtle, chicken, zombie, or modded Mob retains its own
+    // movement-speed profile without a species lookup table.
+    private static final double MOB_INPUT_BASELINE=0.25;
+    private static final float MOB_TRAVEL_BASE_SPEED=0.25F;
+
+    private static double nativeInputScale(Mob body) {
+        double speed=body.getAttributeValue(Attributes.MOVEMENT_SPEED);
+        return Double.isFinite(speed)
+            ?Math.max(0.0,Math.min(4.0,speed/MOB_INPUT_BASELINE)):0.0;
+    }
+
     private PossessionMotion() {}
 
     /**
@@ -46,18 +59,24 @@ public final class PossessionMotion {
             forward=0.0;
             strafe=0.0;
         }
+        double nativeScale=nativeInputScale(body);
+        forward*=nativeScale;
+        strafe*=nativeScale;
 
         boolean mediumVertical=body.isInWater()||body.isInLava()||body.isNoGravity();
         double vertical=mediumVertical
-            ?Math.max(-1.0,Math.min(1.0,donorDisplacement.y)):0.0;
+            ?Math.max(-1.0,Math.min(1.0,donorDisplacement.y))*nativeScale:0.0;
         boolean jump=body.onGround()&&donorDisplacement.y>0.12;
         // Do not call travel for an idle mind: the real entity tick already
         // applied its gravity/drag this frame. A second zero-input travel
         // would double-apply vertical physics to the physical recipient.
         if(Math.abs(strafe)<1.0e-5&&Math.abs(forward)<1.0e-5
                 &&Math.abs(vertical)<1.0e-5&&!jump)return;
-        double nativeSpeed=body.getAttributeValue(Attributes.MOVEMENT_SPEED);
-        body.setSpeed((float)Math.max(0.0,Math.min(1.5,nativeSpeed)));
+        // The native travel call still owns terrain/fluid/gravity/collision
+        // behavior. A stable baseline speed plus attribute-scaled input keeps
+        // recipient movement speed distinct even when vanilla's Mob travel
+        // path is invoked outside MoveControl.
+        body.setSpeed(MOB_TRAVEL_BASE_SPEED);
         boolean originallyNoAi=body.isNoAi();
         if(originallyNoAi)body.setNoAi(false);
         try {
@@ -86,8 +105,10 @@ public final class PossessionMotion {
             // Native MoveControl normally refreshes this value each AI tick;
             // player-controlled movement bypasses MoveControl, so refresh it
             // from the physical body's own movement attribute here.
-            double nativeSpeed=mob.getAttributeValue(Attributes.MOVEMENT_SPEED);
-            mob.setSpeed((float)Math.max(0.0,Math.min(1.5,nativeSpeed)));
+            double nativeScale=nativeInputScale(mob);
+            mob.setSpeed(MOB_TRAVEL_BASE_SPEED);
+            strafe*=nativeScale;
+            forward*=nativeScale;
             if(Boolean.getBoolean("freakyfriday.debugMotion"))
                 System.out.println("[FF-MOTION] type="+mob.getType()+" attr="+nativeSpeed
                     +" speed="+mob.getSpeed()+" forward="+forward+" strafe="+strafe);
