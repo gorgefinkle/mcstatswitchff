@@ -80,10 +80,24 @@ public final class PlayerPlayerGameTests {
         // explicitly validates reciprocal player-body combat with PvP enabled;
         // production attacks continue to respect the server's PvP setting.
         try {
-            java.lang.reflect.Field pvp=net.minecraft.server.MinecraftServer.class
-                .getDeclaredField("pvpAllowed");
-            pvp.setAccessible(true);
-            pvp.setBoolean(level.getServer(),true);
+            Object[] owners={level.getServer(),level.getServer().getPlayerList()};
+            boolean enabled=false;
+            for(Object owner:owners) {
+                for(Class<?> type=owner.getClass();type!=null&&!enabled;type=type.getSuperclass()) {
+                    for(java.lang.reflect.Field field:type.getDeclaredFields()) {
+                        if(field.getType()==boolean.class
+                                &&field.getName().toLowerCase(java.util.Locale.ROOT).contains("pvp")) {
+                            field.setAccessible(true);
+                            field.setBoolean(owner,true);
+                            enabled=true;
+                            break;
+                        }
+                    }
+                }
+                if(enabled)break;
+            }
+            if(!enabled)throw new NoSuchFieldException(
+                "No PvP boolean found on MinecraftServer or PlayerList");
         } catch (ReflectiveOperationException failure) {
             throw new IllegalStateException("Could not enable PvP for the reciprocal player combat fixture",failure);
         }
