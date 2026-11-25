@@ -76,6 +76,10 @@ public final class PlayerPlayerGameTests {
         UUID fredId=fred.getUUID(),sallyId=sally.getUUID();
         double fredX=fred.getX(),fredZ=fred.getZ();
         double sallyX=sally.getX(),sallyZ=sally.getZ();
+        // The test server defaults to PvP-disabled. This acceptance case
+        // explicitly validates reciprocal player-body combat with PvP enabled;
+        // production attacks continue to respect the server's PvP setting.
+        level.getServer().setPvpAllowed(true);
         fred.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
         sally.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
         fred.getAbilities().invulnerable=false;
