@@ -428,9 +428,11 @@ public final class GoalMindRuntime {
         // collision/physical movement is disabled. Recipient-native travel
         // below remains responsible for all real block/entity collision.
         proxy.noPhysics=true;
-        // A Player recipient owns gravity itself. Mob recipients retain the
-        // donor type's native gravity mode for sensing/navigation decisions.
-        proxy.setNoGravity(donor.isNoGravity() || physicalBody instanceof ServerPlayer);
+        // The proxy is only an AI decision source, never a physical body.
+        // Do not let it accumulate gravity or fall through the world while
+        // unregistered/noPhysics; the real recipient retains its own gravity
+        // and applies the projected native movement with its own physics.
+        proxy.setNoGravity(true);
         proxy.setSilent(true);
         proxy.setPersistenceRequired();
         double clearance=(physicalBody.getBbWidth()+proxy.getBbWidth())*0.5+0.12;
