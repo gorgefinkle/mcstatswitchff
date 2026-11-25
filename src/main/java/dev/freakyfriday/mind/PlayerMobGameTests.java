@@ -1224,6 +1224,9 @@ public final class PlayerMobGameTests {
                 helper.assertTrue(secondZombieA.getHealth()<secondAAfterMindHit
                         &&secondZombieB.getHealth()<secondBAfterMindHit,
                     "Both opposite native minds must also damage the other real physical body directly");
+                helper.assertTrue(secondZombieMindA.getHealth()==secondZombieMindAProxyHealth
+                        &&secondZombieMindB.getHealth()==secondZombieMindBProxyHealth,
+                    "Direct physical-body attacks modified detached mind proxy health");
 
                 // A third-party attacker must also hit BOTH original physical
                 // bodies during the swap, independently of either mind's attack.
@@ -1272,7 +1275,7 @@ public final class PlayerMobGameTests {
                     +" proxyHealthUntouched=true");
                 System.out.println("FF-GAMEPLAY native_goal_mind_exchange PASS"
                     +" reciprocalNativeGoals=true sameServer=true bothBodiesTick=true"
-                    +" nativeTargetAcquisition=true nativeZombieNavigation=true independentPairs=true"
+                    +" seededTargetNativeGoalProjection=true independentPairs=true"
                     +" exactGoalRestore=true");
                 villager.discard();
                 brainZombie.discard();
