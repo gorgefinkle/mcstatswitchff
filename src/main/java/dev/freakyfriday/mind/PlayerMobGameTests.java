@@ -90,6 +90,49 @@ public final class PlayerMobGameTests {
         return true;
     }
 
+    private static String targetProbe(net.minecraft.server.level.ServerLevel level,
+                                      Mob proxy,LivingEntity target) {
+        double follow=proxy.getAttributeValue(
+            net.minecraft.world.entity.ai.attributes.Attributes.FOLLOW_RANGE);
+        boolean conditions=net.minecraft.world.entity.ai.targeting.TargetingConditions
+            .forCombat().range(follow).test(level,proxy,target);
+        boolean playerList=target instanceof net.minecraft.world.entity.player.Player player
+            &&level.players().contains(player);
+        boolean entityQuery=level.getEntitiesOfClass(
+            target.getClass(),proxy.getBoundingBox().inflate(follow),entity->true).contains(target);
+        return "target="+target.getType()+" follow="+follow
+            +" targeterCanAttack="+proxy.canAttack(target)
+            +" targeterCanAttackType="+proxy.canAttackType(target.getType())
+            +" targetVisible="+target.canBeSeenByAnyone()
+            +" los="+proxy.getSensing().hasLineOfSight(target)
+            +" conditions="+conditions
+            +" playerList="+playerList+" entityQuery="+entityQuery;
+    }
+
+    private static String targetGoalOwners(Mob proxy) {
+        StringBuilder result=new StringBuilder();
+        for(WrappedGoal wrapped:proxy.targetSelector.getAvailableGoals()) {
+            Goal goal=wrapped.getGoal();
+            if(!goal.getClass().getSimpleName().contains("NearestAttackableTargetGoal"))continue;
+            Object owner=null,targetType=null;
+            for(Class<?> type=goal.getClass();type!=null;type=type.getSuperclass()) {
+                for(java.lang.reflect.Field field:type.getDeclaredFields()) {
+                    if(!field.getName().equals("mob")&&!field.getName().equals("targetType"))continue;
+                    try {
+                        if(!field.trySetAccessible())continue;
+                        if(field.getName().equals("mob"))owner=field.get(goal);
+                        else targetType=field.get(goal);
+                    } catch(ReflectiveOperationException|RuntimeException ignored) {}
+                }
+            }
+            if(result.length()>0)result.append("; ");
+            result.append(goal.getClass().getSimpleName())
+                .append(" ownerIsProxy=").append(owner==proxy)
+                .append(" targetType=").append(targetType);
+        }
+        return result.toString();
+    }
+
     public static final DeferredRegister<Consumer<GameTestHelper>> FUNCTIONS =
         DeferredRegister.create(BuiltInRegistries.TEST_FUNCTION,"freakyfriday");
     public static final DeferredHolder<Consumer<GameTestHelper>,Consumer<GameTestHelper>>
@@ -1058,6 +1101,8 @@ public final class PlayerMobGameTests {
         // its own native target selector; no target is injected into the proxy.
         Mob zombieMind=GoalMindRuntime.proxyForGameTest(chicken.getUUID());
         helper.assertTrue(zombieMind!=null,"Zombie mind proxy for Chicken body is missing");
+        System.out.println("[FF-TARGET] MobMob "+targetProbe(level,zombieMind,target)
+            +" goals=["+targetGoalOwners(zombieMind)+"]");
         helper.assertTrue(chicken.goalSelector.getAvailableGoals().isEmpty()
                 &&zombie.goalSelector.getAvailableGoals().isEmpty()
                 &&chicken.targetSelector.getAvailableGoals().isEmpty()
@@ -1265,6 +1310,8 @@ public final class PlayerMobGameTests {
         Mob mindProxy=PlayerMobPossession.mindProxyForGameTest(controller.getUUID());
         helper.assertTrue(mindProxy!=null,
             "Reciprocal Zombie mind proxy was not created for the original Player body");
+        System.out.println("[FF-TARGET] PlayerMob "+targetProbe(level,mindProxy,zombieTarget)
+            +" goals=["+targetGoalOwners(mindProxy)+"]");
         // No target is injected: the Zombie mind must acquire the registered
         // Iron Golem through its own native target selector.
         helper.assertTrue(PlayerMobPossession.hasSession(controller.getUUID())
