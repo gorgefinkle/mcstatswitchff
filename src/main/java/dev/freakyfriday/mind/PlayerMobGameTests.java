@@ -1154,7 +1154,10 @@ public final class PlayerMobGameTests {
             // is cancelled; the actual original Player body must execute it.
             Mob mindProxy=PlayerMobPossession.mindProxyForGameTest(controller.getUUID());
             helper.assertTrue(mindProxy!=null,"Reciprocal Zombie mind proxy disappeared");
-            mindProxy.setYRot(-90.0f);
+            // The proxy copies its host Player body's view every tick.
+            // Face that real body toward the Mob before the next native AI pass.
+            controller.setYRot(-90.0f);
+            controller.setXRot(0.0f);
             mindProxy.goalSelector.addGoal(0,new OneShotNativeAttackGoal(mindProxy,zombie));
             float mobBeforeMindAttack=zombie.getHealth();
 
