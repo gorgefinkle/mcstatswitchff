@@ -257,6 +257,13 @@ public final class PlayerMobPossession {
         return true;
     }
 
+    /** Package-private GameTest seam for verifying proxy-origin attacks. */
+    static synchronized Mob mindProxyForGameTest(UUID account) {
+        Session session=ACTIVE.get(account);
+        return session==null||session.mindProxy==null
+            ?null:session.mindProxy.proxyForGameTest();
+    }
+
     /** Apply the donor Mob's native AI decisions to the actual Player body. */
     private static void applyIncomingMindStep(ServerPlayer body,
             GoalMindRuntime.DetachedController.Step step) {
