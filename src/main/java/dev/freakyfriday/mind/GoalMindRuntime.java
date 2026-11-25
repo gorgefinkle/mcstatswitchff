@@ -415,7 +415,13 @@ public final class GoalMindRuntime {
             LivingEntity body=physicalBody;
             if(closed||body==null||body.isRemoved()||!body.isAlive()
                     ||!(body.level() instanceof ServerLevel level))return;
-            body.hurtServer(level,source,amount);
+            float before=body.getHealth();
+            boolean accepted=body.hurtServer(level,source,amount);
+            if(Boolean.getBoolean("freakyfriday.thirdPartyFixture"))
+                System.out.println("[FF-PROXY-DAMAGE] hostHit accepted="+accepted
+                    +" invulnerableTo="+body.isInvulnerableTo(source)
+                    +" source="+source.getMsgId()+" amount="+amount
+                    +" health="+before+"->"+body.getHealth());
         }
 
         /**
