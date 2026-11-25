@@ -35,7 +35,9 @@ public final class PlayerPlayerGameTests {
         var level=helper.getLevel();
         ServerPlayer fred=helper.makeMockServerPlayerInLevel();
         ServerPlayer sally=helper.makeMockServerPlayerInLevel();
-        helper.assertTrue(fred!=null && sally!=null && fred!=sally
+        ServerPlayer opponent=helper.makeMockServerPlayerInLevel();
+        helper.assertTrue(fred!=null && sally!=null && opponent!=null
+                &&fred!=sally &&fred!=opponent &&sally!=opponent
                 && !fred.getUUID().equals(sally.getUUID()),
             "Two unique real ServerPlayer entities required for reciprocal control");
         for(int x=1;x<=11;x++) for(int z=1;z<=11;z++)
@@ -48,6 +50,12 @@ public final class PlayerPlayerGameTests {
         UUID fredId=fred.getUUID(),sallyId=sally.getUUID();
         double fredX=fred.getX(),fredZ=fred.getZ();
         double sallyX=sally.getX(),sallyZ=sally.getZ();
+        fred.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+        sally.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+        opponent.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+        fred.getAbilities().invulnerable=false;
+        sally.getAbilities().invulnerable=false;
+        opponent.getAbilities().invulnerable=false;
         float fredHealth=fred.getHealth(),sallyHealth=sally.getHealth();
         try {
             String failed=PlayerPlayerExchange.begin(fred,sally);
@@ -83,10 +91,16 @@ public final class PlayerPlayerGameTests {
                         && Math.abs(sally.getX()-sallyX)<1.0,
                     "Opposite controllers' movement was routed to incorrect axes");
                 helper.assertTrue(fred.getUUID().equals(fredId)
-                        && sally.getUUID().equals(sallyId)
-                        && Float.compare(fred.getHealth(),fredHealth)==0
-                        && Float.compare(sally.getHealth(),sallyHealth)==0,
-                    "Reciprocal control replaced an actual player or mutated body health");
+                        && sally.getUUID().equals(sallyId),
+                    "Reciprocal control replaced an actual physical player");
+                var opponentDamage=level.damageSources().playerAttack(opponent);
+                helper.assertTrue(fred.hurtServer(level,opponentDamage,2.0f)
+                        &&sally.hurtServer(level,opponentDamage,2.0f)
+                        &&fred.getHealth()<fredHealth&&sally.getHealth()<sallyHealth,
+                    "The opponent could not independently damage both original player bodies during the swap");
+                helper.assertTrue(PlayerPlayerExchange.active(fredId)
+                        &&PlayerPlayerExchange.active(sallyId),
+                    "Nonfatal opponent damage incorrectly ended reciprocal Player↔Player control");
                 helper.assertTrue(PlayerPlayerExchange.cancel(sally),
                     "The other swapped player cannot end the exchange");
                 helper.assertTrue(!PlayerPlayerExchange.active(fredId)
