@@ -99,16 +99,42 @@ public final class PlayerPlayerGameTests {
                 helper.assertTrue(fred.getUUID().equals(fredId)
                         && sally.getUUID().equals(sallyId),
                     "Reciprocal control replaced an actual physical player");
-                // ServerPlayer spawn protection is still active in the
-                // first movement window. Wait beyond that native protection
-                // period, then test ordinary attacker damage against both
-                // original player entities while their controllers remain swapped.
+                // Each incoming mind must be able to attack the OTHER
+                // participant's real physical body through its own authenticated
+                // account route: Fred's mind attacks Fred's original body from
+                // Sally's body; Sally's mind does the reciprocal attack.
+                double fredDx=fred.getX()-sally.getX();
+                double fredDz=fred.getZ()-sally.getZ();
+                float fredAttackYaw=(float)Math.toDegrees(Math.atan2(-fredDx,fredDz));
+                PlayerPlayerExchange.input(fred,new PlayerMobPossession.Input(
+                    0,0,false,fredAttackYaw,0,26));
+                float fredBeforeMindAttack=fred.getHealth();
+                PlayerPlayerExchange.attack(fred,fred.getId(),1);
+                helper.assertTrue(fred.getHealth()<fredBeforeMindAttack,
+                    "Fred's mind in Sally's body could not attack Fred's original physical body");
+
+                double sallyDx=sally.getX()-fred.getX();
+                double sallyDz=sally.getZ()-fred.getZ();
+                float sallyAttackYaw=(float)Math.toDegrees(Math.atan2(-sallyDx,sallyDz));
+                PlayerPlayerExchange.input(sally,new PlayerMobPossession.Input(
+                    0,0,false,sallyAttackYaw,0,26));
+                float sallyBeforeMindAttack=sally.getHealth();
+                PlayerPlayerExchange.attack(sally,sally.getId(),1);
+                helper.assertTrue(sally.getHealth()<sallyBeforeMindAttack,
+                    "Sally's mind in Fred's body could not attack Sally's original physical body");
+
+                // ServerPlayer spawn protection is still active in the first
+                // movement window. Wait beyond it and the melee hurt cooldown,
+                // then test a third-party attacker against both physical bodies.
                 helper.runAfterDelay(50,()->{
                     var opponentDamage=level.damageSources().mobAttack(opponent);
+                    float fredBeforeExternal=fred.getHealth();
+                    float sallyBeforeExternal=sally.getHealth();
                     boolean fredHit=fred.hurtServer(level,opponentDamage,2.0f);
                     boolean sallyHit=sally.hurtServer(level,opponentDamage,2.0f);
                     helper.assertTrue(fredHit&&sallyHit
-                            &&fred.getHealth()<fredHealth&&sally.getHealth()<sallyHealth,
+                            &&fred.getHealth()<fredBeforeExternal
+                            &&sally.getHealth()<sallyBeforeExternal,
                         "The opposing Skeleton could not independently damage both original player bodies"
                             +" fredHit="+fredHit+" sallyHit="+sallyHit
                             +" fredHealth="+fred.getHealth()+" sallyHealth="+sally.getHealth());
@@ -122,6 +148,9 @@ public final class PlayerPlayerGameTests {
                             && !PlayerCommandBodyRouting.hasRoute(fredId)
                             && !PlayerCommandBodyRouting.hasRoute(sallyId),
                         "Cancel left body control or command routing swapped");
+                    System.out.println("FF-GAMEPLAY player_player_reciprocal_attack PASS"
+                        +" fredMindDamagesFredBody=true sallyMindDamagesSallyBody=true"
+                        +" externalAttackerDamagesBoth=true independentHealthPools=true");
                     System.out.println("FF-GAMEPLAY player_player_reciprocal_movement PASS"
                         +" fredBodyFromSally="+(fred.getX()-fredX)
                         +" sallyBodyFromFred="+(sally.getZ()-sallyZ)
