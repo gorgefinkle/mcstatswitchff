@@ -164,6 +164,7 @@ public final class PlayerMobGameTests {
                 +" originalBodyAndAiRestored=true");
             chicken.discard();
             MindSwapSessions.clearOnLogout(ownerId);
+            player.discard();
             verifyPlayerBodyActionPort(helper);
             // Chain the full reciprocal attack acceptance into this required
             // GameTest so the Player↔Mob mind/body combat check cannot be
@@ -334,6 +335,7 @@ public final class PlayerMobGameTests {
             +" externalWorkerStreaming=not_claimed"
             +" originalPlayerPreserved=true");
         target.discard();
+        player.discard();
     }
 
     /**
@@ -1236,6 +1238,8 @@ public final class PlayerMobGameTests {
                     +" mobBodyDrivenByPlayerInput=true noMirroredMovement=true restored=true");
                 zombie.discard();
                 opponent.discard();
+                controller.discard();
+                otherPlayer.discard();
                 helper.succeed();
             });
         });
