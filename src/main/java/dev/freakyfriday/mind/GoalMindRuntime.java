@@ -2,6 +2,7 @@ package dev.freakyfriday.mind;
 
 import java.util.ArrayList;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
@@ -26,6 +27,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.Brain;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.ai.sensing.Sensing;
 import net.minecraft.world.entity.ai.goal.GoalSelector;
@@ -46,17 +48,16 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.phys.HitResult;
 
 /**
- * Native Goal-graph runtime for reciprocal Mob and Player body possession.
- * Every donor's GoalSelector and target selector is cloned onto an unregistered
- * proxy of that donor's own EntityType. This keeps owner-typed callbacks and
- * species/modded Goal implementations valid without grafting them into the
- * opposite physical entity class.
+ * Native reciprocal Mob controller runtime. Each incoming mind runs on a
+ * same-EntityType proxy in the same ServerLevel. Goal graphs are rebound to
+ * that proxy; Brain-driven mobs rebuild their native Brain from the donor's
+ * packed memories. A hidden, no-physics mind identity represents each
+ * controller to the opposite mind's native target sensors and goals.
  *
- * Proxies tick in the same ServerLevel, read real surroundings, and project
- * movement/look/attack decisions onto the original physical bodies. The real
- * bodies retain identity, health, attributes, equipment, collision and native
- * travel. Their autonomous goal lists are suspended for the session and
- * restored exactly on return. Active Brain controllers remain fail-closed.
+ * Proxies read real surroundings and project movement/look/attack decisions
+ * onto the original physical bodies. The real bodies retain identity, health,
+ * attributes, equipment, collision and native travel. Their autonomous
+ * selectors are suspended for the session and restored exactly on return.
  */
 public final class GoalMindRuntime {
     private GoalMindRuntime() {}
@@ -76,8 +77,9 @@ public final class GoalMindRuntime {
      * Active Brain mobs use the separate Brain driver only when its full graph
      * can be transferred; never silently transfer only goals of a mixed AI.
      */
+    /** Every Mob controller is run on its own native EntityType proxy. */
     public static boolean supports(Mob first, Mob second) {
-        return first.getBrain().isBrainDead() && second.getBrain().isBrainDead();
+        return first!=null&&second!=null;
     }
 
     private static List<Slot> read(GoalSelector selector) {
@@ -385,12 +387,15 @@ public final class GoalMindRuntime {
     }
 
     private static final Map<UUID,DetachedController> DETACHED_BY_PROXY=new HashMap<>();
+    private static final Map<UUID,DetachedController> DETACHED_BY_ALIAS=new HashMap<>();
 
     /** One in-process native Mob mind used to pilot an original ServerPlayer body. */
     public static final class DetachedController implements AutoCloseable {
         public record Step(Vec3 displacement,float yaw,float pitch,
                 Entity target,Entity attackTarget) {}
         private final Mob proxy;
+        /** Registered, invisible target identity of this mind for opposite AI. */
+        private final Mob mindAlias;
         /** Original physical body currently carrying this mind. */
         private final LivingEntity physicalBody;
         private final Set<UUID> excluded;
@@ -401,13 +406,15 @@ public final class GoalMindRuntime {
         private Entity pendingAttack;
         private boolean closed;
 
-        private DetachedController(Mob proxy,LivingEntity physicalBody,
+        private DetachedController(Mob proxy,Mob mindAlias,LivingEntity physicalBody,
                 Set<UUID> excluded,Vec3 bodyOffset) {
             this.proxy=proxy;
+            this.mindAlias=mindAlias;
             this.physicalBody=physicalBody;
             this.excluded=Set.copyOf(excluded);
             this.bodyOffset=bodyOffset;
             DETACHED_BY_PROXY.put(proxy.getUUID(),this);
+            DETACHED_BY_ALIAS.put(mindAlias.getUUID(),this);
         }
 
         /** Apply a hit against the detached mind to its real physical host. */
@@ -470,6 +477,13 @@ public final class GoalMindRuntime {
                 return new Step(Vec3.ZERO,physicalBody==null?0:physicalBody.getYRot(),
                     physicalBody==null?0:physicalBody.getXRot(),null,null);
             Vec3 origin=physicalBody.position();
+            mindAlias.setPos(origin.x,origin.y,origin.z);
+            mindAlias.setYRot(physicalBody.getYRot());
+            mindAlias.setYHeadRot(physicalBody.getYHeadRot());
+            mindAlias.setXRot(physicalBody.getXRot());
+            mindAlias.setDeltaMovement(Vec3.ZERO);
+            mindAlias.setNoGravity(true);
+            mindAlias.noPhysics=true;
             Vec3 proxyOrigin=origin.add(bodyOffset);
             proxy.setPos(proxyOrigin.x,proxyOrigin.y,proxyOrigin.z);
             proxy.setYRot(physicalBody.getYRot());
@@ -572,7 +586,9 @@ public final class GoalMindRuntime {
             if(closed)return;
             closed=true;
             DETACHED_BY_PROXY.remove(proxy.getUUID(),this);
+            DETACHED_BY_ALIAS.remove(mindAlias.getUUID(),this);
             if(!proxy.isRemoved())proxy.discard();
+            if(!mindAlias.isRemoved())mindAlias.discard();
             pendingAttack=null;
         }
     }
@@ -584,6 +600,68 @@ public final class GoalMindRuntime {
      * physical body. The proxy has no independent collision, health, inventory,
      * network identity or world registration.
      */
+    private static void copyNativeBrainState(Mob donor,Mob proxy)
+            throws DynamicObjectGraph.Uncapturable {
+        if(donor.getBrain().isBrainDead())return;
+        try {
+            Brain.Packed packed=donor.getBrain().pack();
+            Method factory=null;
+            for(Class<?> type=proxy.getClass();type!=null;type=type.getSuperclass()) {
+                try {
+                    factory=type.getDeclaredMethod("makeBrain",Brain.Packed.class);
+                    break;
+                } catch(NoSuchMethodException ignored) {}
+            }
+            if(factory==null||!factory.trySetAccessible())
+                throw new IllegalAccessException("Native Brain factory is unavailable");
+            Object replacement=factory.invoke(proxy,packed);
+            if(!(replacement instanceof Brain<?>))
+                throw new IllegalStateException("Native Brain factory returned no Brain");
+
+            Field brainField=null;
+            for(Class<?> type=proxy.getClass();type!=null;type=type.getSuperclass()) {
+                for(Field field:type.getDeclaredFields()) {
+                    if(Brain.class.isAssignableFrom(field.getType())) {
+                        brainField=field;
+                        break;
+                    }
+                }
+                if(brainField!=null)break;
+            }
+            if(brainField==null||!brainField.trySetAccessible())
+                throw new IllegalAccessException("LivingEntity Brain field is inaccessible");
+            brainField.set(proxy,replacement);
+            if(proxy.getBrain()==donor.getBrain()||proxy.getBrain()!=replacement)
+                throw new IllegalStateException("Donor Brain memories were not rebuilt on the native proxy");
+        } catch(ReflectiveOperationException|RuntimeException failure) {
+            throw new DynamicObjectGraph.Uncapturable(
+                "Could not rebuild the donor's native Brain on its same-type proxy",failure);
+        }
+    }
+
+    private static Mob createMindAlias(Mob donor,LivingEntity physicalBody,ServerLevel level)
+            throws DynamicObjectGraph.Uncapturable {
+        Entity created=donor.getType().create(level,EntitySpawnReason.COMMAND);
+        if(!(created instanceof Mob alias))
+            throw new DynamicObjectGraph.Uncapturable(
+                "The donor EntityType could not create its registered mind identity");
+        alias.setNoAi(true);
+        alias.setNoGravity(true);
+        alias.setSilent(true);
+        alias.setInvisible(true);
+        alias.noPhysics=true;
+        alias.setDeltaMovement(Vec3.ZERO);
+        alias.setPos(physicalBody.getX(),physicalBody.getY(),physicalBody.getZ());
+        alias.setYRot(physicalBody.getYRot());
+        alias.setXRot(physicalBody.getXRot());
+        if(!level.addFreshEntity(alias)) {
+            if(!alias.isRemoved())alias.discard();
+            throw new DynamicObjectGraph.Uncapturable(
+                "The opposite AI could not register this mind's target identity");
+        }
+        return alias;
+    }
+
     public static DetachedController createDetachedController(Mob donor,LivingEntity physicalBody)
             throws DynamicObjectGraph.Uncapturable {
         if(donor==null||physicalBody==null||!donor.isAlive()||!physicalBody.isAlive()
@@ -592,49 +670,45 @@ public final class GoalMindRuntime {
                 ||!(donor.level() instanceof ServerLevel level))
             throw new DynamicObjectGraph.Uncapturable(
                 "The donor Mob and recipient body must be alive in the same server level");
-        if(!supports(donor,donor))
-            throw new DynamicObjectGraph.Uncapturable(
-                "The donor Mob uses active Brain AI; its complete Brain runtime is not yet transferable");
         Snapshot donorMind=snapshot(donor);
-        if(donorMind.goals().isEmpty()&&donorMind.targets().isEmpty())
-            throw new DynamicObjectGraph.Uncapturable("The donor Mob has no native Goal controller");
+        boolean brainDriven=!donor.getBrain().isBrainDead();
+        if(donorMind.goals().isEmpty()&&donorMind.targets().isEmpty()&&!brainDriven)
+            throw new DynamicObjectGraph.Uncapturable(
+                "The donor Mob has neither a native Goal controller nor an active Brain");
         Entity created=donor.getType().create(level,EntitySpawnReason.COMMAND);
         if(!(created instanceof Mob proxy))
             throw new DynamicObjectGraph.Uncapturable(
                 "The donor EntityType did not create a Mob controller proxy");
-        proxy.setNoAi(false);
-        // A bodyOffset is applied when the proxy is positioned below, so
-        // it does not overlap the real recipient. Keep normal block collision,
-        // gravity and pathfinding enabled on the native AI proxy. The recipient
-        // separately resolves its own physical movement and collision.
-        // The proxy is only an AI decision source, never a physical body.
-        // Do not let it accumulate gravity or fall through the world while
-        // unregistered/noPhysics; the real recipient retains its own gravity
-        // and applies the projected native movement with its own physics.
-        proxy.setNoGravity(true);
-        proxy.setSilent(true);
-        proxy.setPersistenceRequired();
-        double clearance=(physicalBody.getBbWidth()+proxy.getBbWidth())*0.5+0.12;
-        double bodyYaw=Math.toRadians(physicalBody.getYRot());
-        Vec3 bodyOffset=new Vec3(Math.cos(bodyYaw)*clearance,0.0,
-            Math.sin(bodyYaw)*clearance);
-        proxy.setPos(physicalBody.getX()+bodyOffset.x,
-            physicalBody.getY(),physicalBody.getZ()+bodyOffset.z);
-        proxy.setYRot(physicalBody.getYRot());
-        proxy.setXRot(physicalBody.getXRot());
-        // The recipient body is the physical body currently hosting this
-        // mind, so it must not be acquired as a target. The donor's original
-        // physical body is NOT excluded: it now hosts the opposite mind and
-        // remains a legitimate target.
-        Set<UUID> excluded=Set.of(physicalBody.getUUID());
-        installDetachedSensing(proxy,excluded);
+        Mob alias=null;
         try {
-            CompatibleCapture capture=captureCompatibleFor(donor,proxy,donorMind,excluded);
-            apply(proxy,capture.snapshot());
-            return new DetachedController(proxy,physicalBody,excluded,bodyOffset);
+            proxy.setNoAi(false);
+            proxy.setNoGravity(true);
+            proxy.setSilent(true);
+            double clearance=(physicalBody.getBbWidth()+proxy.getBbWidth())*0.5+0.12;
+            double bodyYaw=Math.toRadians(physicalBody.getYRot());
+            Vec3 bodyOffset=new Vec3(Math.cos(bodyYaw)*clearance,0.0,
+                Math.sin(bodyYaw)*clearance);
+            proxy.setPos(physicalBody.getX()+bodyOffset.x,
+                physicalBody.getY(),physicalBody.getZ()+bodyOffset.z);
+            proxy.setYRot(physicalBody.getYRot());
+            proxy.setXRot(physicalBody.getXRot());
+
+            copyNativeBrainState(donor,proxy);
+            alias=createMindAlias(donor,physicalBody,level);
+            // Exclude only this controller's own host and its own alias.
+            // The opposite mind alias remains visible to native target
+            // selectors and Brain sensors as the entity the mind should see.
+            Set<UUID> excluded=Set.of(physicalBody.getUUID(),proxy.getUUID(),alias.getUUID());
+            installDetachedSensing(proxy,excluded);
+            if(!donorMind.goals().isEmpty()||!donorMind.targets().isEmpty()) {
+                CompatibleCapture capture=captureCompatibleFor(donor,proxy,donorMind,excluded);
+                apply(proxy,capture.snapshot());
+            }
+            return new DetachedController(proxy,alias,physicalBody,excluded,bodyOffset);
         } catch(DynamicObjectGraph.Uncapturable|RuntimeException failure) {
+            if(alias!=null&&!alias.isRemoved())alias.discard();
             if(!proxy.isRemoved())proxy.discard();
-            if(failure instanceof DynamicObjectGraph.Uncapturable unsupported) throw unsupported;
+            if(failure instanceof DynamicObjectGraph.Uncapturable unsupported)throw unsupported;
             throw new DynamicObjectGraph.Uncapturable(
                 "Could not initialize the complete detached native Mob mind",failure);
         }
@@ -653,47 +727,27 @@ public final class GoalMindRuntime {
 
     @SubscribeEvent
     public static synchronized void onDetachedProxyDamage(LivingIncomingDamageEvent event) {
-        // A proxy has no independent health pool. If an opposing mind attacks
-        // the proxy representing this mind, redirect the hit to the original
-        // physical body currently carrying that mind.
         if(event.getEntity() instanceof Mob damaged) {
             DetachedController victim=DETACHED_BY_PROXY.get(damaged.getUUID());
+            if(victim==null)victim=DETACHED_BY_ALIAS.get(damaged.getUUID());
             if(victim!=null) {
-                float hostHealthBefore=victim.physicalBody==null?Float.NaN:victim.physicalBody.getHealth();
                 event.setCanceled(true);
-                if(Boolean.getBoolean("freakyfriday.thirdPartyFixture"))
-                    System.out.println("[FF-PROXY-DAMAGE] damagedProxy="+damaged.getUUID()
-                        +" attacker="+event.getSource().getEntity()
-                        +" amount="+event.getAmount()
-                        +" host="+(victim.physicalBody==null?"none":victim.physicalBody.getType())
-                        +" hostHealthBefore="+hostHealthBefore);
-                if(event.getSource().getEntity() instanceof Mob attackerProxy) {
-                    DetachedController attacker=DETACHED_BY_PROXY.get(attackerProxy.getUUID());
+                Entity sourceEntity=event.getSource().getEntity();
+                if(sourceEntity instanceof Mob attackerMob) {
+                    DetachedController attacker=DETACHED_BY_PROXY.get(attackerMob.getUUID());
                     if(attacker!=null&&attacker!=victim) {
-                        // The attacking mind's real body performs the hit on
-                        // the victim mind's real body during its next Step.
+                        // A native mind attacks the opposite mind alias. Route
+                        // that intent through its assigned original physical
+                        // body against the other mind's real physical host.
                         attacker.recordAttack(victim.physicalBody);
                         return;
                     }
                 }
-                // The proxy is not a physical body. Environmental damage
-                // generated by its offset/unregistered tick (no attacker) must
-                // not be duplicated onto the real host; the host receives its
-                // own native environmental damage from its real entity tick.
-                Entity sourceEntity=event.getSource().getEntity();
-                if(sourceEntity==null)return;
-                // A body must not damage its own detached mind by colliding
-                // with or explicitly targeting its proxy. Only an opposite
-                // physical attacker (or an external attacker) can hit this
-                // mind; its damage is applied to the real body hosting it.
-                if(sourceEntity==victim.physicalBody||sourceEntity==damaged)return;
-                // Real external/opposite attackers still damage the host body.
-                // Native invulnerability, armor and hurt cooldown are checked
-                // by the original body's own damage pipeline.
+                // Environment damage is already applied independently to the
+                // real body; do not double it through an invisible proxy.
+                if(sourceEntity==null||sourceEntity==victim.physicalBody
+                        ||sourceEntity==damaged)return;
                 victim.redirectDamageToBody(event.getSource(),event.getAmount());
-                if(Boolean.getBoolean("freakyfriday.thirdPartyFixture"))
-                    System.out.println("[FF-PROXY-DAMAGE] redirected hostHealthAfter="
-                        +(victim.physicalBody==null?Float.NaN:victim.physicalBody.getHealth()));
                 return;
             }
         }
@@ -701,10 +755,6 @@ public final class GoalMindRuntime {
         DetachedController controller=DETACHED_BY_PROXY.get(proxy.getUUID());
         if(controller==null)return;
         event.setCanceled(true);
-        if(Boolean.getBoolean("freakyfriday.thirdPartyFixture"))
-            System.out.println("[FF-PROXY-DAMAGE] attackerProxy="+proxy.getUUID()
-                +" physicalTarget="+event.getEntity().getUUID()
-                +" amount="+event.getAmount()+" recorded=true");
         controller.recordAttack(event.getEntity());
     }
 
