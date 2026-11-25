@@ -879,7 +879,7 @@ public final class PlayerMobGameTests {
     }
 
 
-    private static void verifyMobMobReciprocalAttack(GameTestHelper helper) {
+    static void verifyMobMobReciprocalAttack(GameTestHelper helper) {
         var level=helper.getLevel();
         Mob first=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
         Mob second=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
