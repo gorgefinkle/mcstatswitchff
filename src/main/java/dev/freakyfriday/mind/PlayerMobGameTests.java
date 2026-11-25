@@ -1278,6 +1278,18 @@ public final class PlayerMobGameTests {
                 helper.assertTrue(controller.getHealth()<playerBeforeMindAttack,
                     "Player mind in the Mob body could not damage the opposite mind's physical Player body");
 
+                // The opposite physical Mob body can also hit the detached
+                // Zombie mind itself. That proxy has no separate health pool:
+                // damage must be redirected to the Player body hosting it.
+                clearHurtCooldown(controller);
+                float playerBeforeProxyHit=controller.getHealth();
+                float proxyHealthBeforeProxyHit=mindProxy.getHealth();
+                zombie.doHurtTarget(level,mindProxy);
+                helper.assertTrue(controller.getHealth()<playerBeforeProxyHit,
+                    "Opposing Mob body could not damage the Player body hosting the detached mind");
+                helper.assertTrue(mindProxy.getHealth()==proxyHealthBeforeProxyHit,
+                    "Damage to the detached mind proxy was not redirected to its real Player host");
+
                 // In the other direction, the Zombie mind proxy performs a native
                 // melee attack against the occupied Mob body. Proxy damage itself
                 // is cancelled; the actual original Player body must execute it.
@@ -1315,7 +1327,8 @@ public final class PlayerMobGameTests {
                         helper.assertTrue(zombie.isNoAi()==originalNoAi,
                             "Returning from the exchange did not restore the Mob's original AI flag");
                         System.out.println("FF-GAMEPLAY player_mob_reciprocal_attack PASS"
-                            +" playerMindDamagesMobMindBody=true mobMindDamagesPlayerMindBody=true"
+                            +" playerMindAttacksPlayerBody=true mobMindAttacksMobBody=true"
+                            +" oppositeMobBodyHitsDetachedMind=true proxyDamageRedirected=true"
                             +" externalAttackerDamagesBothBodies=true independentHealthPools=true");
                         System.out.println("FF-GAMEPLAY player_mob_native_mind_proxy PASS"
                             +" sameServerNativeAI=true playerBodyDrivenByMobMind=true"
