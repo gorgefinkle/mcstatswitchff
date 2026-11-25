@@ -39,7 +39,8 @@ public final class PlayerMobGameTests {
         for(Class<?> type=body.getClass();type!=null;type=type.getSuperclass()) {
             for(java.lang.reflect.Field field:type.getDeclaredFields()) {
                 String name=field.getName().toLowerCase(java.util.Locale.ROOT);
-                if(field.getType()!=int.class||!name.contains("invulnerable"))continue;
+                if(field.getType()!=int.class
+                        ||(!name.contains("invulnerable")&&!name.contains("hurt")))continue;
                 try {
                     if(!field.trySetAccessible())continue;
                     field.setInt(body,0);
@@ -1175,7 +1176,7 @@ public final class PlayerMobGameTests {
         // Native nearest-target goals have an internal random acquisition
         // interval. Allow enough real server ticks for the unmodified vanilla
         // selector to make its ordinary acquisition attempt.
-        helper.runAfterDelay(120,()->{
+        helper.runAfterDelay(75,()->{
             helper.assertTrue(chicken.isAlive()&&zombie.isAlive()
                     &&secondZombieA.isAlive()&&secondZombieB.isAlive(),
                 "One of the original physical Mob bodies stopped ticking during the swap");
