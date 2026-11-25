@@ -115,6 +115,10 @@ public final class PlayerPlayerGameTests {
                         +" actorPos="+sally.position()+" targetPos="+fred.position()
                         +" distance="+sally.distanceTo(fred)+" yaw="+sally.getYRot()
                         +" sight="+sally.hasLineOfSight(fred)
+                        +" dot="+sally.getViewVector(1.0f).dot(
+                            fred.getBoundingBox().getCenter().subtract(sally.getEyePosition()).normalize())
+                        +" candidateId="+fred.getId()+" actorId="+sally.getId()
+                        +" targetAlive="+fred.isAlive()+" targetRemoved="+fred.isRemoved()
                         +" resolved="+(PossessionCombat.findValidMeleeTarget(
                             level,sally,fred.getId(),fred)==fred));
 
@@ -130,6 +134,10 @@ public final class PlayerPlayerGameTests {
                         +" actorPos="+fred.position()+" targetPos="+sally.position()
                         +" distance="+fred.distanceTo(sally)+" yaw="+fred.getYRot()
                         +" sight="+fred.hasLineOfSight(sally)
+                        +" dot="+fred.getViewVector(1.0f).dot(
+                            sally.getBoundingBox().getCenter().subtract(fred.getEyePosition()).normalize())
+                        +" candidateId="+sally.getId()+" actorId="+fred.getId()
+                        +" targetAlive="+sally.isAlive()+" targetRemoved="+sally.isRemoved()
                         +" resolved="+(PossessionCombat.findValidMeleeTarget(
                             level,fred,sally.getId(),sally)==sally));
 
