@@ -872,16 +872,17 @@ public final class PlayerMobGameTests {
             helper.assertTrue(mindProxy.getHealth()==proxyBeforeMindAttack,
                 "Mob mind's own proxy health changed when it attacked the occupied Mob body");
 
-            // Wait out the mock ServerPlayer's initial damage-protection
-            // window, then let the Player mind attack the opposite original
-            // Player body through the actual occupied Mob's melee capability.
-            helper.runAfterDelay(80,()->{
+            // Clear only the mock player's vanilla hurt-immunity timer so
+            // this short acceptance can test combat without consuming the
+            // enclosing GameTest's 100-tick budget.
+            helper.runAfterDelay(11,()->{
                 body.setPos(player.getX()+1.35,player.getY(),player.getZ());
                 body.setYRot(-90.0f);
                 body.yRotO=-90.0f;
                 body.setYHeadRot(-90.0f);
                 PlayerMobPossession.input(player,
                     new PlayerMobPossession.Input(0,0,false,-90.0f,0,1));
+                clearHurtCooldown(player);
                 float playerBeforeBodyAttack=player.getHealth();
                 PlayerMobPossession.attack(player,player.getId(),1);
                 helper.assertTrue(player.getHealth()<playerBeforeBodyAttack,
