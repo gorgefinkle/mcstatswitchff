@@ -862,6 +862,9 @@ public final class PlayerMobGameTests {
         Mob mindProxy=PlayerMobPossession.mindProxyForGameTest(player.getUUID());
         helper.assertTrue(mindProxy!=null,
             "Mob mind proxy for original Player body was not created");
+        // Keep the combat stimulus deterministic even if other mock players
+        // from a preceding GameTest remain in this shared ServerLevel.
+        mindProxy.setTarget(body);
 
         float bodyBeforeMindAttack=body.getHealth();
         float proxyBeforeMindAttack=mindProxy.getHealth();
