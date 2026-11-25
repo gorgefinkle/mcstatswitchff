@@ -240,8 +240,10 @@ public final class PlayerPlayerGameTests {
                         +" immediateExchange=true noConsentRequired=true");
                     helper.assertTrue(setServerPvpAllowed(level.getServer(),originalPvpAllowed),
                         "Player↔Player test did not restore the server's original PvP policy");
-                    helper.succeed();
                     opponent.discard();
+                    // Run the Player↔Mob combat gate from this already
+                    // executed GameTest, independently of locomotion tests.
+                    PlayerMobGameTests.verifyPlayerMobReciprocalCombat(helper);
                 });
             });
         } catch(RuntimeException failure) {
