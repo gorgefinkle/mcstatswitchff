@@ -49,21 +49,6 @@ public final class PlayerMobGameTests {
         }
     }
 
-    /** Keep a real fixture target selected while testing native ZombieAttackGoal navigation. */
-    private static final class ForceTargetGoal extends Goal {
-        private final Mob owner;
-        private final LivingEntity target;
-        ForceTargetGoal(Mob owner,LivingEntity target) {
-            this.owner=owner;
-            this.target=target;
-        }
-        @Override public boolean canUse() { return target.isAlive()&&!target.isRemoved(); }
-        @Override public boolean canContinueToUse() { return target.isAlive()&&!target.isRemoved(); }
-        @Override public void start() { owner.setTarget(target); }
-        @Override public void tick() {
-            if(owner.getTarget()!=target)owner.setTarget(target);
-        }
-    }
 
     private record GoalSnapshot(int priority,Goal goal) {}
 
@@ -1031,12 +1016,10 @@ public final class PlayerMobGameTests {
         String firstError=GoalMindRuntime.begin(requester,chicken,zombie);
         helper.assertTrue(firstError==null,
             "Live Chicken↔Zombie native goal exchange failed: "+firstError);
-        // Hold a registered Villager target on the Zombie mind in this
-        // fixture. This isolates its native ZombieAttackGoal/navigation and
-        // the cross-species decision-to-recipient movement projection.
+        // A registered Villager provides a real target for the Zombie's
+        // native target selector and ZombieAttackGoal in the detached proxy.
         Mob zombieMind=GoalMindRuntime.proxyForGameTest(chicken.getUUID());
         helper.assertTrue(zombieMind!=null,"Zombie mind proxy for Chicken body is missing");
-        zombieMind.goalSelector.addGoal(0,new ForceTargetGoal(zombieMind,zombieTarget));
         helper.assertTrue(chicken.goalSelector.getAvailableGoals().isEmpty()
                 &&zombie.goalSelector.getAvailableGoals().isEmpty()
                 &&chicken.targetSelector.getAvailableGoals().isEmpty()
@@ -1130,7 +1113,7 @@ public final class PlayerMobGameTests {
                 +" proxyHealthUntouched=true");
             System.out.println("FF-GAMEPLAY native_goal_mind_exchange PASS"
                 +" reciprocalNativeGoals=true sameServer=true bothBodiesTick=true"
-                +" nativeZombieNavigation=true targetInjectedByFixture=true independentPairs=true"
+                +" nativeTargetAcquisition=true nativeZombieNavigation=true independentPairs=true"
                 +" exactGoalRestore=true");
             villager.discard();
             brainZombie.discard();
@@ -1193,7 +1176,6 @@ public final class PlayerMobGameTests {
         Mob mindProxy=PlayerMobPossession.mindProxyForGameTest(controller.getUUID());
         helper.assertTrue(mindProxy!=null,
             "Reciprocal Zombie mind proxy was not created for the original Player body");
-        mindProxy.goalSelector.addGoal(0,new ForceTargetGoal(mindProxy,zombieTarget));
         helper.assertTrue(PlayerMobPossession.hasSession(controller.getUUID())
                 &&zombie.isNoAi()==true&&controller.isAlive(),
             "Reciprocal session did not assign separate controllers to both real bodies");
