@@ -63,7 +63,14 @@ public final class PlayerMobGameTests {
         if(player.isCreative()||player.isSpectator()||player.isInvulnerable()
                 ||player.getAttackStrengthScale(0.5f)<0.9f)
             throw new IllegalStateException(
-                "Mock Player did not enter damageable Survival/full melee state");
+                "Mock Player did not enter damageable Survival/full melee state"
+                +" creative="+player.isCreative()
+                +" spectator="+player.isSpectator()
+                +" invulnerable="+player.isInvulnerable()
+                +" abilitiesInvulnerable="+player.getAbilities().invulnerable
+                +" instabuild="+player.getAbilities().instabuild
+                +" attackScale="+player.getAttackStrengthScale(0.5f)
+                +" gameMode="+player.gameMode.getGameModeForPlayer());
     }
 
     /** Clear the vanilla damage immunity timer across mapped server versions. */
