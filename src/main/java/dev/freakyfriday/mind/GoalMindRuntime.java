@@ -312,6 +312,8 @@ public final class GoalMindRuntime {
      * vanilla block-collision ray test directly so target goals and attack
      * goals keep their normal LOS semantics without registering a second body.
      */
+    private static final Set<String> DEBUG_LOS_REPORTED=new HashSet<>();
+
     private static final class DetachedSensing extends Sensing {
         private final Mob owner;
         DetachedSensing(Mob owner) { super(owner); this.owner=owner; }
@@ -321,9 +323,21 @@ public final class GoalMindRuntime {
             Vec3 from=owner.getEyePosition();
             Vec3 to=target.getEyePosition();
             if(from.distanceToSqr(to)>128.0*128.0)return false;
-            return owner.level().clip(new ClipContext(from,to,
-                ClipContext.Block.COLLIDER,ClipContext.Fluid.NONE,owner))
-                .getType()==HitResult.Type.MISS;
+            var hit=owner.level().clip(new ClipContext(from,to,
+                ClipContext.Block.COLLIDER,ClipContext.Fluid.NONE,owner));
+            if(Boolean.getBoolean("freakyfriday.debugProxy")) {
+                String key=owner.getUUID()+":"+target.getUUID();
+                synchronized(DEBUG_LOS_REPORTED) {
+                    if(DEBUG_LOS_REPORTED.add(key)) {
+                        String block=hit.getType()==HitResult.Type.MISS?"MISS":
+                            owner.level().getBlockState(hit.getBlockPos()).toString();
+                        System.err.println("[FF-LOS] owner="+owner.getType()+" target="+target.getType()
+                            +" from="+from+" to="+to+" hit="+hit.getType()
+                            +" block="+block+" sensing="+owner.getSensing().getClass().getSimpleName());
+                    }
+                }
+            }
+            return hit.getType()==HitResult.Type.MISS;
         }
     }
 
