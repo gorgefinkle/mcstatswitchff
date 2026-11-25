@@ -758,16 +758,26 @@ public final class PlayerMobGameTests {
         chicken.setPos(b.getX()+0.5,b.getY(),b.getZ()+0.5);
         helper.assertTrue(level.addFreshEntity(zombie)&&level.addFreshEntity(chicken),
             "Native mobs were not registered");
+        boolean zombieNoAi=zombie.isNoAi(),chickenNoAi=chicken.isNoAi();
+        List<GoalSnapshot> zombieGoals=snapshotGoals(zombie,false);
+        List<GoalSnapshot> zombieTargets=snapshotGoals(zombie,true);
+        List<GoalSnapshot> chickenGoals=snapshotGoals(chicken,false);
+        List<GoalSnapshot> chickenTargets=snapshotGoals(chicken,true);
         UUID requester=UUID.randomUUID();
         String failure=GoalMindRuntime.begin(requester,zombie,chicken);
         helper.assertTrue(failure==null,
             "Live Chicken↔Zombie native controller exchange failed: "+failure);
         helper.runAfterDelay(20,()->{
             helper.assertTrue(zombie.isAlive()&&chicken.isAlive()
-                    &&!zombie.isNoAi()&&!chicken.isNoAi()
+                    &&zombie.isNoAi()&&chicken.isNoAi()
                     &&zombie.getType().equals(EntityTypes.ZOMBIE)
                     &&chicken.getType().equals(EntityTypes.CHICKEN),
-                "The original Chicken/Zombie physical bodies stopped ticking or changed identity");
+                "The real physical bodies did not retain identity while their proxy minds ran");
+            helper.assertTrue(hasSameGoals(zombie,false,zombieGoals)
+                    &&hasSameGoals(zombie,true,zombieTargets)
+                    &&hasSameGoals(chicken,false,chickenGoals)
+                    &&hasSameGoals(chicken,true,chickenTargets),
+                "Cross-species exchange transplanted a GoalSelector into a wrong body type");
             helper.assertTrue(GoalMindRuntime.activeSessions(requester)==1
                     &&GoalMindRuntime.bodyReserved(zombie.getUUID())
                     &&GoalMindRuntime.bodyReserved(chicken.getUUID()),
@@ -775,14 +785,17 @@ public final class PlayerMobGameTests {
             helper.assertTrue(GoalMindRuntime.cancelByAccount(requester)
                     &&GoalMindRuntime.activeSessions(requester)==0,
                 "The original Chicken/Zombie mind assignments did not restore cleanly");
+            helper.assertTrue(zombie.isNoAi()==zombieNoAi&&chicken.isNoAi()==chickenNoAi,
+                "Returning from the exchange did not restore each body's original AI flag");
             zombie.discard();
             chicken.discard();
             System.out.println("FF-GAMEPLAY zombie_chicken_behavior_acceptance PASS"
                 +" reciprocalNativeGoals=true sameServer=true bodyIdentityPreserved=true"
-                +" bothMobsTicking=true reversible=true");
+                +" sameTypeProxyGoals=true originalSelectorsUntouched=true reversible=true");
             helper.succeed();
         });
     }
+
 
     /** A non-universal experimental path must never mutate either real mob. */
     private static void verifyPartialSwapRejected(GameTestHelper helper) {
