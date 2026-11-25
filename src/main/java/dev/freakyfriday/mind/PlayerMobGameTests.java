@@ -769,15 +769,15 @@ public final class PlayerMobGameTests {
             "Live Chicken↔Zombie native controller exchange failed: "+failure);
         helper.runAfterDelay(20,()->{
             helper.assertTrue(zombie.isAlive()&&chicken.isAlive()
-                    &&zombie.isNoAi()&&chicken.isNoAi()
+                    &&zombie.isNoAi()==zombieNoAi&&chicken.isNoAi()==chickenNoAi
                     &&zombie.getType().equals(EntityTypes.ZOMBIE)
                     &&chicken.getType().equals(EntityTypes.CHICKEN),
-                "The real physical bodies did not retain identity while their proxy minds ran");
-            helper.assertTrue(hasSameGoals(zombie,false,zombieGoals)
-                    &&hasSameGoals(zombie,true,zombieTargets)
-                    &&hasSameGoals(chicken,false,chickenGoals)
-                    &&hasSameGoals(chicken,true,chickenTargets),
-                "Cross-species exchange transplanted a GoalSelector into a wrong body type");
+                "The real physical bodies did not retain identity and NoAI state while proxy minds ran");
+            helper.assertTrue(zombie.goalSelector.getAvailableGoals().isEmpty()
+                    &&zombie.targetSelector.getAvailableGoals().isEmpty()
+                    &&chicken.goalSelector.getAvailableGoals().isEmpty()
+                    &&chicken.targetSelector.getAvailableGoals().isEmpty(),
+                "The physical GoalSelectors were not isolated while their native proxies ran");
             helper.assertTrue(GoalMindRuntime.activeSessions(requester)==1
                     &&GoalMindRuntime.bodyReserved(zombie.getUUID())
                     &&GoalMindRuntime.bodyReserved(chicken.getUUID()),
@@ -785,8 +785,12 @@ public final class PlayerMobGameTests {
             helper.assertTrue(GoalMindRuntime.cancelByAccount(requester)
                     &&GoalMindRuntime.activeSessions(requester)==0,
                 "The original Chicken/Zombie mind assignments did not restore cleanly");
-            helper.assertTrue(zombie.isNoAi()==zombieNoAi&&chicken.isNoAi()==chickenNoAi,
-                "Returning from the exchange did not restore each body's original AI flag");
+            helper.assertTrue(zombie.isNoAi()==zombieNoAi&&chicken.isNoAi()==chickenNoAi
+                    &&hasSameGoals(zombie,false,zombieGoals)
+                    &&hasSameGoals(zombie,true,zombieTargets)
+                    &&hasSameGoals(chicken,false,chickenGoals)
+                    &&hasSameGoals(chicken,true,chickenTargets),
+                "Returning from the exchange did not restore each body's exact AI state");
             zombie.discard();
             chicken.discard();
             System.out.println("FF-GAMEPLAY zombie_chicken_behavior_acceptance PASS"
@@ -873,13 +877,13 @@ public final class PlayerMobGameTests {
         String firstError=GoalMindRuntime.begin(requester,chicken,zombie);
         helper.assertTrue(firstError==null,
             "Live Chicken↔Zombie native goal exchange failed: "+firstError);
-        helper.assertTrue(hasSameGoals(chicken,false,chickenGoals)
-                &&hasSameGoals(zombie,false,zombieGoals)
-                &&hasSameGoals(chicken,true,chickenTargets)
-                &&hasSameGoals(zombie,true,zombieTargets),
-            "The physical bodies' own GoalSelectors were mutated instead of isolated");
-        helper.assertTrue(chicken.isNoAi()&&zombie.isNoAi(),
-            "The original bodies' autonomous goals were not paused while donor-native controllers drove them");
+        helper.assertTrue(chicken.goalSelector.getAvailableGoals().isEmpty()
+                &&zombie.goalSelector.getAvailableGoals().isEmpty()
+                &&chicken.targetSelector.getAvailableGoals().isEmpty()
+                &&zombie.targetSelector.getAvailableGoals().isEmpty(),
+            "The original bodies' autonomous goals were not suspended during the proxy exchange");
+        helper.assertTrue(chicken.isNoAi()==chickenNoAi&&zombie.isNoAi()==zombieNoAi,
+            "Pausing autonomous goals changed a physical body's NoAI/body state");
 
         // A requester is only a session manager: an occupied body is exclusive,
         // but a second unrelated pair is allowed under the same requester.
