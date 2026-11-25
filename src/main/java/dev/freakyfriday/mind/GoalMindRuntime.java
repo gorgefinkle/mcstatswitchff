@@ -305,12 +305,17 @@ public final class GoalMindRuntime {
                 Entity target,Entity attackTarget) {}
         private final Mob proxy;
         private final Set<UUID> excluded;
+        // The proxy must not overlap its real recipient: the recipient remains
+        // a registered physical entity and would otherwise block proxy travel.
+        // Keep a small side offset, scaled to both collision-box widths.
+        private final Vec3 bodyOffset;
         private Entity pendingAttack;
         private boolean closed;
 
-        private DetachedController(Mob proxy,Set<UUID> excluded) {
+        private DetachedController(Mob proxy,Set<UUID> excluded,Vec3 bodyOffset) {
             this.proxy=proxy;
             this.excluded=Set.copyOf(excluded);
+            this.bodyOffset=bodyOffset;
             DETACHED_BY_PROXY.put(proxy.getUUID(),this);
         }
 
@@ -321,7 +326,8 @@ public final class GoalMindRuntime {
                 return new Step(Vec3.ZERO,physicalBody==null?0:physicalBody.getYRot(),
                     physicalBody==null?0:physicalBody.getXRot(),null,null);
             Vec3 origin=physicalBody.position();
-            proxy.setPos(origin.x,origin.y,origin.z);
+            Vec3 proxyOrigin=origin.add(bodyOffset);
+            proxy.setPos(proxyOrigin.x,proxyOrigin.y,proxyOrigin.z);
             proxy.setYRot(physicalBody.getYRot());
             proxy.setXRot(physicalBody.getXRot());
             proxy.setYHeadRot(physicalBody.getYHeadRot());
@@ -350,7 +356,7 @@ public final class GoalMindRuntime {
             proxy.getLookControl().tick();
             proxy.getJumpControl().tick();
             proxy.tick();
-            Vec3 moved=proxy.position().subtract(origin);
+            Vec3 moved=proxy.position().subtract(proxyOrigin);
             Entity target=proxy.getTarget();
             if(target!=null&&excluded.contains(target.getUUID())) {
                 proxy.setTarget(null);
@@ -372,7 +378,7 @@ public final class GoalMindRuntime {
                         .filter(WrappedGoal::isRunning)
                         .map(w->w.getGoal().getClass().getSimpleName()).toList());
             }
-            proxy.setPos(origin.x,origin.y,origin.z);
+            proxy.setPos(proxyOrigin.x,proxyOrigin.y,proxyOrigin.z);
             return new Step(moved,yaw,pitch,target,attack);
         }
 
@@ -422,14 +428,19 @@ public final class GoalMindRuntime {
         proxy.setNoGravity(donor.isNoGravity() || physicalBody instanceof ServerPlayer);
         proxy.setSilent(true);
         proxy.setPersistenceRequired();
-        proxy.setPos(physicalBody.getX(),physicalBody.getY(),physicalBody.getZ());
+        double clearance=(physicalBody.getBbWidth()+proxy.getBbWidth())*0.5+0.12;
+        double bodyYaw=Math.toRadians(physicalBody.getYRot());
+        Vec3 bodyOffset=new Vec3(Math.cos(bodyYaw)*clearance,0.0,
+            Math.sin(bodyYaw)*clearance);
+        proxy.setPos(physicalBody.getX()+bodyOffset.x,
+            physicalBody.getY(),physicalBody.getZ()+bodyOffset.z);
         proxy.setYRot(physicalBody.getYRot());
         proxy.setXRot(physicalBody.getXRot());
         Set<UUID> excluded=Set.of(donor.getUUID(),physicalBody.getUUID());
         try {
             CompatibleCapture capture=captureCompatibleFor(donor,proxy,donorMind,excluded);
             apply(proxy,capture.snapshot());
-            return new DetachedController(proxy,excluded);
+            return new DetachedController(proxy,excluded,bodyOffset);
         } catch(DynamicObjectGraph.Uncapturable|RuntimeException failure) {
             if(!proxy.isRemoved())proxy.discard();
             if(failure instanceof DynamicObjectGraph.Uncapturable unsupported) throw unsupported;
