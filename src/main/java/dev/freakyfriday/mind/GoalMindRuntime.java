@@ -419,7 +419,7 @@ public final class GoalMindRuntime {
             boolean accepted=body.hurtServer(level,source,amount);
             if(Boolean.getBoolean("freakyfriday.thirdPartyFixture"))
                 System.out.println("[FF-PROXY-DAMAGE] hostHit accepted="+accepted
-                    +" invulnerableTo="+body.isInvulnerableTo(source)
+                    +" invulnerableTo="+body.isInvulnerableTo(level,source)
                     +" source="+source.getMsgId()+" amount="+amount
                     +" health="+before+"->"+body.getHealth());
         }
