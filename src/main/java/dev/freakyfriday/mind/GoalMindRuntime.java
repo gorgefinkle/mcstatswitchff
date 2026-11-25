@@ -485,7 +485,11 @@ public final class GoalMindRuntime {
             physicalBody.getY(),physicalBody.getZ()+bodyOffset.z);
         proxy.setYRot(physicalBody.getYRot());
         proxy.setXRot(physicalBody.getXRot());
-        Set<UUID> excluded=Set.of(donor.getUUID(),physicalBody.getUUID());
+        // The recipient body is the physical body currently hosting this
+        // mind, so it must not attack itself. The donor's original physical
+        // body is NOT excluded: it now hosts the opposite mind and remains a
+        // legitimate target. This preserves combat across the mind/body split.
+        Set<UUID> excluded=Set.of(physicalBody.getUUID());
         try {
             CompatibleCapture capture=captureCompatibleFor(donor,proxy,donorMind,excluded);
             apply(proxy,capture.snapshot());
