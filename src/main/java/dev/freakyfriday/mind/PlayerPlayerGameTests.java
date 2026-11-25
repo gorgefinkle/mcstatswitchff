@@ -19,7 +19,8 @@ import net.neoforged.neoforge.registries.DeferredRegister;
  * Minecraft's collision resolver and can independently end both sessions.
  *
  * Mock GameTest players have no graphical camera or real connected clients:
- * this test does not claim a visual camera, inventory, or combat transfer.
+ * this test does not claim a visual camera or inventory transfer. It does
+ * verify reciprocal native melee damage when the world's PvP rule is enabled.
  */
 public final class PlayerPlayerGameTests {
     private PlayerPlayerGameTests() {}
