@@ -317,6 +317,7 @@ public final class PlayerMobGameTests {
      * to block physical movement. No numerical mock movement is accepted.
      */
     private static void verifyNativeSpeedCollision(GameTestHelper helper) {
+        System.setProperty("freakyfriday.debugMotion","true");
         var level=helper.getLevel();
         ServerPlayer fastPlayer=helper.makeMockServerPlayerInLevel();
         ServerPlayer slowPlayer=helper.makeMockServerPlayerInLevel();
@@ -371,6 +372,7 @@ public final class PlayerMobGameTests {
                 });
             }
             helper.runAfterDelay(25,()->{
+                System.clearProperty("freakyfriday.debugMotion");
                 double fastDistance=fastChicken.getZ()-fastStartZ;
                 double slowDistance=slowChicken.getZ()-slowStartZ;
                 double wallFront=helper.absolutePos(new BlockPos(3,1,20)).getZ();
