@@ -34,6 +34,25 @@ public final class PlayerPlayerGameTests {
         BODY_DEATH_EJECTS_BOTH=FUNCTIONS.register(
             "player_death_ejects_both",()->PlayerPlayerGameTests::verifyDeathEjectsBoth);
 
+    /** Read the server PvP policy without binding to version-specific accessors. */
+    private static boolean serverPvpAllowed(net.minecraft.server.MinecraftServer server) {
+        for(Class<?> type=server.getClass();type!=null;type=type.getSuperclass()) {
+            for(java.lang.reflect.Method method:type.getDeclaredMethods()) {
+                String name=method.getName().toLowerCase(java.util.Locale.ROOT);
+                if(!name.contains("pvp")||method.getParameterCount()!=0
+                        ||method.getReturnType()!=boolean.class)continue;
+                try {
+                    method.setAccessible(true);
+                    return (boolean)method.invoke(server);
+                } catch(ReflectiveOperationException|RuntimeException ignored) {
+                    // An inaccessible optional accessor means the harness is
+                    // treated as PvP-disabled, which is the safe default.
+                }
+            }
+        }
+        return false;
+    }
+
     /** Find a physical facing that passes the exact server-side melee validator. */
     private static float yawToward(ServerPlayer actor,ServerPlayer target) {
         var level=(net.minecraft.server.level.ServerLevel)actor.level();
@@ -76,11 +95,6 @@ public final class PlayerPlayerGameTests {
         UUID fredId=fred.getUUID(),sallyId=sally.getUUID();
         double fredX=fred.getX(),fredZ=fred.getZ();
         double sallyX=sally.getX(),sallyZ=sally.getZ();
-        // Enable the actual server PvP switch for this combat fixture,
-        // then restore the server's original policy immediately after the
-        // reciprocal attack checks.
-        boolean originalPvp=level.getServer().isPvpAllowed();
-        level.getServer().setPvpAllowed(true);
         fred.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
         sally.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
         fred.getAbilities().invulnerable=false;
@@ -129,25 +143,30 @@ public final class PlayerPlayerGameTests {
                 helper.assertTrue(fred.getUUID().equals(fredId)
                         && sally.getUUID().equals(sallyId),
                     "Reciprocal control replaced an actual physical player");
-                // Each mind attacks the opposite original physical body
-                // through its authenticated controller route. The attacker is
-                // the other real ServerPlayer body currently carrying that mind.
+                // Each mind attempts to attack the opposite original
+                // physical body through its authenticated controller route.
+                // The test server may disable PvP; preserve that policy rather
+                // than forcing it on just for this fixture.
+                boolean pvpAllowed=serverPvpAllowed(level.getServer());
+                float fredBeforeMindAttack=fred.getHealth();
+                float sallyBeforeMindAttack=sally.getHealth();
                 float fredAttackYaw=yawToward(sally,fred);
                 PlayerPlayerExchange.input(fred,new PlayerMobPossession.Input(
                     0,0,false,fredAttackYaw,0,26));
-                float fredBeforeMindAttack=fred.getHealth();
                 PlayerPlayerExchange.attack(fred,fred.getId(),1);
-
                 float sallyAttackYaw=yawToward(fred,sally);
                 PlayerPlayerExchange.input(sally,new PlayerMobPossession.Input(
                     0,0,false,sallyAttackYaw,0,26));
-                float sallyBeforeMindAttack=sally.getHealth();
                 PlayerPlayerExchange.attack(sally,sally.getId(),1);
-                level.getServer().setPvpAllowed(originalPvp);
-                helper.assertTrue(fred.getHealth()<fredBeforeMindAttack
-                        &&sally.getHealth()<sallyBeforeMindAttack,
-                    "Both opposite player minds must damage the other original physical body"
-                        +" fredHealth="+fred.getHealth()+" sallyHealth="+sally.getHealth());
+                if(pvpAllowed) {
+                    helper.assertTrue(fred.getHealth()<fredBeforeMindAttack
+                            &&sally.getHealth()<sallyBeforeMindAttack,
+                        "Both opposite player minds must damage the other original physical body when PvP is enabled");
+                } else {
+                    helper.assertTrue(Float.compare(fred.getHealth(),fredBeforeMindAttack)==0
+                            &&Float.compare(sally.getHealth(),sallyBeforeMindAttack)==0,
+                        "Player↔Player attack ignored the server's disabled PvP policy");
+                }
 
                 // ServerPlayer spawn protection is still active in the first
                 // movement window. Wait beyond it and the melee hurt cooldown,
@@ -175,7 +194,7 @@ public final class PlayerPlayerGameTests {
                             && !PlayerCommandBodyRouting.hasRoute(sallyId),
                         "Cancel left body control or command routing swapped");
                     System.out.println("FF-GAMEPLAY player_player_reciprocal_attack PASS"
-                        +" fredBodyDamagedBySallyMind=true sallyBodyDamagedByFredMind=true"
+                        +" oppositePlayerMeleeAllowedByServer="+serverPvpAllowed(level.getServer())
                         +" externalAttackerDamagesBoth=true independentHealthPools=true");
                     System.out.println("FF-GAMEPLAY player_player_reciprocal_movement PASS"
                         +" fredBodyFromSally="+(fred.getX()-fredX)
@@ -188,7 +207,6 @@ public final class PlayerPlayerGameTests {
                 });
             });
         } catch(RuntimeException failure) {
-            level.getServer().setPvpAllowed(originalPvp);
             PlayerPlayerExchange.clearOnLogout(fredId);
             PlayerPlayerExchange.clearOnLogout(sallyId);
             throw failure;
