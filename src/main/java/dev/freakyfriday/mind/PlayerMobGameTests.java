@@ -1028,8 +1028,18 @@ public final class PlayerMobGameTests {
 
         double chickenStart=chicken.distanceToSqr(target);
         double zombieStart=zombie.distanceToSqr(target);
-        float chickenHealthBeforeOpponentAttack=chicken.getHealth();
-        float zombieHealthBeforeOpponentAttack=zombie.getHealth();
+        Mob zombieMind=GoalMindRuntime.proxyForGameTest(chicken.getUUID());
+        Mob chickenMind=GoalMindRuntime.proxyForGameTest(zombie.getUUID());
+        helper.assertTrue(zombieMind!=null&&chickenMind!=null,
+            "Both opposite native mind proxies must remain available for combat");
+        float chickenHealthBeforeMindAttack=chicken.getHealth();
+        float zombieHealthBeforeMindAttack=zombie.getHealth();
+        float zombieMindProxyHealth=zombieMind.getHealth();
+        float chickenMindProxyHealth=chickenMind.getHealth();
+        // Each mind attacks the physical body now carrying the opposite mind.
+        // The proxy-origin damage event is translated onto that real body.
+        zombieMind.goalSelector.addGoal(0,new OneShotNativeAttackGoal(zombieMind,zombie));
+        chickenMind.goalSelector.addGoal(0,new OneShotNativeAttackGoal(chickenMind,chicken));
         helper.runAfterDelay(40,()->{
             System.clearProperty("freakyfriday.debugProxy");
             helper.assertTrue(chicken.isAlive()&&zombie.isAlive()
@@ -1041,14 +1051,24 @@ public final class PlayerMobGameTests {
                 "Both donor-native controllers must independently move their opposite real bodies toward the Player stimulus"
                     +" chicken="+chickenStart+"->"+chickenEnd
                     +" zombie="+zombieStart+"->"+zombieEnd);
-            // The opposing Skeleton must still be able to hit BOTH original
-            // physical bodies during the swap. Damage belongs to each body,
-            // never to its proxy mind or the other participant's health.
+            helper.assertTrue(chicken.getHealth()<chickenHealthBeforeMindAttack
+                    &&zombie.getHealth()<zombieHealthBeforeMindAttack,
+                "Both opposite native minds must damage the other participant's real physical body"
+                    +" chicken="+chickenHealthBeforeMindAttack+"->"+chicken.getHealth()
+                    +" zombie="+zombieHealthBeforeMindAttack+"->"+zombie.getHealth());
+            helper.assertTrue(zombieMind.getHealth()==zombieMindProxyHealth
+                    &&chickenMind.getHealth()==chickenMindProxyHealth,
+                "Proxy mind health changed; attacks must land on the physical bodies");
+
+            // A third-party attacker must also hit BOTH original physical
+            // bodies during the swap, independently of either mind's attack.
+            float chickenHealthBeforeExternal=chicken.getHealth();
+            float zombieHealthBeforeExternal=zombie.getHealth();
             var opponentDamage=level.damageSources().mobAttack(opponent);
             helper.assertTrue(chicken.hurtServer(level,opponentDamage,2.0f)
                     &&zombie.hurtServer(level,opponentDamage,2.0f)
-                    &&chicken.getHealth()<chickenHealthBeforeOpponentAttack
-                    &&zombie.getHealth()<zombieHealthBeforeOpponentAttack,
+                    &&chicken.getHealth()<chickenHealthBeforeExternal
+                    &&zombie.getHealth()<zombieHealthBeforeExternal,
                 "The opposing Skeleton could not independently damage both swapped physical Mob bodies");
             helper.assertTrue(GoalMindRuntime.activeSessions(requester)==2,
                 "Incoming damage incorrectly ended one of the live Mob mind/body swaps");
@@ -1067,7 +1087,9 @@ public final class PlayerMobGameTests {
                     &&!GoalMindRuntime.bodyReserved(secondZombie.getUUID()),
                 "Cancelled Mob bodies remained reserved");
 
-            System.out.println("FF-GAMEPLAY partial_native_swap_fails_closed PASS");
+            System.out.println("FF-GAMEPLAY partial_native_swap_fails_closed PASS"
+                +" oppositeMindsDamageRealBodies=true externalDamageHitsBothBodies=true"
+                +" proxyHealthUntouched=true");
             System.out.println("FF-GAMEPLAY native_goal_mind_exchange PASS"
                 +" reciprocalNativeGoals=true sameServer=true bothBodiesTick=true"
                 +" liveTargetAcquisition=true physicalMovement=true independentPairs=true"
