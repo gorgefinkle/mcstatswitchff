@@ -434,6 +434,7 @@ public final class GoalMindRuntime {
             throw new DynamicObjectGraph.Uncapturable("The donor EntityType could not create a detached AI proxy");
         proxy.setNoAi(false);
         proxy.setNoGravity(true);
+        proxy.setInvulnerable(true);
         proxy.setSilent(true);
         proxy.setPersistenceRequired();
         proxy.setPos(physicalBody.getX(),physicalBody.getY(),physicalBody.getZ());
