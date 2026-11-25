@@ -347,10 +347,12 @@ public final class PlayerMobGameTests {
             net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED);
         helper.assertTrue(fastSpeed!=null&&slowSpeed!=null,
             "Chickens lack native movement speed attributes");
-        fastSpeed.setBaseValue(1.2);
-        slowSpeed.setBaseValue(0.08);
         helper.assertTrue(level.addFreshEntity(fastChicken)&&level.addFreshEntity(slowChicken),
             "Real Chicken bodies were not registered for speed/collision");
+        // Spawn finalization can rewrite attributes, so apply the test profiles
+        // only after each original physical entity is present in the level.
+        fastSpeed.setBaseValue(1.2);
+        slowSpeed.setBaseValue(0.08);
         UUID fastBodyId=fastChicken.getUUID(),slowBodyId=slowChicken.getUUID();
         UUID fastOwner=fastPlayer.getUUID(),slowOwner=slowPlayer.getUUID();
         float fastHealth=fastChicken.getHealth(),slowHealth=slowChicken.getHealth();
@@ -823,7 +825,6 @@ public final class PlayerMobGameTests {
 
     /** A non-universal experimental path must never mutate either real mob. */
     private static void verifyPartialSwapRejected(GameTestHelper helper) {
-        System.setProperty("freakyfriday.debugProxy","true");
         var level=helper.getLevel();
         System.setProperty("freakyfriday.debugProxy","true");
 
