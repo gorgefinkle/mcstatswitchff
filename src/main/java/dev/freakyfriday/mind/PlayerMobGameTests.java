@@ -1367,67 +1367,75 @@ public final class PlayerMobGameTests {
             helper.assertTrue(zombie.getZ()>zombieStartZ+0.15,
                 "Player input did not independently move the occupied Zombie body; "
                     +"startZ="+zombieStartZ+" finalZ="+zombie.getZ());
-            // The Player mind now inhabits the Zombie body. Its authenticated
-            // attack input must hit the original Player body (currently driven
-            // by the Zombie mind), not an invisible proxy.
-            zombie.setPos(controller.getX()+1.35,controller.getY(),controller.getZ());
-            // The occupied Zombie is east of the original Player body;
-            // +90° faces west toward the original Player in vanilla yaw.
-            zombie.setYRot(90.0f);
-            zombie.yRotO=90.0f;
-            zombie.setYHeadRot(90.0f);
-            PlayerMobPossession.input(controller,
-                new PlayerMobPossession.Input(0,0,false,90.0f,0,99));
-            float playerBeforeMindAttack=controller.getHealth();
-            PlayerMobPossession.attack(controller,controller.getId(),99);
-            helper.assertTrue(controller.getHealth()<playerBeforeMindAttack,
-                "Player mind in the Mob body could not damage the opposite mind's physical Player body");
+            // Mock ServerPlayers retain their initial spawn-protection
+            // window. Keep the live reciprocal session running until it has
+            // elapsed before validating the Mob body's melee hit on its host.
+            helper.runAfterDelay(30,()->{
+                // The Player mind now inhabits the Zombie body. Its authenticated
+                // attack input must hit the original Player body (currently driven
+                // by the Zombie mind), not an invisible proxy.
+                zombie.setPos(controller.getX()+1.35,controller.getY(),controller.getZ());
+                // The occupied Zombie is east of the original Player body;
+                // +90° faces west toward the original Player in vanilla yaw.
+                zombie.setYRot(90.0f);
+                zombie.yRotO=90.0f;
+                zombie.setYHeadRot(90.0f);
+                PlayerMobPossession.input(controller,
+                    new PlayerMobPossession.Input(0,0,false,90.0f,0,99));
+                float playerBeforeMindAttack=controller.getHealth();
+                PlayerMobPossession.attack(controller,controller.getId(),99);
+                helper.assertTrue(controller.getHealth()<playerBeforeMindAttack,
+                    "Player mind in the Mob body could not damage the opposite mind's physical Player body");
 
-            // In the other direction, the Zombie mind proxy performs a native
-            // melee attack against the occupied Mob body. Proxy damage itself
-            // is cancelled; the actual original Player body must execute it.
-            helper.assertTrue(!mindProxy.isRemoved(),
-                "Reciprocal Zombie mind proxy disappeared during the live session");
-            // The proxy copies its host Player body's view every tick.
-            // Face that real body toward the Mob before the next native AI pass.
-            controller.setYRot(-90.0f);
-            controller.setXRot(0.0f);
-            mindProxy.goalSelector.addGoal(0,new OneShotNativeAttackGoal(mindProxy,zombie));
-            float mobBeforeMindAttack=zombie.getHealth();
-            float proxyHealthBeforeAttack=mindProxy.getHealth();
+                // In the other direction, the Zombie mind proxy performs a native
+                // melee attack against the occupied Mob body. Proxy damage itself
+                // is cancelled; the actual original Player body must execute it.
+                helper.assertTrue(!mindProxy.isRemoved(),
+                    "Reciprocal Zombie mind proxy disappeared during the live session");
+                // The proxy copies its host Player body's view every tick.
+                // Face that real body toward the Mob before the next native AI pass.
+                controller.setYRot(-90.0f);
+                controller.setXRot(0.0f);
+                mindProxy.goalSelector.addGoal(0,new OneShotNativeAttackGoal(mindProxy,zombie));
+                float mobBeforeMindAttack=zombie.getHealth();
+                float proxyHealthBeforeAttack=mindProxy.getHealth();
 
-            helper.runAfterDelay(4,()->{
-                helper.assertTrue(zombie.getHealth()<mobBeforeMindAttack,
-                    "Zombie mind on the Player body could not damage the opposite mind's physical Mob body");
-                helper.assertTrue(mindProxy.getHealth()==proxyHealthBeforeAttack,
-                    "The detached mind proxy was damaged instead of the original Player/Mob physical body");
-                // A third-party attacker must still be able to damage both
-                // original physical health pools independently during a swap.
-                float playerBeforeExternal=controller.getHealth();
-                float mobBeforeExternal=zombie.getHealth();
-                var opponentDamage=level.damageSources().mobAttack(opponent);
-                helper.assertTrue(controller.hurtServer(level,opponentDamage,2.0f)
-                        &&zombie.hurtServer(level,opponentDamage,2.0f)
-                        &&controller.getHealth()<playerBeforeExternal
-                        &&zombie.getHealth()<mobBeforeExternal,
-                    "External damage was not independently applied to both real bodies");
-                helper.assertTrue(PlayerMobPossession.hasSession(controller.getUUID()),
-                    "Nonfatal reciprocal attacks unexpectedly ended Player↔Mob control");
-                helper.assertTrue(PlayerMobPossession.end(controller),
-                    "Player/Mob reciprocal controller did not return on cancel");
-                helper.assertTrue(zombie.isNoAi()==originalNoAi,
-                    "Returning from the exchange did not restore the Mob's original AI flag");
-                System.out.println("FF-GAMEPLAY player_mob_reciprocal_attack PASS"
-                    +" playerMindDamagesMobMindBody=true mobMindDamagesPlayerMindBody=true"
-                    +" externalAttackerDamagesBothBodies=true independentHealthPools=true");
-                System.out.println("FF-GAMEPLAY player_mob_native_mind_proxy PASS"
-                    +" sameServerNativeAI=true playerBodyDrivenByMobMind=true"
-                    +" mobBodyDrivenByPlayerInput=true noMirroredMovement=true restored=true");
-                zombie.discard();
-                opponent.discard();
-                controller.discard();
-                zombieTarget.discard();
-                helper.succeed();
+                helper.runAfterDelay(4,()->{
+                    helper.assertTrue(zombie.getHealth()<mobBeforeMindAttack,
+                        "Zombie mind on the Player body could not damage the opposite mind's physical Mob body");
+                    helper.assertTrue(mindProxy.getHealth()==proxyHealthBeforeAttack,
+                        "The detached mind proxy was damaged instead of the original Player/Mob physical body");
+
+                    // Let the first body damage cooldown expire before an
+                    // independent third-party hit checks both health pools.
+                    helper.runAfterDelay(11,()->{
+                        float playerBeforeExternal=controller.getHealth();
+                        float mobBeforeExternal=zombie.getHealth();
+                        var opponentDamage=level.damageSources().mobAttack(opponent);
+                        helper.assertTrue(controller.hurtServer(level,opponentDamage,2.0f)
+                                &&zombie.hurtServer(level,opponentDamage,2.0f)
+                                &&controller.getHealth()<playerBeforeExternal
+                                &&zombie.getHealth()<mobBeforeExternal,
+                            "External damage was not independently applied to both real bodies");
+                        helper.assertTrue(PlayerMobPossession.hasSession(controller.getUUID()),
+                            "Nonfatal reciprocal attacks unexpectedly ended Player↔Mob control");
+                        helper.assertTrue(PlayerMobPossession.end(controller),
+                            "Player/Mob reciprocal controller did not return on cancel");
+                        helper.assertTrue(zombie.isNoAi()==originalNoAi,
+                            "Returning from the exchange did not restore the Mob's original AI flag");
+                        System.out.println("FF-GAMEPLAY player_mob_reciprocal_attack PASS"
+                            +" playerMindDamagesMobMindBody=true mobMindDamagesPlayerMindBody=true"
+                            +" externalAttackerDamagesBothBodies=true independentHealthPools=true");
+                        System.out.println("FF-GAMEPLAY player_mob_native_mind_proxy PASS"
+                            +" sameServerNativeAI=true playerBodyDrivenByMobMind=true"
+                            +" mobBodyDrivenByPlayerInput=true noMirroredMovement=true restored=true");
+                        zombie.discard();
+                        opponent.discard();
+                        controller.discard();
+                        zombieTarget.discard();
+                        helper.succeed();
+                    });
+                });
             });
         });
     }
