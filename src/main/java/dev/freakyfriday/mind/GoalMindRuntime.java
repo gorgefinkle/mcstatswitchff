@@ -356,6 +356,14 @@ public final class GoalMindRuntime {
             float yaw=proxy.getYRot(),pitch=proxy.getXRot();
             Entity attack=pendingAttack;
             pendingAttack=null;
+            if(Boolean.getBoolean("freakyfriday.debugProxy")) {
+                System.out.println("[FF-PROXY] mind="+proxy.getType()
+                    +" recipient="+physicalBody.getType()
+                    +" moved="+moved+" target="+(target==null?"none":target.getType())
+                    +" goals="+proxy.goalSelector.getAvailableGoals().size()
+                    +" targetGoals="+proxy.targetSelector.getAvailableGoals().size()
+                    +" running="+proxy.goalSelector.getAvailableGoals().stream().filter(g->g.getGoal().isRunning()).count());
+            }
             proxy.setPos(origin.x,origin.y,origin.z);
             return new Step(moved,yaw,pitch,target,attack);
         }
