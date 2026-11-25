@@ -12,7 +12,10 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.goal.Goal;
+import net.minecraft.world.entity.ai.goal.WrappedGoal;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
@@ -26,6 +29,27 @@ import net.neoforged.neoforge.registries.DeferredRegister;
  */
 public final class PlayerMobGameTests {
     private PlayerMobGameTests() {}
+
+    private record GoalSnapshot(int priority,Goal goal) {}
+
+    private static List<GoalSnapshot> snapshotGoals(Mob body,boolean targets) {
+        List<GoalSnapshot> result=new java.util.ArrayList<>();
+        var selector=targets?body.targetSelector:body.goalSelector;
+        for(WrappedGoal wrapped:selector.getAvailableGoals())
+            result.add(new GoalSnapshot(wrapped.getPriority(),wrapped.getGoal()));
+        return List.copyOf(result);
+    }
+
+    private static boolean hasSameGoals(Mob body,boolean targets,List<GoalSnapshot> expected) {
+        List<GoalSnapshot> actual=snapshotGoals(body,targets);
+        if(actual.size()!=expected.size()) return false;
+        for(GoalSnapshot wanted:expected) {
+            if(actual.stream().noneMatch(found->
+                    found.priority()==wanted.priority()&&found.goal()==wanted.goal()))
+                return false;
+        }
+        return true;
+    }
 
     public static final DeferredRegister<Consumer<GameTestHelper>> FUNCTIONS =
         DeferredRegister.create(BuiltInRegistries.TEST_FUNCTION,"freakyfriday");
@@ -763,35 +787,133 @@ public final class PlayerMobGameTests {
     /** A non-universal experimental path must never mutate either real mob. */
     private static void verifyPartialSwapRejected(GameTestHelper helper) {
         var level=helper.getLevel();
+
+        // Active-Brain pairs must still fail closed without mutating either mob.
         Mob villager=EntityTypes.VILLAGER.create(level,EntitySpawnReason.COMMAND);
-        Mob zombie=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
-        helper.assertTrue(villager!=null&&zombie!=null,
+        Mob brainZombie=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
+        helper.assertTrue(villager!=null&&brainZombie!=null,
             "Active-Brain fail-closed regression needs real Villager and Zombie entities");
-        BlockPos villagerPos=helper.absolutePos(new BlockPos(2,1,2));
-        BlockPos zombiePos=helper.absolutePos(new BlockPos(5,1,2));
+        BlockPos villagerPos=helper.absolutePos(new BlockPos(3,1,8));
+        BlockPos brainZombiePos=helper.absolutePos(new BlockPos(7,1,8));
         villager.setPos(villagerPos.getX()+0.5,villagerPos.getY(),villagerPos.getZ()+0.5);
-        zombie.setPos(zombiePos.getX()+0.5,zombiePos.getY(),zombiePos.getZ()+0.5);
-        helper.assertTrue(level.addFreshEntity(villager)&&level.addFreshEntity(zombie),
+        brainZombie.setPos(brainZombiePos.getX()+0.5,brainZombiePos.getY(),brainZombiePos.getZ()+0.5);
+        helper.assertTrue(level.addFreshEntity(villager)&&level.addFreshEntity(brainZombie),
             "Fail-closed swap actors did not register");
         var villagerBrain=villager.getBrain();
-        var zombieBrain=zombie.getBrain();
+        var zombieBrain=brainZombie.getBrain();
         var villagerGoals=List.copyOf(villager.goalSelector.getAvailableGoals());
-        var zombieGoals=List.copyOf(zombie.goalSelector.getAvailableGoals());
+        var zombieGoals=List.copyOf(brainZombie.goalSelector.getAvailableGoals());
         var villagerTargets=List.copyOf(villager.targetSelector.getAvailableGoals());
-        var zombieTargets=List.copyOf(zombie.targetSelector.getAvailableGoals());
-        String rejection=NativeBrainSwap.exchange(villager,zombie);
+        var zombieTargets=List.copyOf(brainZombie.targetSelector.getAvailableGoals());
+        String rejection=NativeBrainSwap.exchange(villager,brainZombie);
         helper.assertTrue(rejection!=null&&rejection.contains("active Brain AI"),
             "An unsupported active-Brain pair must fail closed: "+rejection);
-        helper.assertTrue(villager.getBrain()==villagerBrain&&zombie.getBrain()==zombieBrain,
+        helper.assertTrue(villager.getBrain()==villagerBrain&&brainZombie.getBrain()==zombieBrain,
             "Rejected exchange changed a physical body's Brain reference");
         helper.assertTrue(villagerGoals.equals(List.copyOf(villager.goalSelector.getAvailableGoals()))
-                &&zombieGoals.equals(List.copyOf(zombie.goalSelector.getAvailableGoals()))
+                &&zombieGoals.equals(List.copyOf(brainZombie.goalSelector.getAvailableGoals()))
                 &&villagerTargets.equals(List.copyOf(villager.targetSelector.getAvailableGoals()))
-                &&zombieTargets.equals(List.copyOf(zombie.targetSelector.getAvailableGoals())),
+                &&zombieTargets.equals(List.copyOf(brainZombie.targetSelector.getAvailableGoals())),
             "Rejected active-Brain exchange mutated a native goal or target selector");
-        System.out.println("FF-GAMEPLAY partial_native_swap_fails_closed PASS");
-        villager.discard();
-        zombie.discard();
-        helper.succeed();
+
+        // Build a real, roofed arena and two independent live Mob pairs.
+        for(int x=0;x<=24;x++) for(int z=0;z<=10;z++) {
+            level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,0,z)),
+                net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+            level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,7,z)),
+                net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+        }
+        ServerPlayer target=helper.makeMockServerPlayerInLevel();
+        target.setPos(helper.absolutePos(new BlockPos(6,1,4)).getX()+0.5,
+            helper.absolutePos(new BlockPos(6,1,4)).getY(),
+            helper.absolutePos(new BlockPos(6,1,4)).getZ()+0.5);
+        target.setItemInHand(InteractionHand.MAIN_HAND,new ItemStack(Items.WHEAT_SEEDS));
+
+        Mob chicken=EntityTypes.CHICKEN.create(level,EntitySpawnReason.COMMAND);
+        Mob zombie=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
+        Mob secondChicken=EntityTypes.CHICKEN.create(level,EntitySpawnReason.COMMAND);
+        Mob secondZombie=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
+        helper.assertTrue(chicken!=null&&zombie!=null&&secondChicken!=null&&secondZombie!=null,
+            "Live cross-species exchange fixtures could not be created");
+        BlockPos chickenPos=helper.absolutePos(new BlockPos(3,1,4));
+        BlockPos zombiePos=helper.absolutePos(new BlockPos(9,1,4));
+        BlockPos secondChickenPos=helper.absolutePos(new BlockPos(15,1,4));
+        BlockPos secondZombiePos=helper.absolutePos(new BlockPos(19,1,4));
+        chicken.setPos(chickenPos.getX()+0.5,chickenPos.getY(),chickenPos.getZ()+0.5);
+        zombie.setPos(zombiePos.getX()+0.5,zombiePos.getY(),zombiePos.getZ()+0.5);
+        secondChicken.setPos(secondChickenPos.getX()+0.5,secondChickenPos.getY(),secondChickenPos.getZ()+0.5);
+        secondZombie.setPos(secondZombiePos.getX()+0.5,secondZombiePos.getY(),secondZombiePos.getZ()+0.5);
+        helper.assertTrue(level.addFreshEntity(chicken)&&level.addFreshEntity(zombie)
+                &&level.addFreshEntity(secondChicken)&&level.addFreshEntity(secondZombie),
+            "Live cross-species bodies failed to register");
+        chicken.setPersistenceRequired();
+        zombie.setPersistenceRequired();
+        secondChicken.setPersistenceRequired();
+        secondZombie.setPersistenceRequired();
+
+        List<GoalSnapshot> chickenGoals=snapshotGoals(chicken,false);
+        List<GoalSnapshot> chickenTargets=snapshotGoals(chicken,true);
+        List<GoalSnapshot> zombieGoals=snapshotGoals(zombie,false);
+        List<GoalSnapshot> zombieTargets=snapshotGoals(zombie,true);
+        boolean chickenNoAi=chicken.isNoAi(),zombieNoAi=zombie.isNoAi();
+        UUID requester=java.util.UUID.randomUUID();
+        String firstError=GoalMindRuntime.begin(requester,chicken,zombie);
+        helper.assertTrue(firstError==null,
+            "Live Chicken↔Zombie native goal exchange failed: "+firstError);
+        helper.assertTrue(!hasSameGoals(chicken,false,chickenGoals)
+                &&!hasSameGoals(zombie,false,zombieGoals),
+            "Incoming native goal graphs were not installed on both original bodies");
+        helper.assertTrue(chicken.isNoAi()==chickenNoAi&&zombie.isNoAi()==zombieNoAi
+                &&!chicken.isNoAi()&&!zombie.isNoAi(),
+            "The reciprocal exchange froze either original physical body");
+
+        // A requester is only a session manager: an occupied body is exclusive,
+        // but a second unrelated pair is allowed under the same requester.
+        String occupiedError=GoalMindRuntime.begin(requester,chicken,secondZombie);
+        helper.assertTrue(occupiedError!=null,
+            "An already-occupied physical body was allowed into a second exchange");
+        String secondError=GoalMindRuntime.begin(requester,secondChicken,secondZombie);
+        helper.assertTrue(secondError==null&&GoalMindRuntime.activeSessions(requester)==2,
+            "One requester could not manage two independent live Mob exchanges: "+secondError);
+
+        double chickenStart=chicken.distanceToSqr(target);
+        double zombieStart=zombie.distanceToSqr(target);
+        helper.runAfterDelay(40,()->{
+            helper.assertTrue(chicken.isAlive()&&zombie.isAlive()
+                    &&secondChicken.isAlive()&&secondZombie.isAlive(),
+                "One of the original physical Mob bodies stopped ticking during the swap");
+            helper.assertTrue(chicken.getTarget()==target,
+                "The transferred Zombie targeting mind did not naturally acquire the real Player target");
+            helper.assertTrue(chicken.distanceToSqr(target)<chickenStart
+                    ||zombie.distanceToSqr(target)<zombieStart,
+                "Neither transferred controller naturally moved its recipient physical body");
+            helper.assertTrue(GoalMindRuntime.cancelByAccount(requester)
+                    &&GoalMindRuntime.activeSessions(requester)==0,
+                "Cancel did not restore every independently managed Mob pair");
+            helper.assertTrue(hasSameGoals(chicken,false,chickenGoals)
+                    &&hasSameGoals(chicken,true,chickenTargets)
+                    &&hasSameGoals(zombie,false,zombieGoals)
+                    &&hasSameGoals(zombie,true,zombieTargets),
+                "Cancel did not restore the exact original Chicken/Zombie goal graphs");
+            helper.assertTrue(!GoalMindRuntime.bodyReserved(chicken.getUUID())
+                    &&!GoalMindRuntime.bodyReserved(zombie.getUUID())
+                    &&!GoalMindRuntime.bodyReserved(secondChicken.getUUID())
+                    &&!GoalMindRuntime.bodyReserved(secondZombie.getUUID()),
+                "Cancelled Mob bodies remained reserved");
+
+            System.out.println("FF-GAMEPLAY partial_native_swap_fails_closed PASS");
+            System.out.println("FF-GAMEPLAY native_goal_mind_exchange PASS"
+                +" reciprocalNativeGoals=true sameServer=true bothBodiesTick=true"
+                +" liveTargetAcquisition=true physicalMovement=true independentPairs=true"
+                +" exactGoalRestore=true");
+            villager.discard();
+            brainZombie.discard();
+            chicken.discard();
+            zombie.discard();
+            secondChicken.discard();
+            secondZombie.discard();
+            helper.succeed();
+        });
     }
+
 }
