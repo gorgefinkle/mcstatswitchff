@@ -63,7 +63,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          bash ./gradlew runGameTestServer -PtargetMinecraft=${{ matrix.minecraft }} --no-daemon --stacktrace 2>&1 | tee gametest.log
+          bash ./gradlew clean runGameTestServer -PtargetMinecraft=${{ matrix.minecraft }} --no-daemon --stacktrace 2>&1 | tee gametest.log
           grep -Fq 'FF-GAMETEST detached_cross_species PASS' gametest.log
           grep -Fq 'FF-GAMETEST detached_host_construction zombie_to_cow PASS' gametest.log
           grep -Fq 'FF-GAMETEST detached_host_construction cow_to_zombie PASS' gametest.log
@@ -251,7 +251,7 @@ jobs:
           gradle-version: '9.2.1'
           cache-read-only: ${{ github.event_name == 'pull_request' }}
       - name: Compile and package version-specific mod
-        run: bash ./gradlew build -PtargetMinecraft=${{ matrix.minecraft }} --no-daemon --stacktrace
+        run: bash ./gradlew clean build -PtargetMinecraft=${{ matrix.minecraft }} --no-daemon --stacktrace
       - name: Verify JAR integrity and create SHA256 manifest
         run: python3 scripts/verify-build-artifact.py --minecraft ${{ matrix.minecraft }}
       - name: Package a complete versioned source and exactly one current JAR
