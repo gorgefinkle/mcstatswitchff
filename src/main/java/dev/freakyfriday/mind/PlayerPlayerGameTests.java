@@ -79,7 +79,14 @@ public final class PlayerPlayerGameTests {
         // The test server defaults to PvP-disabled. This acceptance case
         // explicitly validates reciprocal player-body combat with PvP enabled;
         // production attacks continue to respect the server's PvP setting.
-        level.getServer().setPvpAllowed(true);
+        try {
+            java.lang.reflect.Field pvp=net.minecraft.server.MinecraftServer.class
+                .getDeclaredField("pvpAllowed");
+            pvp.setAccessible(true);
+            pvp.setBoolean(level.getServer(),true);
+        } catch (ReflectiveOperationException failure) {
+            throw new IllegalStateException("Could not enable PvP for the reciprocal player combat fixture",failure);
+        }
         fred.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
         sally.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
         fred.getAbilities().invulnerable=false;
