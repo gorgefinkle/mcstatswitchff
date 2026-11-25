@@ -991,10 +991,10 @@ public final class PlayerMobGameTests {
             "Live Chicken↔Zombie native controller exchange failed: "+failure);
         helper.runAfterDelay(20,()->{
             helper.assertTrue(zombie.isAlive()&&chicken.isAlive()
-                    &&zombie.isNoAi()==zombieNoAi&&chicken.isNoAi()==chickenNoAi
+                    &&zombie.isNoAi()&&chicken.isNoAi()
                     &&zombie.getType().equals(EntityTypes.ZOMBIE)
                     &&chicken.getType().equals(EntityTypes.CHICKEN),
-                "The real physical bodies did not retain identity and NoAI state while proxy minds ran");
+                "The real physical bodies did not retain identity while their incoming proxy minds ran");
             helper.assertTrue(zombie.goalSelector.getAvailableGoals().isEmpty()
                     &&zombie.targetSelector.getAvailableGoals().isEmpty()
                     &&chicken.goalSelector.getAvailableGoals().isEmpty()
