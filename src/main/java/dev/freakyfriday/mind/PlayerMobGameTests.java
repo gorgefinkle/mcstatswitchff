@@ -100,11 +100,19 @@ public final class PlayerMobGameTests {
             &&level.players().contains(player);
         boolean entityQuery=level.getEntitiesOfClass(
             target.getClass(),proxy.getBoundingBox().inflate(follow),entity->true).contains(target);
+        Vec3 from=proxy.getEyePosition(),to=target.getEyePosition();
+        var ray=level.clip(new net.minecraft.world.level.ClipContext(from,to,
+            net.minecraft.world.level.ClipContext.Block.COLLIDER,
+            net.minecraft.world.level.ClipContext.Fluid.NONE,proxy));
+        String rayBlock=ray.getType()==net.minecraft.world.phys.HitResult.Type.MISS
+            ?"MISS":level.getBlockState(ray.getBlockPos()).toString();
         return "target="+target.getType()+" follow="+follow
             +" targeterCanAttack="+proxy.canAttack(target)
             +" targetVisible="+target.canBeSeenByAnyone()
             +" los="+proxy.getSensing().hasLineOfSight(target)
             +" conditions="+conditions
+            +" ray="+ray.getType()+" rayBlock="+rayBlock
+            +" from="+from+" to="+to
             +" playerList="+playerList+" entityQuery="+entityQuery;
     }
 
