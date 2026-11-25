@@ -343,9 +343,6 @@ public final class GoalMindRuntime {
                 proxy.goalSelector.tickRunningGoals(false);
             }
             proxy.getNavigation().tick();
-            proxy.getMoveControl().tick();
-            proxy.getLookControl().tick();
-            proxy.getJumpControl().tick();
             proxy.tick();
             Vec3 moved=proxy.position().subtract(origin);
             Entity target=proxy.getTarget();
@@ -361,8 +358,7 @@ public final class GoalMindRuntime {
                     +" recipient="+physicalBody.getType()
                     +" moved="+moved+" target="+(target==null?"none":target.getType())
                     +" goals="+proxy.goalSelector.getAvailableGoals().size()
-                    +" targetGoals="+proxy.targetSelector.getAvailableGoals().size()
-                    +" running="+proxy.goalSelector.getAvailableGoals().stream().filter(g->g.getGoal().isRunning()).count());
+                    +" targetGoals="+proxy.targetSelector.getAvailableGoals().size());
             }
             proxy.setPos(origin.x,origin.y,origin.z);
             return new Step(moved,yaw,pitch,target,attack);
