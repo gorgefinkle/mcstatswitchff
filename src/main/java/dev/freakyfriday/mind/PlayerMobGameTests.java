@@ -890,6 +890,7 @@ public final class PlayerMobGameTests {
         List<GoalSnapshot> zombieTargets=snapshotGoals(zombie,true);
         boolean chickenNoAi=chicken.isNoAi(),zombieNoAi=zombie.isNoAi();
         UUID requester=java.util.UUID.randomUUID();
+        System.setProperty("freakyfriday.debugProxy","true");
         String firstError=GoalMindRuntime.begin(requester,chicken,zombie);
         helper.assertTrue(firstError==null,
             "Live Chicken↔Zombie native goal exchange failed: "+firstError);
