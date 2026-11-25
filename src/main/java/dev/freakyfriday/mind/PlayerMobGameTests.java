@@ -1147,6 +1147,8 @@ public final class PlayerMobGameTests {
         List<GoalSnapshot> zombieTargets=snapshotGoals(zombie,true);
         boolean chickenNoAi=chicken.isNoAi(),zombieNoAi=zombie.isNoAi();
         UUID requester=java.util.UUID.randomUUID();
+        // Temporary trace to diagnose the 26.3 Zombie-mind-on-Chicken case.
+        System.setProperty("freakyfriday.debugProxy","true");
         String firstError=GoalMindRuntime.begin(requester,chicken,zombie);
         helper.assertTrue(firstError==null,
             "Live Chicken↔Zombie native goal exchange failed: "+firstError);
@@ -1192,6 +1194,7 @@ public final class PlayerMobGameTests {
         secondZombieMindB.goalSelector.addGoal(0,
             new OneShotNativeAttackGoal(secondZombieMindB,secondZombieMindA));
         helper.runAfterDelay(40,()->{
+            System.clearProperty("freakyfriday.debugProxy");
             helper.assertTrue(chicken.isAlive()&&zombie.isAlive()
                     &&secondZombieA.isAlive()&&secondZombieB.isAlive(),
                 "One of the original physical Mob bodies stopped ticking during the swap");
