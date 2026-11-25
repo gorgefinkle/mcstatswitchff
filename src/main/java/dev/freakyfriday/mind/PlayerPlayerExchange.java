@@ -176,8 +176,12 @@ public final class PlayerPlayerExchange {
         if(now-controller.lastAttackTick<10)return;
         body.setYRot(controller.input.yaw());
         body.setXRot(controller.input.pitch());
+        // The authenticated account's original physical body is a valid
+        // target even in headless/mock-player environments where it is not
+        // present in the ordinary entity lookup. This is exactly the body
+        // currently hosting the opposite player's mind.
         net.minecraft.world.entity.Entity target=
-            PossessionCombat.findValidMeleeTarget(level,body,candidateId);
+            PossessionCombat.findValidMeleeTarget(level,body,candidateId,sender);
         if(target==null)return;
         controller.lastAttackTick=now;
         body.attack(target);
