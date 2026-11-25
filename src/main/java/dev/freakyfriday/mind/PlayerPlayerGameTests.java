@@ -144,7 +144,7 @@ public final class PlayerPlayerGameTests {
                         &&fred.getHealth()<fredBeforeMindAttack
                         &&sally.getHealth()<sallyBeforeMindAttack,
                     "Both opposite player minds/bodies must be able to damage the other original physical body"
-                        +" fredHit="+fredHit+" sallyHit="+sallyHit
+                        +" fredMindHit="+fredMindHit+" sallyMindHit="+sallyMindHit
                         +" fredHealth="+fred.getHealth()+" sallyHealth="+sally.getHealth());
 
                 // ServerPlayer spawn protection is still active in the first
