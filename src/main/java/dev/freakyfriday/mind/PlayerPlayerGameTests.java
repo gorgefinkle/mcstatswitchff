@@ -34,6 +34,23 @@ public final class PlayerPlayerGameTests {
         BODY_DEATH_EJECTS_BOTH=FUNCTIONS.register(
             "player_death_ejects_both",()->PlayerPlayerGameTests::verifyDeathEjectsBoth);
 
+    /** Choose the actual vanilla view-vector orientation, not an assumed yaw sign. */
+    private static float yawToward(ServerPlayer actor,ServerPlayer target) {
+        double dx=target.getBoundingBox().getCenter().x-actor.getEyePosition().x;
+        double dz=target.getBoundingBox().getCenter().z-actor.getEyePosition().z;
+        float yaw=(float)Math.toDegrees(Math.atan2(-dx,dz));
+        actor.setXRot(0.0f);
+        actor.setYRot(yaw);
+        var level=(net.minecraft.server.level.ServerLevel)actor.level();
+        if(PossessionCombat.findValidMeleeTarget(level,actor,target.getId(),target)==null) {
+            yaw+=180.0f;
+            actor.setYRot(yaw);
+        }
+        if(PossessionCombat.findValidMeleeTarget(level,actor,target.getId(),target)==null)
+            throw new IllegalStateException("Could not orient the physical player body toward its melee target");
+        return yaw;
+    }
+
     private static void verify(GameTestHelper helper) {
         var level=helper.getLevel();
         ServerPlayer fred=helper.makeMockServerPlayerInLevel();
@@ -103,9 +120,7 @@ public final class PlayerPlayerGameTests {
                 // participant's real physical body through its own authenticated
                 // account route: Fred's mind attacks Fred's original body from
                 // Sally's body; Sally's mind does the reciprocal attack.
-                double fredDx=fred.getX()-sally.getX();
-                double fredDz=fred.getZ()-sally.getZ();
-                float fredAttackYaw=(float)Math.toDegrees(Math.atan2(-fredDx,fredDz));
+                float fredAttackYaw=yawToward(sally,fred);
                 PlayerPlayerExchange.input(fred,new PlayerMobPossession.Input(
                     0,0,false,fredAttackYaw,0,26));
                 float fredBeforeMindAttack=fred.getHealth();
@@ -122,9 +137,7 @@ public final class PlayerPlayerGameTests {
                         +" resolved="+(PossessionCombat.findValidMeleeTarget(
                             level,sally,fred.getId(),fred)==fred));
 
-                double sallyDx=sally.getX()-fred.getX();
-                double sallyDz=sally.getZ()-fred.getZ();
-                float sallyAttackYaw=(float)Math.toDegrees(Math.atan2(-sallyDx,sallyDz));
+                float sallyAttackYaw=yawToward(fred,sally);
                 PlayerPlayerExchange.input(sally,new PlayerMobPossession.Input(
                     0,0,false,sallyAttackYaw,0,26));
                 float sallyBeforeMindAttack=sally.getHealth();
