@@ -316,10 +316,19 @@ public final class GoalMindRuntime {
 
     private static final class DetachedSensing extends Sensing {
         private final Mob owner;
-        DetachedSensing(Mob owner) { super(owner); this.owner=owner; }
+        private final Set<UUID> excluded;
+        DetachedSensing(Mob owner,Set<UUID> excluded) {
+            super(owner);
+            this.owner=owner;
+            this.excluded=Set.copyOf(excluded);
+        }
 
         @Override public boolean hasLineOfSight(Entity target) {
-            if(target==null||target.isRemoved()||target.level()!=owner.level())return false;
+            // A detached mind must not acquire its own physical host. Filtering
+            // only after targetSelector.tick caused Player-hosted Zombie minds
+            // to repeatedly acquire then clear their own Player body.
+            if(target==null||target.isRemoved()||target.level()!=owner.level()
+                    ||excluded.contains(target.getUUID()))return false;
             Vec3 from=owner.getEyePosition();
             Vec3 to=target.getEyePosition();
             if(from.distanceToSqr(to)>128.0*128.0)return false;
@@ -341,7 +350,7 @@ public final class GoalMindRuntime {
         }
     }
 
-    private static void installDetachedSensing(Mob proxy)
+    private static void installDetachedSensing(Mob proxy,Set<UUID> excluded)
             throws DynamicObjectGraph.Uncapturable {
         for(Class<?> type=proxy.getClass();type!=null;type=type.getSuperclass()) {
             for(Field field:type.getDeclaredFields()) {
@@ -349,7 +358,7 @@ public final class GoalMindRuntime {
                 try {
                     if(!field.trySetAccessible())
                         throw new IllegalAccessException("Mob sensing field is inaccessible");
-                    field.set(proxy,new DetachedSensing(proxy));
+                    field.set(proxy,new DetachedSensing(proxy,excluded));
                     if(!(proxy.getSensing() instanceof DetachedSensing))
                         throw new IllegalStateException("Detached Sensing replacement did not take effect");
                     return;
@@ -614,12 +623,12 @@ public final class GoalMindRuntime {
             physicalBody.getY(),physicalBody.getZ()+bodyOffset.z);
         proxy.setYRot(physicalBody.getYRot());
         proxy.setXRot(physicalBody.getXRot());
-        installDetachedSensing(proxy);
         // The recipient body is the physical body currently hosting this
-        // mind, so it must not attack itself. The donor's original physical
-        // body is NOT excluded: it now hosts the opposite mind and remains a
-        // legitimate target. This preserves combat across the mind/body split.
+        // mind, so it must not be acquired as a target. The donor's original
+        // physical body is NOT excluded: it now hosts the opposite mind and
+        // remains a legitimate target.
         Set<UUID> excluded=Set.of(physicalBody.getUUID());
+        installDetachedSensing(proxy,excluded);
         try {
             CompatibleCapture capture=captureCompatibleFor(donor,proxy,donorMind,excluded);
             apply(proxy,capture.snapshot());
