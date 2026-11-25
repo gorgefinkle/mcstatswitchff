@@ -414,7 +414,7 @@ public final class GoalMindRuntime {
             this.excluded=Set.copyOf(excluded);
             this.bodyOffset=bodyOffset;
             DETACHED_BY_PROXY.put(proxy.getUUID(),this);
-            DETACHED_BY_ALIAS.put(mindAlias.getUUID(),this);
+            if(mindAlias!=null)DETACHED_BY_ALIAS.put(mindAlias.getUUID(),this);
         }
 
         /** Apply a hit against the detached mind to its real physical host. */
@@ -477,13 +477,15 @@ public final class GoalMindRuntime {
                 return new Step(Vec3.ZERO,physicalBody==null?0:physicalBody.getYRot(),
                     physicalBody==null?0:physicalBody.getXRot(),null,null);
             Vec3 origin=physicalBody.position();
-            mindAlias.setPos(origin.x,origin.y,origin.z);
-            mindAlias.setYRot(physicalBody.getYRot());
-            mindAlias.setYHeadRot(physicalBody.getYHeadRot());
-            mindAlias.setXRot(physicalBody.getXRot());
-            mindAlias.setDeltaMovement(Vec3.ZERO);
-            mindAlias.setNoGravity(true);
-            mindAlias.noPhysics=true;
+            if(mindAlias!=null) {
+                mindAlias.setPos(origin.x,origin.y,origin.z);
+                mindAlias.setYRot(physicalBody.getYRot());
+                mindAlias.setYHeadRot(physicalBody.getYHeadRot());
+                mindAlias.setXRot(physicalBody.getXRot());
+                mindAlias.setDeltaMovement(Vec3.ZERO);
+                mindAlias.setNoGravity(true);
+                mindAlias.noPhysics=true;
+            }
             Vec3 proxyOrigin=origin.add(bodyOffset);
             proxy.setPos(proxyOrigin.x,proxyOrigin.y,proxyOrigin.z);
             proxy.setYRot(physicalBody.getYRot());
@@ -608,9 +610,9 @@ public final class GoalMindRuntime {
             if(closed)return;
             closed=true;
             DETACHED_BY_PROXY.remove(proxy.getUUID(),this);
-            DETACHED_BY_ALIAS.remove(mindAlias.getUUID(),this);
+            if(mindAlias!=null)DETACHED_BY_ALIAS.remove(mindAlias.getUUID(),this);
             if(!proxy.isRemoved())proxy.discard();
-            if(!mindAlias.isRemoved())mindAlias.discard();
+            if(mindAlias!=null&&!mindAlias.isRemoved())mindAlias.discard();
             pendingAttack=null;
         }
     }
@@ -661,12 +663,17 @@ public final class GoalMindRuntime {
         }
     }
 
-    private static Mob createMindAlias(Mob donor,LivingEntity physicalBody,ServerLevel level)
+    private static Mob createMindAlias(LivingEntity physicalBody,ServerLevel level)
             throws DynamicObjectGraph.Uncapturable {
-        Entity created=donor.getType().create(level,EntitySpawnReason.COMMAND);
+        // A mind does not change the species of the physical body it inhabits.
+        // The opposite controller sees this identity as the BODY type, not
+        // the donor-mind type. A real Player body is already registered and
+        // must remain its own Player identity; never fabricate a fake Player.
+        if(!(physicalBody instanceof Mob physicalMob))return null;
+        Entity created=physicalMob.getType().create(level,EntitySpawnReason.COMMAND);
         if(!(created instanceof Mob alias))
             throw new DynamicObjectGraph.Uncapturable(
-                "The donor EntityType could not create its registered mind identity");
+                "The physical body's EntityType could not create its target identity");
         alias.setNoAi(true);
         alias.setNoGravity(true);
         alias.setSilent(true);
@@ -679,7 +686,7 @@ public final class GoalMindRuntime {
         if(!level.addFreshEntity(alias)) {
             if(!alias.isRemoved())alias.discard();
             throw new DynamicObjectGraph.Uncapturable(
-                "The opposite AI could not register this mind's target identity");
+                "The opposite AI could not register this physical-body identity");
         }
         return alias;
     }
@@ -716,17 +723,27 @@ public final class GoalMindRuntime {
             proxy.setXRot(physicalBody.getXRot());
 
             copyNativeBrainState(donor,proxy);
-            alias=createMindAlias(donor,physicalBody,level);
-            // Exclude only this controller's own host and its own alias.
-            // The opposite mind alias remains visible to native target
-            // selectors and Brain sensors as the entity the mind should see.
-            Set<UUID> excluded=Set.of(physicalBody.getUUID(),proxy.getUUID(),alias.getUUID());
-            installDetachedSensing(proxy,excluded);
+            alias=createMindAlias(physicalBody,level);
+            // For Mob↔Mob swaps, the opposite original entity and this
+            // controller's own alias are hidden from its native AI. The other
+            // body's alias remains visible and carries that body's REAL
+            // EntityType. A Player recipient has no fabricated alias and
+            // continues to see the actual opposite physical Mob.
+            Set<UUID> excluded=new HashSet<>();
+            excluded.add(physicalBody.getUUID());
+            excluded.add(proxy.getUUID());
+            if(alias!=null) {
+                excluded.add(alias.getUUID());
+                excluded.add(donor.getUUID());
+            }
+            Set<UUID> immutableExcluded=Set.copyOf(excluded);
+            installDetachedSensing(proxy,immutableExcluded);
             if(!donorMind.goals().isEmpty()||!donorMind.targets().isEmpty()) {
-                CompatibleCapture capture=captureCompatibleFor(donor,proxy,donorMind,excluded);
+                CompatibleCapture capture=captureCompatibleFor(
+                    donor,proxy,donorMind,immutableExcluded);
                 apply(proxy,capture.snapshot());
             }
-            return new DetachedController(proxy,alias,physicalBody,excluded,bodyOffset);
+            return new DetachedController(proxy,alias,physicalBody,immutableExcluded,bodyOffset);
         } catch(DynamicObjectGraph.Uncapturable|RuntimeException failure) {
             if(alias!=null&&!alias.isRemoved())alias.discard();
             if(!proxy.isRemoved())proxy.discard();
