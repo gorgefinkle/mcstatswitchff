@@ -435,12 +435,14 @@ public final class GoalMindRuntime {
         final ServerLevel level;
         final Mob first, second;
         final Snapshot firstOriginal, secondOriginal;
+        final LivingEntity firstOriginalTarget,secondOriginalTarget;
         final boolean firstOriginalNoAi, secondOriginalNoAi;
         final MindLedger.Mind firstMind, secondMind;
         // firstMindController drives the second physical body and vice versa.
         final DetachedController firstMindController, secondMindController;
         ActiveSwap(UUID requester, ServerLevel level, Mob first, Mob second,
                 Snapshot firstOriginal, Snapshot secondOriginal,
+                LivingEntity firstOriginalTarget,LivingEntity secondOriginalTarget,
                 boolean firstOriginalNoAi,boolean secondOriginalNoAi,
                 MindLedger.Mind firstMind, MindLedger.Mind secondMind,
                 DetachedController firstMindController,DetachedController secondMindController) {
@@ -450,6 +452,8 @@ public final class GoalMindRuntime {
             this.second=second;
             this.firstOriginal=firstOriginal;
             this.secondOriginal=secondOriginal;
+            this.firstOriginalTarget=firstOriginalTarget;
+            this.secondOriginalTarget=secondOriginalTarget;
             this.firstOriginalNoAi=firstOriginalNoAi;
             this.secondOriginalNoAi=secondOriginalNoAi;
             this.firstMind=firstMind;
@@ -495,6 +499,8 @@ public final class GoalMindRuntime {
 
         boolean originalFirstNoAi=first.isNoAi();
         boolean originalSecondNoAi=second.isNoAi();
+        LivingEntity originalFirstTarget=first.getTarget();
+        LivingEntity originalSecondTarget=second.getTarget();
         final MindLedger.Mind firstMind,secondMind;
         try {
             registerOriginalIfMissing(first);
@@ -526,16 +532,31 @@ public final class GoalMindRuntime {
                     throw new IllegalArgumentException("Incoming mind is not a complete NPC controller");
             });
             ledgerExchanged=true;
-            // The real bodies keep their own physics/collision/health/etc.
-            // Only autonomous goal decisions are paused while the donor-native
-            // proxy controllers continuously pilot them.
-            first.setNoAi(true);
-            second.setNoAi(true);
+
+            // Suspend only the physical bodies' own autonomous goal lists.
+            // Keep NoAI, entity tick and custom species behavior intact: the
+            // incoming proxy minds continue to pilot movement through each
+            // recipient body's native travel implementation.
+            Snapshot empty=new Snapshot(List.of(),List.of());
+            apply(first,empty);
+            apply(second,empty);
+            first.getNavigation().stop();
+            second.getNavigation().stop();
+            first.setTarget(null);
+            second.setTarget(null);
         } catch(Exception failure) {
             if(firstController!=null) firstController.close();
             if(secondController!=null) secondController.close();
-            if(!first.isRemoved()) first.setNoAi(originalFirstNoAi);
-            if(!second.isRemoved()) second.setNoAi(originalSecondNoAi);
+            if(!first.isRemoved()) {
+                try { apply(first,originalFirst); first.setTarget(originalFirstTarget); }
+                catch(RuntimeException rollback) { failure.addSuppressed(rollback); }
+                first.setNoAi(originalFirstNoAi);
+            }
+            if(!second.isRemoved()) {
+                try { apply(second,originalSecond); second.setTarget(originalSecondTarget); }
+                catch(RuntimeException rollback) { failure.addSuppressed(rollback); }
+                second.setNoAi(originalSecondNoAi);
+            }
             if(ledgerExchanged) {
                 try { OWNERS.restorePair(first.getUUID(),firstMind,second.getUUID(),secondMind); }
                 catch(RuntimeException rollback) { failure.addSuppressed(rollback); }
@@ -544,7 +565,8 @@ public final class GoalMindRuntime {
         }
 
         ActiveSwap active=new ActiveSwap(requester,level,first,second,
-            originalFirst,originalSecond,originalFirstNoAi,originalSecondNoAi,
+            originalFirst,originalSecond,originalFirstTarget,originalSecondTarget,
+            originalFirstNoAi,originalSecondNoAi,
             firstMind,secondMind,firstController,secondController);
         ACTIVE_BY_BODY.put(first.getUUID(),active);
         ACTIVE_BY_BODY.put(second.getUUID(),active);
@@ -573,18 +595,28 @@ public final class GoalMindRuntime {
     private static void end(ActiveSwap session,boolean notify,String reason) {
         if(!ACTIVE_BY_BODY.containsValue(session)) return;
         RuntimeException failure=null;
-        // The original selectors were never replaced. Stop the two
-        // same-type proxy minds and restore the physical bodies' own AI flags.
+        // Stop the donor-native proxy minds and put the exact original
+        // GoalSelectors, targets and NoAI state back on each physical body.
         try { session.firstMindController.close(); }
         catch(RuntimeException problem) { failure=problem; }
         try { session.secondMindController.close(); }
         catch(RuntimeException problem) {
             if(failure==null) failure=problem; else failure.addSuppressed(problem);
         }
-        if(session.first.isAlive()&&!session.first.isRemoved())
-            session.first.setNoAi(session.firstOriginalNoAi);
-        if(session.second.isAlive()&&!session.second.isRemoved())
-            session.second.setNoAi(session.secondOriginalNoAi);
+        if(session.first.isAlive()&&!session.first.isRemoved()) {
+            try {
+                apply(session.first,session.firstOriginal);
+                session.first.setTarget(session.firstOriginalTarget);
+                session.first.setNoAi(session.firstOriginalNoAi);
+            } catch(RuntimeException problem) { if(failure==null)failure=problem;else failure.addSuppressed(problem); }
+        }
+        if(session.second.isAlive()&&!session.second.isRemoved()) {
+            try {
+                apply(session.second,session.secondOriginal);
+                session.second.setTarget(session.secondOriginalTarget);
+                session.second.setNoAi(session.secondOriginalNoAi);
+            } catch(RuntimeException problem) { if(failure==null)failure=problem;else failure.addSuppressed(problem); }
+        }
         try {
             OWNERS.restorePair(session.first.getUUID(),session.firstMind,
                 session.second.getUUID(),session.secondMind);
