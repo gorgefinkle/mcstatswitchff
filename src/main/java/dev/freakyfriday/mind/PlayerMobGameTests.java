@@ -40,6 +40,7 @@ public final class PlayerMobGameTests {
      * tests exercise combat routing rather than mock-player setup artifacts.
      */
     private static void makeDamageableSurvivalPlayer(ServerPlayer player) {
+        player.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
         player.gameMode.changeGameModeForPlayer(net.minecraft.world.level.GameType.SURVIVAL);
         player.getAbilities().invulnerable=false;
         player.getAbilities().instabuild=false;
@@ -60,7 +61,9 @@ public final class PlayerMobGameTests {
         }
         if(!primed)throw new IllegalStateException(
             "Could not prime native Player melee cooldown for reciprocal combat GameTest");
-        if(player.isCreative()||player.isSpectator()||player.isInvulnerable()
+        if(player.isSpectator()||player.isInvulnerable()
+                ||player.getAbilities().invulnerable
+                ||player.getAbilities().instabuild
                 ||player.getAttackStrengthScale(0.5f)<0.9f)
             throw new IllegalStateException(
                 "Mock Player did not enter damageable Survival/full melee state"
@@ -70,7 +73,8 @@ public final class PlayerMobGameTests {
                 +" abilitiesInvulnerable="+player.getAbilities().invulnerable
                 +" instabuild="+player.getAbilities().instabuild
                 +" attackScale="+player.getAttackStrengthScale(0.5f)
-                +" gameMode="+player.gameMode.getGameModeForPlayer());
+                +" gameMode="+player.gameMode.getGameModeForPlayer()
+                +" class="+player.getClass().getName());
     }
 
     /** Clear the vanilla damage immunity timer across mapped server versions. */
