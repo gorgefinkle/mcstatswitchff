@@ -1437,10 +1437,9 @@ public final class PlayerMobGameTests {
             helper.runAfterDelay(30,()->{
                 // The Player mind now inhabits the Zombie body. Its authenticated
                 // attack input must hit the original Player body (currently driven
-                // by the Zombie mind), not an invisible proxy.
+                // by the Zombie mind), not an invisible proxy. Face the body toward
+                // the original Player and prime its physical attack cooldown.
                 zombie.setPos(controller.getX()+1.35,controller.getY(),controller.getZ());
-                // The occupied Zombie is east of the original Player body;
-                // +90° faces west toward the original Player in vanilla yaw.
                 zombie.setYRot(90.0f);
                 zombie.yRotO=90.0f;
                 zombie.setYHeadRot(90.0f);
