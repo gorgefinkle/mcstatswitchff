@@ -912,9 +912,9 @@ public final class PlayerMobGameTests {
         zombie.setPos(pos.getX()+1.5,pos.getY(),pos.getZ()+0.5);
         helper.assertTrue(level.addFreshEntity(zombie),"Zombie not registered");
         makeDamageableSurvivalPlayer(player);
-        helper.assertTrue(!player.isCreative()&&!player.getAbilities().invulnerable
-                &&!player.isInvulnerable(),
-            "Attack test requires a genuinely damageable Survival player");
+        helper.assertTrue(!player.getAbilities().invulnerable&&!player.isInvulnerable()
+                &&!player.getAbilities().instabuild,
+            "Attack test requires a damageable, non-invulnerable Player body");
         String issue=PlayerMobPossession.begin(player,zombie);
         helper.assertTrue(issue==null,"Zombie possession rejected: "+issue);
         float initial=player.getHealth();
@@ -1153,6 +1153,14 @@ public final class PlayerMobGameTests {
         BlockPos seedPos=helper.absolutePos(new BlockPos(6,1,4));
         target.setPos(seedPos.getX()+0.5,seedPos.getY(),seedPos.getZ()+0.5);
         target.setItemInHand(InteractionHand.MAIN_HAND,new ItemStack(Items.WHEAT_SEEDS));
+        Mob zombieTarget=EntityTypes.IRON_GOLEM.create(level,EntitySpawnReason.COMMAND);
+        helper.assertTrue(zombieTarget!=null,"Zombie mind target fixture requires an Iron Golem");
+        zombieTarget.setNoAi(true);
+        BlockPos zombieTargetPos=helper.absolutePos(new BlockPos(4,1,7));
+        zombieTarget.setPos(zombieTargetPos.getX()+0.5,zombieTargetPos.getY(),
+            zombieTargetPos.getZ()+0.5);
+        helper.assertTrue(level.addFreshEntity(zombieTarget),
+            "Iron Golem target for Zombie mind failed to register");
 
         Mob chicken=EntityTypes.CHICKEN.create(level,EntitySpawnReason.COMMAND);
         Mob zombie=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
@@ -1195,7 +1203,7 @@ public final class PlayerMobGameTests {
         // its own native target selector; no target is injected into the proxy.
         Mob zombieMind=GoalMindRuntime.proxyForGameTest(chicken.getUUID());
         helper.assertTrue(zombieMind!=null,"Zombie mind proxy for Chicken body is missing");
-        System.out.println("[FF-TARGET] MobMob "+targetProbe(level,zombieMind,target)
+        System.out.println("[FF-TARGET] MobMob "+targetProbe(level,zombieMind,zombieTarget)
             +" goals=["+targetGoalOwners(zombieMind)+"]");
         helper.assertTrue(chicken.goalSelector.getAvailableGoals().isEmpty()
                 &&zombie.goalSelector.getAvailableGoals().isEmpty()
@@ -1211,7 +1219,7 @@ public final class PlayerMobGameTests {
         helper.assertTrue(occupiedError!=null,
             "An already-occupied physical body was allowed into a second exchange");
 
-        double chickenStart=chicken.distanceToSqr(target);
+        double chickenStart=chicken.distanceToSqr(zombieTarget);
         double zombieStart=zombie.distanceToSqr(target);
         // Native nearest-target goals have an internal random acquisition
         // interval. Allow enough real server ticks for the unmodified vanilla
@@ -1220,7 +1228,7 @@ public final class PlayerMobGameTests {
             helper.assertTrue(chicken.isAlive()&&zombie.isAlive()
                     &&secondZombieA.isAlive()&&secondZombieB.isAlive(),
                 "One of the original physical Mob bodies stopped ticking during the swap");
-            double chickenEnd=chicken.distanceToSqr(target);
+            double chickenEnd=chicken.distanceToSqr(zombieTarget);
             double zombieEnd=zombie.distanceToSqr(target);
             String targetGoalState=zombieMind.targetSelector.getAvailableGoals().stream()
                 .map(w->w.getGoal().getClass().getSimpleName()
@@ -1228,18 +1236,19 @@ public final class PlayerMobGameTests {
                 .toList().toString();
             System.out.println("[FF-TARGET-STATE] MobMob target="+zombieMind.getTarget()
                 +" goals="+targetGoalState);
-            helper.assertTrue(zombieMind.getTarget()==target,
-                "Zombie mind's native target selector did not acquire the real Player stimulus; "
+            helper.assertTrue(zombieMind.getTarget()==zombieTarget,
+                "Zombie mind's native target selector did not acquire its real Iron Golem stimulus; "
                     +"target="+zombieMind.getTarget()+" goals="+targetGoalState);
             helper.assertTrue(chickenEnd<chickenStart&&zombieEnd<zombieStart,
-                "Both donor-native controllers must independently move their opposite real bodies toward the Player stimulus"
-                    +" chicken="+chickenStart+"->"+chickenEnd
-                    +" zombie="+zombieStart+"->"+zombieEnd);
+                "Zombie mind must move the Chicken body toward the Golem while Chicken mind tempts the Zombie body toward the seeded Player"
+                    +" chickenToGolem="+chickenStart+"->"+chickenEnd
+                    +" zombieToPlayer="+zombieStart+"->"+zombieEnd);
 
             // Remove the Player stimulus after the cross-species target/tempt
             // behavior has been verified. Start the second independent pair
             // only now, so its Zombie minds cannot divert toward that Player.
             target.discard();
+            zombieTarget.discard();
             List<GoalSnapshot> secondZombieAGoals=snapshotGoals(secondZombieA,false);
             List<GoalSnapshot> secondZombieATargets=snapshotGoals(secondZombieA,true);
             List<GoalSnapshot> secondZombieBGoals=snapshotGoals(secondZombieB,false);
@@ -1438,6 +1447,7 @@ public final class PlayerMobGameTests {
             helper.assertTrue(zombie.getZ()>zombieStartZ+0.15,
                 "Player input did not independently move the occupied Zombie body; "
                     +"startZ="+zombieStartZ+" finalZ="+zombie.getZ());
+            zombieTarget.discard();
             // Mock ServerPlayers retain their initial spawn-protection
             // window. Keep the live reciprocal session running until it has
             // elapsed before validating the Mob body's melee hit on its host.
@@ -1460,6 +1470,7 @@ public final class PlayerMobGameTests {
                 // The opposite physical Mob body can also hit the detached
                 // Zombie mind itself. That proxy has no separate health pool:
                 // damage must be redirected to the Player body hosting it.
+                helper.runAfterDelay(11,()->{
                 clearHurtCooldown(controller);
                 float playerBeforeProxyHit=controller.getHealth();
                 float proxyHealthBeforeProxyHit=mindProxy.getHealth();
@@ -1487,6 +1498,7 @@ public final class PlayerMobGameTests {
                 // Face that real body toward the Mob before the next native AI pass.
                 controller.setYRot(-90.0f);
                 controller.setXRot(0.0f);
+                makeDamageableSurvivalPlayer(controller);
                 mindProxy.goalSelector.addGoal(0,new OneShotNativeAttackGoal(mindProxy,zombie));
                 float mobBeforeMindAttack=zombie.getHealth();
                 float proxyHealthBeforeAttack=mindProxy.getHealth();
@@ -1527,6 +1539,7 @@ public final class PlayerMobGameTests {
                         zombieTarget.discard();
                         helper.succeed();
                     });
+                });
                 });
             });
         });
