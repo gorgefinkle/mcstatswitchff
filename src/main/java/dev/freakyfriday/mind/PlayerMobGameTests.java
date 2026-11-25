@@ -1139,11 +1139,15 @@ public final class PlayerMobGameTests {
                 net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
         }
         ServerPlayer controller=helper.makeMockServerPlayerInLevel();
-        ServerPlayer otherPlayer=helper.makeMockServerPlayerInLevel();
         BlockPos controllerPos=helper.absolutePos(new BlockPos(10,1,5));
         BlockPos targetPos=helper.absolutePos(new BlockPos(4,1,5));
         controller.setPos(controllerPos.getX()+0.5,controllerPos.getY(),controllerPos.getZ()+0.5);
-        otherPlayer.setPos(targetPos.getX()+0.5,targetPos.getY(),targetPos.getZ()+0.5);
+        Mob zombieTarget=EntityTypes.VILLAGER.create(level,EntitySpawnReason.COMMAND);
+        helper.assertTrue(zombieTarget!=null,"Zombie mind needs a real Villager target");
+        zombieTarget.setNoAi(true);
+        zombieTarget.setPos(targetPos.getX()+0.5,targetPos.getY(),targetPos.getZ()+0.5);
+        helper.assertTrue(level.addFreshEntity(zombieTarget),
+            "Zombie mind's Villager target failed to register");
 
         Mob zombie=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
         helper.assertTrue(zombie!=null,"Player/Mob proxy test needs a real Zombie");
@@ -1155,8 +1159,6 @@ public final class PlayerMobGameTests {
 
         controller.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
         controller.getAbilities().invulnerable=false;
-        otherPlayer.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
-        otherPlayer.getAbilities().invulnerable=false;
         Mob opponent=EntityTypes.SKELETON.create(level,EntitySpawnReason.COMMAND);
         helper.assertTrue(opponent!=null,"Player/Mob damage test needs an opposing Skeleton");
         opponent.setNoAi(true);
@@ -1184,7 +1186,7 @@ public final class PlayerMobGameTests {
         }
         helper.runAfterDelay(35,()->{
             helper.assertTrue(controller.getX()<playerStartX-0.15,
-                "Zombie mind did not move the original Player body toward the other real Player; "
+                "Zombie mind did not move the original Player body toward the real Villager target; "
                     +"startX="+playerStartX+" finalX="+controller.getX());
             helper.assertTrue(zombie.getZ()>zombieStartZ+0.15,
                 "Player input did not independently move the occupied Zombie body; "
@@ -1248,7 +1250,7 @@ public final class PlayerMobGameTests {
                 zombie.discard();
                 opponent.discard();
                 controller.discard();
-                otherPlayer.discard();
+                zombieTarget.discard();
                 helper.succeed();
             });
         });
