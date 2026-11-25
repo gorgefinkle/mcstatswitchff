@@ -391,7 +391,7 @@ public final class GoalMindRuntime {
             // The proxy is a decision worker only; the only persistent
             // physical entity remains the original ServerPlayer.
             proxy.setPos(origin.x,origin.y,origin.z);
-            return new Step(new Vec3(moved.x,0,moved.z),yaw,pitch,attack);
+            return new Step(moved,yaw,pitch,attack);
         }
 
         private synchronized void recordAttack(Entity target) {
