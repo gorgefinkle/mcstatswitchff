@@ -1368,13 +1368,13 @@ public final class PlayerMobGameTests {
             // attack input must hit the original Player body (currently driven
             // by the Zombie mind), not an invisible proxy.
             zombie.setPos(controller.getX()+1.35,controller.getY(),controller.getZ());
-            // The occupied Zombie is east of the original Player body; aim
-            // west using this profile's vanilla view-vector convention.
-            zombie.setYRot(-90.0f);
-            zombie.yRotO=-90.0f;
-            zombie.setYHeadRot(-90.0f);
+            // The occupied Zombie is east of the original Player body;
+            // +90° faces west toward the original Player in vanilla yaw.
+            zombie.setYRot(90.0f);
+            zombie.yRotO=90.0f;
+            zombie.setYHeadRot(90.0f);
             PlayerMobPossession.input(controller,
-                new PlayerMobPossession.Input(0,0,false,-90.0f,0,99));
+                new PlayerMobPossession.Input(0,0,false,90.0f,0,99));
             float playerBeforeMindAttack=controller.getHealth();
             PlayerMobPossession.attack(controller,controller.getId(),99);
             helper.assertTrue(controller.getHealth()<playerBeforeMindAttack,
