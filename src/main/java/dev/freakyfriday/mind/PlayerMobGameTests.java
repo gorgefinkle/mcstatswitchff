@@ -1132,6 +1132,12 @@ public final class PlayerMobGameTests {
                 net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
             level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,7,z)),
                 net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+            // The default GameTest template may leave barrier blocks inside
+            // this larger custom arena. Clear its playable volume so the
+            // native LOS ray sees only the explicitly built floor and roof.
+            for(int y=1;y<7;y++)
+                level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,y,z)),
+                    net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
         }
         ServerPlayer target=helper.makeMockServerPlayerInLevel();
         makeDamageableSurvivalPlayer(target);
