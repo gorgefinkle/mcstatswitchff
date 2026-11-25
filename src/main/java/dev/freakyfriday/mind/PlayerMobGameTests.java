@@ -802,18 +802,18 @@ public final class PlayerMobGameTests {
         var villagerBrain=villager.getBrain();
         var zombieBrain=brainZombie.getBrain();
         var villagerGoals=List.copyOf(villager.goalSelector.getAvailableGoals());
-        var zombieGoals=List.copyOf(brainZombie.goalSelector.getAvailableGoals());
+        var brainZombieGoals=List.copyOf(brainZombie.goalSelector.getAvailableGoals());
         var villagerTargets=List.copyOf(villager.targetSelector.getAvailableGoals());
-        var zombieTargets=List.copyOf(brainZombie.targetSelector.getAvailableGoals());
+        var brainZombieTargets=List.copyOf(brainZombie.targetSelector.getAvailableGoals());
         String rejection=NativeBrainSwap.exchange(villager,brainZombie);
         helper.assertTrue(rejection!=null&&rejection.contains("active Brain AI"),
             "An unsupported active-Brain pair must fail closed: "+rejection);
         helper.assertTrue(villager.getBrain()==villagerBrain&&brainZombie.getBrain()==zombieBrain,
             "Rejected exchange changed a physical body's Brain reference");
         helper.assertTrue(villagerGoals.equals(List.copyOf(villager.goalSelector.getAvailableGoals()))
-                &&zombieGoals.equals(List.copyOf(brainZombie.goalSelector.getAvailableGoals()))
+                &&brainZombieGoals.equals(List.copyOf(brainZombie.goalSelector.getAvailableGoals()))
                 &&villagerTargets.equals(List.copyOf(villager.targetSelector.getAvailableGoals()))
-                &&zombieTargets.equals(List.copyOf(brainZombie.targetSelector.getAvailableGoals())),
+                &&brainZombieTargets.equals(List.copyOf(brainZombie.targetSelector.getAvailableGoals())),
             "Rejected active-Brain exchange mutated a native goal or target selector");
 
         // Build a real, roofed arena and two independent live Mob pairs.
