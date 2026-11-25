@@ -51,6 +51,11 @@ public final class PossessionMotion {
         double vertical=mediumVertical
             ?Math.max(-1.0,Math.min(1.0,donorDisplacement.y)):0.0;
         boolean jump=body.onGround()&&donorDisplacement.y>0.12;
+        // Do not call travel for an idle mind: the real entity tick already
+        // applied its gravity/drag this frame. A second zero-input travel
+        // would double-apply vertical physics to the physical recipient.
+        if(Math.abs(strafe)<1.0e-5&&Math.abs(forward)<1.0e-5
+                &&Math.abs(vertical)<1.0e-5&&!jump)return;
         boolean originallyNoAi=body.isNoAi();
         if(originallyNoAi)body.setNoAi(false);
         try {
