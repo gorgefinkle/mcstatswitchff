@@ -111,7 +111,12 @@ public final class PlayerPlayerGameTests {
                 float fredBeforeMindAttack=fred.getHealth();
                 PlayerPlayerExchange.attack(fred,fred.getId(),1);
                 helper.assertTrue(fred.getHealth()<fredBeforeMindAttack,
-                    "Fred's mind in Sally's body could not attack Fred's original physical body");
+                    "Fred's mind in Sally's body could not attack Fred's original physical body"
+                        +" actorPos="+sally.position()+" targetPos="+fred.position()
+                        +" distance="+sally.distanceTo(fred)+" yaw="+sally.getYRot()
+                        +" sight="+sally.hasLineOfSight(fred)
+                        +" resolved="+(PossessionCombat.findValidMeleeTarget(
+                            level,sally,fred.getId(),fred)==fred));
 
                 double sallyDx=sally.getX()-fred.getX();
                 double sallyDz=sally.getZ()-fred.getZ();
@@ -121,7 +126,12 @@ public final class PlayerPlayerGameTests {
                 float sallyBeforeMindAttack=sally.getHealth();
                 PlayerPlayerExchange.attack(sally,sally.getId(),1);
                 helper.assertTrue(sally.getHealth()<sallyBeforeMindAttack,
-                    "Sally's mind in Fred's body could not attack Sally's original physical body");
+                    "Sally's mind in Fred's body could not attack Sally's original physical body"
+                        +" actorPos="+fred.position()+" targetPos="+sally.position()
+                        +" distance="+fred.distanceTo(sally)+" yaw="+fred.getYRot()
+                        +" sight="+fred.hasLineOfSight(sally)
+                        +" resolved="+(PossessionCombat.findValidMeleeTarget(
+                            level,fred,sally.getId(),sally)==sally));
 
                 // ServerPlayer spawn protection is still active in the first
                 // movement window. Wait beyond it and the melee hurt cooldown,
