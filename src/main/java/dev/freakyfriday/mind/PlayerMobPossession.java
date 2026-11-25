@@ -197,7 +197,18 @@ public final class PlayerMobPossession {
         session.lastAttackTick=now;
         float healthBefore=victim instanceof net.minecraft.world.entity.LivingEntity living
             ?living.getHealth():Float.NaN;
-        boolean accepted=body.doHurtTarget(level,victim);
+        boolean originalNoAi=body.isNoAi();
+        boolean accepted;
+        // Possession pauses the body's autonomous selectors with NoAI, but
+        // an authenticated player attack must still execute the body's real
+        // native attack method. Temporarily lift NoAI for this one action and
+        // restore the original state immediately afterward.
+        if(originalNoAi)body.setNoAi(false);
+        try {
+            accepted=body.doHurtTarget(level,victim);
+        } finally {
+            if(originalNoAi)body.setNoAi(true);
+        }
         if(Boolean.getBoolean("freakyfriday.thirdPartyFixture"))
             System.out.println("[FF-POSSESSION-ATTACK] body="+body.getType()
                 +" noAI="+body.isNoAi()
