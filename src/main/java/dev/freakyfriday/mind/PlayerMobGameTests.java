@@ -1038,8 +1038,8 @@ public final class PlayerMobGameTests {
         float chickenMindProxyHealth=chickenMind.getHealth();
         // Each mind attacks the physical body now carrying the opposite mind.
         // The proxy-origin damage event is translated onto that real body.
-        zombieMind.goalSelector.addGoal(0,new OneShotNativeAttackGoal(zombieMind,zombie));
-        chickenMind.goalSelector.addGoal(0,new OneShotNativeAttackGoal(chickenMind,chicken));
+        zombieMind.goalSelector.addGoal(0,new OneShotNativeAttackGoal(zombieMind,chickenMind));
+        chickenMind.goalSelector.addGoal(0,new OneShotNativeAttackGoal(chickenMind,zombieMind));
         helper.runAfterDelay(40,()->{
             System.clearProperty("freakyfriday.debugProxy");
             helper.assertTrue(chicken.isAlive()&&zombie.isAlive()
