@@ -38,14 +38,16 @@ public final class PlayerPlayerGameTests {
     private static float yawToward(ServerPlayer actor,ServerPlayer target) {
         double dx=target.getBoundingBox().getCenter().x-actor.getEyePosition().x;
         double dz=target.getBoundingBox().getCenter().z-actor.getEyePosition().z;
-        float yaw=(float)Math.toDegrees(Math.atan2(-dx,dz));
+        // Minecraft's current view-vector convention in this target profile
+        // uses +sin(yaw) for X. Keep the prior rotation in sync as well so
+        // interpolated getViewVector(1) is exactly the facing being tested.
+        float yaw=(float)Math.toDegrees(Math.atan2(dx,dz));
         actor.setXRot(0.0f);
+        actor.xRotO=0.0f;
         actor.setYRot(yaw);
+        actor.yRotO=yaw;
+        actor.setYHeadRot(yaw);
         var level=(net.minecraft.server.level.ServerLevel)actor.level();
-        if(PossessionCombat.findValidMeleeTarget(level,actor,target.getId(),target)==null) {
-            yaw+=180.0f;
-            actor.setYRot(yaw);
-        }
         if(PossessionCombat.findValidMeleeTarget(level,actor,target.getId(),target)==null)
             throw new IllegalStateException("Could not orient the physical player body toward its melee target");
         return yaw;
