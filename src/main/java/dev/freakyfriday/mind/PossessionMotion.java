@@ -1,33 +1,68 @@
 package dev.freakyfriday.mind;
 
-import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.phys.Vec3;
 
-/** One collision-resolved step shared by predicted client and real server. */
+/**
+ * One collision-resolved input step.
+ *
+ * A controlled Mob retains its actual entity class and is moved through that
+ * class's native travel implementation. No species-based swim/fly/fall table
+ * is maintained here. NoAI is temporarily lifted only during the physical
+ * travel call so Mob.travel can apply the body's native medium/locomotion
+ * behavior; goal/Brain decision ticking remains paused for player possession.
+ *
+ * Player bodies keep the account-exchange adapter's bounded movement path;
+ * they are not disguised as Mobs and have no Mob navigation or JumpControl.
+ */
 public final class PossessionMotion {
     private PossessionMotion() {}
+
     public static double step(LivingEntity body,float rawForward,float rawStrafe,
                               boolean jump,float yaw,float pitch) {
-        double f=rawForward,s=rawStrafe;
-        double mag=Math.sqrt(f*f+s*s);
-        if(mag>1.0){f/=mag;s/=mag;}
+        double forward=rawForward,strafe=rawStrafe;
+        double magnitude=Math.sqrt(forward*forward+strafe*strafe);
+        if(magnitude>1.0) {
+            forward/=magnitude;
+            strafe/=magnitude;
+        }
+
+        body.setYRot(yaw);
+        body.setXRot(pitch);
+        body.setYHeadRot(yaw);
+
+        if(body instanceof Mob mob) {
+            boolean originallyNoAi=mob.isNoAi();
+            if(originallyNoAi) mob.setNoAi(false);
+            try {
+                if(jump) {
+                    mob.getJumpControl().jump();
+                    mob.getJumpControl().tick();
+                }
+                // Vec3 components are local strafe / vertical / forward
+                // input. Mob.travel selects the correct native behavior for
+                // land, water, lava, climbing, flying and modded bodies.
+                mob.travel(new Vec3(strafe,jump?1.0:0.0,forward));
+            } finally {
+                if(originallyNoAi) mob.setNoAi(true);
+            }
+            return body.getDeltaMovement().y;
+        }
+
+        // Player↔Player control is intentionally not represented as a Mob.
+        // Keep its server-side body adapter bounded and collision-resolved.
         double nativeSpeed=body.getAttributeValue(Attributes.MOVEMENT_SPEED);
         double travel=Double.isFinite(nativeSpeed)
             ? Math.max(0,Math.min(0.45,nativeSpeed*0.76)):0;
         double angle=Math.toRadians(yaw);
-        double dx=(-Math.sin(angle)*f+Math.cos(angle)*s)*travel;
-        double dz=(Math.cos(angle)*f+Math.sin(angle)*s)*travel;
+        double dx=(-Math.sin(angle)*forward+Math.cos(angle)*strafe)*travel;
+        double dz=(Math.cos(angle)*forward+Math.sin(angle)*strafe)*travel;
         double previousY=body.getDeltaMovement().y;
-        double dy=jump&&body.onGround()?(body instanceof Mob?0.40:0.42)
+        double dy=jump&&body.onGround()?0.42
             :(body.onGround()||body.isNoGravity())?0.0:Math.max(-0.58,previousY-0.08);
-        if(dy<0&&body.getType()==EntityTypes.CHICKEN)dy*=0.6;
-        body.setYRot(yaw);
-        body.setXRot(pitch);
-        body.setYHeadRot(yaw);
         body.move(MoverType.SELF,new Vec3(dx,dy,dz));
         double nextY=body.onGround()?0.0:dy*0.98;
         body.setDeltaMovement(new Vec3(0,nextY,0));

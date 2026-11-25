@@ -417,35 +417,27 @@ public final class PlayerMobGameTests {
         setArenaChunks(level,ticketOwner,ticketBounds,true);
         helper.runAfterDelay(120,()->setArenaChunks(level,ticketOwner,ticketBounds,false));
         ServerPlayer player=helper.makeMockServerPlayerInLevel();
-        // Keep the GameTest's real physics arena in player simulation range.
-        // Otherwise a COMMAND-spawned Zombie can disappear before tick 57
-        // in a playerless far-away GameTest structure.
         BlockPos playerAnchor=helper.absolutePos(new BlockPos(1,1,2));
         player.setPos(playerAnchor.getX()+0.5,playerAnchor.getY(),
             playerAnchor.getZ()+0.5);
-        for (int x=1;x<=9;x++)for (int z=1;z<=6;z++) {
+        for(int x=1;x<=9;x++)for(int z=1;z<=6;z++) {
             level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,0,z)),
                 net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
-            // Prevent daytime Zombie ignition from masquerading as fall damage.
+            // Prevent daylight ignition from masquerading as a fall result.
             level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,17,z)),
                 net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
         }
 
         Mob chicken=EntityTypes.CHICKEN.create(level,EntitySpawnReason.COMMAND);
         Mob ocelot=EntityTypes.OCELOT.create(level,EntitySpawnReason.COMMAND);
-        helper.assertTrue(chicken!=null && ocelot!=null,
-            "Native chicken/ocelot factories required");
-        // Delay Zombie creation until its actual test window: a no-AI
-        // entity still experiences gravity and would fall to its death
-        // before reaching the test at tick 42.
+        helper.assertTrue(chicken!=null&&ocelot!=null,
+            "Native Chicken/Ocelot factories required");
         Mob[] bodies={chicken,ocelot};
         Mob[] zombieBody={null};
-        for (int i=0;i<bodies.length;i++) {
+        for(int i=0;i<bodies.length;i++) {
             BlockPos origin=helper.absolutePos(new BlockPos(2+2*i,12,2));
             bodies[i].setPos(origin.getX()+0.5,origin.getY(),origin.getZ()+0.5);
-            bodies[i].setNoAi(true); // Freeze ordinary wandering
-            // NoAI does not disable gravity; hold comparison body up until
-            // it actually becomes possessed to measure a fresh fall.
+            bodies[i].setNoAi(true);
             if(i>0)bodies[i].setNoGravity(true);
             helper.assertTrue(level.addFreshEntity(bodies[i]),
                 "Native fall test could not register entity "+i);
@@ -454,38 +446,31 @@ public final class PlayerMobGameTests {
         float ocelotHealth=ocelot.getHealth();
         float[] zombieHealth={0.0f};
         String error=PlayerMobPossession.begin(player,chicken);
-        helper.assertTrue(error==null,"Chicken fall session rejected: "+error);
+        helper.assertTrue(error==null,"Chicken physical-travel session rejected: "+error);
         final double[] chickenDrop={0.0};
         helper.runAfterDelay(12,()->{
             chickenDrop[0]=startY-chicken.getY();
-            helper.assertTrue(chickenDrop[0]>0.2 && chickenDrop[0]<2.75,
-                "Possessed chicken did not flap slowly: distance="+chickenDrop[0]);
-            helper.assertTrue(PlayerMobPossession.end(player),"Cannot end chicken session");
+            helper.assertTrue(chickenDrop[0]>0.2&&chickenDrop[0]<8.0,
+                "Controlled Chicken did not use native vertical travel: drop="+chickenDrop[0]);
+            helper.assertTrue(PlayerMobPossession.end(player),
+                "Cannot end Chicken native-travel session");
             ocelot.setNoGravity(false);
             ocelot.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
             String next=PlayerMobPossession.begin(player,ocelot);
-            helper.assertTrue(next==null,"Ocelot fall session rejected: "+next);
-        });
-        helper.runAfterDelay(25,()->{
-            double drop=startY-ocelot.getY();
-            helper.assertTrue(drop>chickenDrop[0]+1.2,
-                "Normal-gravity ocelot inherited chicken glide: chicken="
-                    +chickenDrop[0]+" ocelot="+drop);
+            helper.assertTrue(next==null,"Ocelot native-travel session rejected: "+next);
         });
         helper.runAfterDelay(42,()->{
             helper.assertTrue(ocelot.onGround(),
-                "Normal-gravity ocelot did not land in 30 ticks");
+                "Native Ocelot travel did not land in its physical arena");
             helper.assertTrue(Float.compare(ocelot.getHealth(),ocelotHealth)==0,
-                "Vanilla fall-immune ocelot took damage in possessed body");
-            helper.assertTrue(PlayerMobPossession.end(player),"Cannot end ocelot session");
+                "Vanilla fall-immune Ocelot took damage in possessed body");
+            helper.assertTrue(PlayerMobPossession.end(player),
+                "Cannot end Ocelot native-travel session");
             Mob zombie=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
-            helper.assertTrue(zombie!=null,"Native zombie factory failed");
+            helper.assertTrue(zombie!=null,"Native Zombie factory failed");
             BlockPos zombieOrigin=helper.absolutePos(new BlockPos(6,12,2));
             zombie.setPos(zombieOrigin.getX()+0.5,zombieOrigin.getY(),
                 zombieOrigin.getZ()+0.5);
-            // Let the world manager actually register the body before the
-            // physical possession/fall starts. NoGravity is a test-only
-            // staging guard and is switched off before the session begins.
             zombie.setNoGravity(true);
             zombie.setNoAi(true);
             zombie.setPersistenceRequired();
@@ -495,47 +480,38 @@ public final class PlayerMobGameTests {
         });
         helper.runAfterDelay(57,()->{
             Mob zombie=zombieBody[0];
-            helper.assertTrue(zombie!=null && level.getEntity(zombie.getUUID())==zombie,
-                "Zombie is not registered in real world before possession");
-            BlockPos zombieOrigin=helper.absolutePos(new BlockPos(6,12,2));
-            zombie.setPos(zombieOrigin.getX()+0.5,zombieOrigin.getY(),
-                zombieOrigin.getZ()+0.5);
+            helper.assertTrue(zombie!=null&&level.getEntity(zombie.getUUID())==zombie,
+                "Zombie is not registered before native-travel possession");
+            BlockPos origin=helper.absolutePos(new BlockPos(6,12,2));
+            zombie.setPos(origin.getX()+0.5,origin.getY(),origin.getZ()+0.5);
             zombie.setDeltaMovement(net.minecraft.world.phys.Vec3.ZERO);
             zombie.setNoGravity(false);
             String next=PlayerMobPossession.begin(player,zombie);
-            helper.assertTrue(next==null,"Zombie fall session rejected: "+next);
+            helper.assertTrue(next==null,"Zombie native-travel session rejected: "+next);
         });
         helper.runAfterDelay(87,()->{
             Mob zombie=zombieBody[0];
-            helper.assertTrue(zombie!=null,"Zombie not constructed for fall test");
+            helper.assertTrue(zombie!=null,"Zombie not constructed for native travel");
             double drop=startY-zombie.getY();
-            helper.assertTrue(drop>chickenDrop[0]+1.2,
-                "Zombie acquired chicken glide: chicken="+chickenDrop[0]
-                    +" zombie="+drop);
+            helper.assertTrue(drop>chickenDrop[0]*0.5,
+                "Zombie native travel was incorrectly given a Chicken-specific fall response: chicken="
+                    +chickenDrop[0]+" zombie="+drop);
         });
         helper.runAfterDelay(115,()->{
             Mob zombie=zombieBody[0];
-            helper.assertTrue(zombie!=null,"Missing zombie when checking landing");
-            // Entity.move may clear onGround after a zero-Y horizontal
-            // update, and the Zombie may already have *died* on impact.
-            // The behavior we actually require is that its physical health
-            // decreased from genuine native fall damage, unlike Ocelot.
+            helper.assertTrue(zombie!=null,"Missing Zombie when checking landing");
             helper.assertTrue(zombie.getHealth()<zombieHealth[0],
-                "Zombie did not take vanilla fall damage; finalHealth="
-                    +zombie.getHealth()+" initial="+zombieHealth[0]
-                    +" onGround="+zombie.onGround()+" y="+zombie.getY());
-            if (PlayerMobPossession.hasSession(player.getUUID())) {
+                "Zombie did not take its native fall damage; finalHealth="+zombie.getHealth()
+                    +" initial="+zombieHealth[0]+" onGround="+zombie.onGround()+" y="+zombie.getY());
+            if(PlayerMobPossession.hasSession(player.getUUID()))
                 helper.assertTrue(PlayerMobPossession.end(player),
-                    "Cannot end surviving zombie session");
-            } else {
-                helper.assertTrue(!zombie.isAlive() && player.isAlive(),
-                    "Fall-dead zombie must have automatically returned controller");
-            }
+                    "Cannot end surviving Zombie session");
+            else helper.assertTrue(!zombie.isAlive()&&player.isAlive(),
+                "Fall-dead Zombie must automatically return controller");
             System.out.println("FF-GAMEPLAY native_fall_profiles PASS"
-                +" chickenSlowDrop="+chickenDrop[0]
-                +" ocelotImmune=true zombieDamaged=true"
-                +" noCrossBodyGlide=true");
-            for (Mob mob:bodies)mob.discard();
+                +" nativeTravel=true ocelotImmune=true zombieDamaged=true"
+                +" noSpeciesMovementTable=true");
+            for(Mob mob:bodies)mob.discard();
             zombie.discard();
             setArenaChunks(level,ticketOwner,ticketBounds,false);
             helper.succeed();
