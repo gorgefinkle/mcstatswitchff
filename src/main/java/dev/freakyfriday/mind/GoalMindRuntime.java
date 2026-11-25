@@ -471,34 +471,30 @@ public final class GoalMindRuntime {
             proxy.setYHeadRot(physicalBody.getYHeadRot());
             proxy.setOnGround(physicalBody.onGround());
             syncBodyInventoryToProxy(physicalBody,proxy);
-            // An unregistered entity is intentionally absent from the
-            // world's entity tick list, so Mob.isEffectiveAi() is false and a
-            // plain proxy.tick() skips Mob.serverAiStep entirely. Run the same
-            // native AI stages explicitly, in vanilla order, then let the real
-            // proxy tick perform its normal travel/collision calculation.
+            // Mob.isEffectiveAi() is independent of entity-manager
+            // registration on current profiles. If true, proxy.tick() already
+            // runs the complete native serverAiStep (sensing, both selectors,
+            // navigation and controls). Manually ticking those stages as well
+            // double-runs native goals and can start/stop target goals in one
+            // server tick. Only older profiles where effective AI is false
+            // need the explicit native-stage fallback.
             pendingAttack=null;
-            proxy.getSensing().tick();
-            // Match Mob.serverAiStep: both native selectors receive their
-            // ordinary tick every entity tick. GoalSelector already owns its
-            // internal scheduling; imposing a second proxy-side half-rate
-            // scheduler made target goals flicker and starved melee goals.
-            proxy.targetSelector.tick();
-            // Target acquisition may populate the sensory cache after the
-            // first native sensing pass. Refresh it before line-of-sight-gated
-            // action goals evaluate canUse on this same native tick.
-            proxy.getSensing().tick();
-            proxy.goalSelector.tick();
-            proxy.getNavigation().tick();
-            // These controls are normally ticked from Mob.serverAiStep,
-            // which is skipped for an unregistered proxy. Tick the native
-            // controls explicitly before the ordinary LivingEntity travel.
-            proxy.getMoveControl().tick();
-            // The detached Mob is intentionally not world-registered, so
-            // some native Entity.tick paths do not apply its MoveControl
-            // displacement even though its own AI has issued a valid
-            // navigation command. Capture the exact native wanted position
-            // before travel; if the proxy cannot physically advance, project
-            // that directional intent onto the real recipient body instead.
+            boolean manualAiStages=!proxy.isEffectiveAi();
+            if(manualAiStages) {
+                proxy.getSensing().tick();
+                proxy.targetSelector.tick();
+                proxy.getSensing().tick();
+                proxy.goalSelector.tick();
+                proxy.getNavigation().tick();
+                proxy.getMoveControl().tick();
+                proxy.getLookControl().tick();
+                proxy.getJumpControl().tick();
+            }
+            proxy.tick();
+            // Some versions do not apply MoveControl displacement for an
+            // unregistered proxy. Preserve its native wanted direction as a
+            // fallback; the real recipient still resolves movement with its
+            // own native travel and collision.
             Vec3 nativeMoveIntent=Vec3.ZERO;
             if(proxy.getMoveControl().hasWanted()) {
                 nativeMoveIntent=new Vec3(
@@ -506,9 +502,6 @@ public final class GoalMindRuntime {
                     proxy.getMoveControl().getWantedY()-proxy.getY(),
                     proxy.getMoveControl().getWantedZ()-proxy.getZ());
             }
-            proxy.getLookControl().tick();
-            proxy.getJumpControl().tick();
-            proxy.tick();
             syncProxyInventoryToBody(proxy,physicalBody);
             Vec3 moved=proxy.position().subtract(proxyOrigin);
             if(moved.horizontalDistanceSqr()<1.0e-6
