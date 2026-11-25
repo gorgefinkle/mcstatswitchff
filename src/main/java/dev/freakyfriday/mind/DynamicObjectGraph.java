@@ -7,6 +7,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
@@ -14,7 +15,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Comparator;
 import java.util.Optional;
 import java.util.Set;
 
@@ -183,6 +183,7 @@ public final class DynamicObjectGraph {
                     }
                 }
             }
+
             Object completed=policy.afterCopy(source,result);
             if(completed==null)
                 throw new Uncapturable("AI copy post-processor returned null: "+type.getName());
