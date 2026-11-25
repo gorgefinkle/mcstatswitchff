@@ -829,10 +829,12 @@ public final class GoalMindRuntime {
             return "This pair uses active Brain AI that the current native goal rebinder cannot fully transfer.";
 
         Snapshot originalFirst=snapshot(first),originalSecond=snapshot(second);
-        if(originalFirst.goals().isEmpty()&&originalFirst.targets().isEmpty())
-            return "The first Mob has no transferable native goal controller.";
-        if(originalSecond.goals().isEmpty()&&originalSecond.targets().isEmpty())
-            return "The second Mob has no transferable native goal controller.";
+        if(originalFirst.goals().isEmpty()&&originalFirst.targets().isEmpty()
+                &&first.getBrain().isBrainDead())
+            return "The first Mob has neither a native Goal controller nor an active Brain.";
+        if(originalSecond.goals().isEmpty()&&originalSecond.targets().isEmpty()
+                &&second.getBrain().isBrainDead())
+            return "The second Mob has neither a native Goal controller nor an active Brain.";
 
         boolean originalFirstNoAi=first.isNoAi();
         boolean originalSecondNoAi=second.isNoAi();
@@ -870,13 +872,15 @@ public final class GoalMindRuntime {
             });
             ledgerExchanged=true;
 
-            // Suspend only the physical bodies' own autonomous goal lists.
-            // Keep NoAI, entity tick and custom species behavior intact: the
-            // incoming proxy minds continue to pilot movement through each
-            // recipient body's native travel implementation.
+            // Pause each original body's autonomous Goal/Brain controller
+            // without removing or freezing the physical entity. Entity ticks,
+            // gravity, collision and native travel continue; the incoming
+            // same-type proxy supplies movement and attack decisions.
             Snapshot empty=new Snapshot(List.of(),List.of());
             apply(first,empty);
             apply(second,empty);
+            first.setNoAi(true);
+            second.setNoAi(true);
             first.getNavigation().stop();
             second.getNavigation().stop();
             first.setTarget(null);
@@ -909,6 +913,24 @@ public final class GoalMindRuntime {
         ACTIVE_BY_BODY.put(second.getUUID(),active);
         ACTIVE_BY_REQUESTER.computeIfAbsent(requester,ignored->new HashSet<>()).add(active);
         return null;
+    }
+
+    /** GameTest seam: which native controller currently drives this physical body. */
+    static synchronized Mob proxyForPhysicalBody(UUID bodyId) {
+        ActiveSwap session=ACTIVE_BY_BODY.get(bodyId);
+        if(session==null)return null;
+        return session.first.getUUID().equals(bodyId)
+            ?session.secondMindController.proxyForGameTest()
+            :session.firstMindController.proxyForGameTest();
+    }
+
+    /** GameTest seam: registered target identity of the mind hosted by this body. */
+    static synchronized Mob mindAliasForPhysicalBody(UUID bodyId) {
+        ActiveSwap session=ACTIVE_BY_BODY.get(bodyId);
+        if(session==null)return null;
+        return session.first.getUUID().equals(bodyId)
+            ?session.secondMindController.mindAlias
+            :session.firstMindController.mindAlias;
     }
 
     public static synchronized int activeSessions(UUID requester) {
@@ -1039,6 +1061,7 @@ public final class GoalMindRuntime {
         for(DetachedController controller:List.copyOf(DETACHED_BY_PROXY.values()))
             controller.close();
         DETACHED_BY_PROXY.clear();
+        DETACHED_BY_ALIAS.clear();
         ACTIVE_BY_BODY.clear();
         ACTIVE_BY_REQUESTER.clear();
     }
