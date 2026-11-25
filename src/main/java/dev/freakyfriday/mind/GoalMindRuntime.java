@@ -482,10 +482,13 @@ public final class GoalMindRuntime {
     }
 
     /**
-     * A live exchange keeps the original goal graphs so the operation is
-     * reversible. The real mobs remain in the ordinary level and continue
-     * ticking their newly-installed native goal selectors. No worker JVM,
-     * mirror world, AI freeze or duplicate physical entity is involved.
+     * A live exchange keeps both original goal graphs so the operation is
+     * reversible. The real Mob bodies remain in the ordinary level with their
+     * own health, inventory, attributes, collision and NoAI flags. Their
+     * autonomous selector lists are suspended while same-type detached
+     * controllers run those minds against the opposite body's surroundings
+     * and project decisions through the recipient's native travel method.
+     * No worker JVM, mirror world, or duplicate physical body is involved.
      */
     private static final class ActiveSwap {
         final UUID requester;
