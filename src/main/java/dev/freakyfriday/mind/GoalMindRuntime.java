@@ -398,9 +398,14 @@ public final class GoalMindRuntime {
                 ||((proxy.tickCount+proxy.getId())&1)==0;
             if(fullGoalPass) {
                 proxy.targetSelector.tick();
+                // Target acquisition may populate the sensory cache after the
+                // first native sensing pass. Refresh it before MeleeAttackGoal
+                // and other line-of-sight-gated action goals evaluate canUse.
+                proxy.getSensing().tick();
                 proxy.goalSelector.tick();
             } else {
                 proxy.targetSelector.tickRunningGoals(false);
+                proxy.getSensing().tick();
                 proxy.goalSelector.tickRunningGoals(false);
             }
             proxy.getNavigation().tick();
