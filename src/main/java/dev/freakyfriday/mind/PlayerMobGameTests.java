@@ -386,7 +386,11 @@ public final class PlayerMobGameTests {
                         +" fastAttribute="+fastChicken.getAttributeValue(
                             net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED)
                         +" slowAttribute="+slowChicken.getAttributeValue(
-                            net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED));
+                            net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED)
+                        +" fastMobSpeed="+fastChicken.getSpeed()
+                        +" slowMobSpeed="+slowChicken.getSpeed()
+                        +" fastDelta="+fastChicken.getDeltaMovement()
+                        +" slowDelta="+slowChicken.getDeltaMovement());
                 helper.assertTrue(fastChicken.getBoundingBox().maxZ<=wallFront+0.0001,
                     "Fast Chicken passed through a solid vanilla block wall: box="
                         +fastChicken.getBoundingBox()+" wallZ="+wallFront);
