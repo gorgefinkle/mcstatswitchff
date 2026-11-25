@@ -120,7 +120,9 @@ public final class NativeGoalMindGameTests {
             System.out.println("FF-GAMEPLAY native_goal_mind_exchange PASS"
                 +" liveSameServerAI=true bodyIdentityPreserved=true bothNativeTicksActive=true"
                 +" independentPairs=true transactionalReturn=true");
-            helper.succeed();
+            // Chain the real reciprocal Mob↔Mob combat gate from this
+            // already-executed GameTest so CI cannot silently skip it.
+            PlayerMobGameTests.verifyMobMobReciprocalAttack(helper);
         });
     }
 }
