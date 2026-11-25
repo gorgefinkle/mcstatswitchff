@@ -1203,66 +1203,87 @@ public final class PlayerMobGameTests {
                     &&secondZombieMindB.getHealth()==secondZombieMindBProxyHealth,
                 "Proxy mind health changed; attacks must land on the physical bodies");
 
-            // A third-party attacker must also hit BOTH original physical
-            // bodies during the swap, independently of either mind's attack.
-            float chickenHealthBeforeExternal=chicken.getHealth();
-            float zombieHealthBeforeExternal=zombie.getHealth();
-            float secondAHealthBeforeExternal=secondZombieA.getHealth();
-            float secondBHealthBeforeExternal=secondZombieB.getHealth();
-            // Clear only the test entities' vanilla hurt cooldown so the
-            // independent third-party hits are not rejected by the immediately
-            // preceding reciprocal mind attacks.
-            clearHurtCooldown(chicken);
-            clearHurtCooldown(zombie);
+            // Phase 2: now target the OPPOSITE REAL PHYSICAL BODIES rather
+            // than the mind proxies. The same native mind intents must reach
+            // the body's own melee adapter and reduce its separate health.
+            float secondAAfterMindHit=secondZombieA.getHealth();
+            float secondBAfterMindHit=secondZombieB.getHealth();
+            secondZombieA.setPos(helper.absolutePos(new BlockPos(16,1,4)).getX()+0.5,
+                helper.absolutePos(new BlockPos(16,1,4)).getY(),
+                helper.absolutePos(new BlockPos(16,1,4)).getZ()+0.5);
+            secondZombieB.setPos(helper.absolutePos(new BlockPos(18,1,4)).getX()+0.5,
+                helper.absolutePos(new BlockPos(18,1,4)).getY(),
+                helper.absolutePos(new BlockPos(18,1,4)).getZ()+0.5);
             clearHurtCooldown(secondZombieA);
             clearHurtCooldown(secondZombieB);
-            var opponentDamage=level.damageSources().mobAttack(opponent);
-            boolean chickenHit=chicken.hurtServer(level,opponentDamage,2.0f);
-            boolean zombieHit=zombie.hurtServer(level,opponentDamage,2.0f);
-            boolean secondAHit=secondZombieA.hurtServer(level,opponentDamage,2.0f);
-            boolean secondBHit=secondZombieB.hurtServer(level,opponentDamage,2.0f);
-            helper.assertTrue(chickenHit&&zombieHit&&secondAHit&&secondBHit
-                    &&chicken.getHealth()<chickenHealthBeforeExternal
-                    &&zombie.getHealth()<zombieHealthBeforeExternal
-                    &&secondZombieA.getHealth()<secondAHealthBeforeExternal
-                    &&secondZombieB.getHealth()<secondBHealthBeforeExternal,
-                "The opposing Skeleton could not independently damage every swapped physical body");
-            helper.assertTrue(GoalMindRuntime.activeSessions(requester)==2,
-                "Incoming damage incorrectly ended one of the live Mob mind/body swaps");
-            helper.assertTrue(GoalMindRuntime.cancelByAccount(requester)
-                    &&GoalMindRuntime.activeSessions(requester)==0,
-                "Cancel did not restore every independently managed Mob pair");
-            helper.assertTrue(hasSameGoals(chicken,false,chickenGoals)
-                    &&hasSameGoals(chicken,true,chickenTargets)
-                    &&hasSameGoals(zombie,false,zombieGoals)
-                    &&hasSameGoals(zombie,true,zombieTargets)
-                    &&chicken.isNoAi()==chickenNoAi&&zombie.isNoAi()==zombieNoAi,
-                "Cancel did not preserve the exact original Chicken/Zombie goals and AI flags");
-            helper.assertTrue(!GoalMindRuntime.bodyReserved(chicken.getUUID())
-                    &&!GoalMindRuntime.bodyReserved(zombie.getUUID())
-                    &&!GoalMindRuntime.bodyReserved(secondZombieA.getUUID())
-                    &&!GoalMindRuntime.bodyReserved(secondZombieB.getUUID()),
-                "Cancelled Mob bodies remained reserved");
+            secondZombieMindA.goalSelector.addGoal(0,
+                new OneShotNativeAttackGoal(secondZombieMindA,secondZombieB));
+            secondZombieMindB.goalSelector.addGoal(0,
+                new OneShotNativeAttackGoal(secondZombieMindB,secondZombieA));
+            helper.runAfterDelay(4,()->{
+                helper.assertTrue(secondZombieA.getHealth()<secondAAfterMindHit
+                        &&secondZombieB.getHealth()<secondBAfterMindHit,
+                    "Both opposite native minds must also damage the other real physical body directly");
 
-            System.out.println("FF-GAMEPLAY mob_mob_reciprocal_attack PASS"
-                +" bothMindProxiesAttackOppositeMind=true"
-                +" damageRedirectedToBothPhysicalBodies=true proxyHealthUntouched=true");
-            System.out.println("FF-GAMEPLAY partial_native_swap_fails_closed PASS"
-                +" oppositeMindsDamageRealBodies=true externalDamageHitsBothBodies=true"
-                +" proxyHealthUntouched=true");
-            System.out.println("FF-GAMEPLAY native_goal_mind_exchange PASS"
-                +" reciprocalNativeGoals=true sameServer=true bothBodiesTick=true"
-                +" nativeTargetAcquisition=true nativeZombieNavigation=true independentPairs=true"
-                +" exactGoalRestore=true");
-            villager.discard();
-            brainZombie.discard();
-            chicken.discard();
-            zombie.discard();
-            opponent.discard();
-            zombieTarget.discard();
-            secondZombieA.discard();
-            secondZombieB.discard();
-            helper.succeed();
+                // A third-party attacker must also hit BOTH original physical
+                // bodies during the swap, independently of either mind's attack.
+                float chickenHealthBeforeExternal=chicken.getHealth();
+                float zombieHealthBeforeExternal=zombie.getHealth();
+                float secondAHealthBeforeExternal=secondZombieA.getHealth();
+                float secondBHealthBeforeExternal=secondZombieB.getHealth();
+                clearHurtCooldown(chicken);
+                clearHurtCooldown(zombie);
+                clearHurtCooldown(secondZombieA);
+                clearHurtCooldown(secondZombieB);
+                var opponentDamage=level.damageSources().mobAttack(opponent);
+                boolean chickenHit=chicken.hurtServer(level,opponentDamage,2.0f);
+                boolean zombieHit=zombie.hurtServer(level,opponentDamage,2.0f);
+                boolean secondAHit=secondZombieA.hurtServer(level,opponentDamage,2.0f);
+                boolean secondBHit=secondZombieB.hurtServer(level,opponentDamage,2.0f);
+                helper.assertTrue(chickenHit&&zombieHit&&secondAHit&&secondBHit
+                        &&chicken.getHealth()<chickenHealthBeforeExternal
+                        &&zombie.getHealth()<zombieHealthBeforeExternal
+                        &&secondZombieA.getHealth()<secondAHealthBeforeExternal
+                        &&secondZombieB.getHealth()<secondBHealthBeforeExternal,
+                    "The opposing Skeleton could not independently damage every swapped physical body");
+                helper.assertTrue(GoalMindRuntime.activeSessions(requester)==2,
+                    "Incoming damage incorrectly ended one of the live Mob mind/body swaps");
+                helper.assertTrue(GoalMindRuntime.cancelByAccount(requester)
+                        &&GoalMindRuntime.activeSessions(requester)==0,
+                    "Cancel did not restore every independently managed Mob pair");
+                helper.assertTrue(hasSameGoals(chicken,false,chickenGoals)
+                        &&hasSameGoals(chicken,true,chickenTargets)
+                        &&hasSameGoals(zombie,false,zombieGoals)
+                        &&hasSameGoals(zombie,true,zombieTargets)
+                        &&chicken.isNoAi()==chickenNoAi&&zombie.isNoAi()==zombieNoAi,
+                    "Cancel did not preserve the exact original Chicken/Zombie goals and AI flags");
+                helper.assertTrue(!GoalMindRuntime.bodyReserved(chicken.getUUID())
+                        &&!GoalMindRuntime.bodyReserved(zombie.getUUID())
+                        &&!GoalMindRuntime.bodyReserved(secondZombieA.getUUID())
+                        &&!GoalMindRuntime.bodyReserved(secondZombieB.getUUID()),
+                    "Cancelled Mob bodies remained reserved");
+
+                System.out.println("FF-GAMEPLAY mob_mob_reciprocal_attack PASS"
+                    +" bothMindProxiesAttackOppositeMind=true"
+                    +" bothMindsAttackOppositeBodies=true proxyDamageRedirected=true"
+                    +" independentPhysicalHealthPools=true");
+                System.out.println("FF-GAMEPLAY partial_native_swap_fails_closed PASS"
+                    +" oppositeMindsDamageRealBodies=true externalDamageHitsBothBodies=true"
+                    +" proxyHealthUntouched=true");
+                System.out.println("FF-GAMEPLAY native_goal_mind_exchange PASS"
+                    +" reciprocalNativeGoals=true sameServer=true bothBodiesTick=true"
+                    +" nativeTargetAcquisition=true nativeZombieNavigation=true independentPairs=true"
+                    +" exactGoalRestore=true");
+                villager.discard();
+                brainZombie.discard();
+                chicken.discard();
+                zombie.discard();
+                opponent.discard();
+                zombieTarget.discard();
+                secondZombieA.discard();
+                secondZombieB.discard();
+                helper.succeed();
+            });
         });
     }
 
