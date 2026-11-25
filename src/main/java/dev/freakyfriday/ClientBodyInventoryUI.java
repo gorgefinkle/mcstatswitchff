@@ -31,16 +31,16 @@ public final class ClientBodyInventoryUI {
 
     private ClientBodyInventoryUI() {}
 
-    private static Entity occupiedBody() {
+    private static Mob occupiedMob() {
         Minecraft minecraft=Minecraft.getInstance();
         if(minecraft.player==null)return null;
         Entity camera=minecraft.getCameraEntity();
-        return camera!=null&&camera!=minecraft.player?camera:null;
+        return camera instanceof Mob mob?mob:null;
     }
 
     @SubscribeEvent
     public static void onHotbarScroll(InputEvent.MouseScrollingEvent event) {
-        if(occupiedBody()!=null)event.setCanceled(true);
+        if(occupiedMob()!=null)event.setCanceled(true);
     }
 
     @SubscribeEvent
@@ -58,8 +58,8 @@ public final class ClientBodyInventoryUI {
 
     @SubscribeEvent
     public static void drawOccupiedBodyEquipment(RenderGuiOverlayEvent.Post event) {
-        Entity occupied=occupiedBody();
-        if(!(occupied instanceof Mob mob)
+        Mob mob=occupiedMob();
+        if(mob==null
                 ||!event.getOverlay().id().equals(VanillaGuiOverlay.CROSSHAIR.id()))
             return;
         Minecraft minecraft=Minecraft.getInstance();
