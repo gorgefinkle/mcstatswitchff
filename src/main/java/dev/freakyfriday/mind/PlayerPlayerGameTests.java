@@ -117,7 +117,9 @@ public final class PlayerPlayerGameTests {
                         1,0,false,-90,0,seq));      // Sally moves Fred +X
                 });
             }
-            helper.runAfterDelay(29,()->{
+            // Wait beyond the mock ServerPlayers' initial spawn
+            // invulnerability window before testing native PvP melee.
+            helper.runAfterDelay(70,()->{
                 helper.assertTrue(fred.getX()>fredX+0.40,
                     "Sally's input did not actually move Fred body: before="
                         +fredX+" after="+fred.getX());
@@ -162,10 +164,10 @@ public final class PlayerPlayerGameTests {
                         &&sally.getHealth()<sallyBeforeMindAttack,
                     "Both opposite player minds must damage the other original physical body when PvP is enabled");
 
-                // ServerPlayer spawn protection is still active in the first
-                // movement window. Wait beyond it and the melee hurt cooldown,
-                // then test a third-party attacker against both physical bodies.
-                helper.runAfterDelay(50,()->{
+                // The spawn-protection window has elapsed. Wait out the
+                // ordinary melee hurt cooldown, then test a third-party
+                // attacker against both physical bodies.
+                helper.runAfterDelay(11,()->{
                     var opponentDamage=level.damageSources().mobAttack(opponent);
                     float fredBeforeExternal=fred.getHealth();
                     float sallyBeforeExternal=sally.getHealth();
