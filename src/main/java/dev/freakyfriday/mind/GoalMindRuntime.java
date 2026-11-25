@@ -506,6 +506,8 @@ public final class GoalMindRuntime {
                 proxy.getSensing().tick();
                 proxy.goalSelector.tick();
                 proxy.getNavigation().tick();
+                if(!proxy.getBrain().isBrainDead())
+                    invokeNativeBrainStep(proxy);
                 proxy.getMoveControl().tick();
                 proxy.getLookControl().tick();
                 proxy.getJumpControl().tick();
@@ -568,6 +570,26 @@ public final class GoalMindRuntime {
             }
             proxy.setPos(proxyOrigin.x,proxyOrigin.y,proxyOrigin.z);
             return new Step(moved,yaw,pitch,target,attack);
+        }
+
+        /** Run the subclass's real Brain/schedule hook on profiles where an
+         * unregistered decision proxy is not considered effective AI. */
+        private static void invokeNativeBrainStep(Mob proxy) {
+            try {
+                Method step=null;
+                for(Class<?> type=proxy.getClass();type!=null;type=type.getSuperclass()) {
+                    try {
+                        step=type.getDeclaredMethod("customServerAiStep",ServerLevel.class);
+                        break;
+                    } catch(NoSuchMethodException ignored) {}
+                }
+                if(step==null||!step.trySetAccessible())
+                    throw new IllegalAccessException("Mob native Brain tick hook is inaccessible");
+                step.invoke(proxy,(ServerLevel)proxy.level());
+            } catch(ReflectiveOperationException|RuntimeException failure) {
+                throw new IllegalStateException(
+                    "Could not tick the native Brain/schedule for "+proxy.getType(),failure);
+            }
         }
 
         private synchronized void recordAttack(Entity target) {
