@@ -319,6 +319,8 @@ public final class GoalMindRuntime {
         public record Step(Vec3 displacement,float yaw,float pitch,
                 Entity target,Entity attackTarget) {}
         private final Mob proxy;
+        /** Original physical body currently carrying this mind. */
+        private final LivingEntity physicalBody;
         private final Set<UUID> excluded;
         // The proxy must not overlap its real recipient: the recipient remains
         // a registered physical entity and would otherwise block proxy travel.
@@ -327,11 +329,21 @@ public final class GoalMindRuntime {
         private Entity pendingAttack;
         private boolean closed;
 
-        private DetachedController(Mob proxy,Set<UUID> excluded,Vec3 bodyOffset) {
+        private DetachedController(Mob proxy,LivingEntity physicalBody,
+                Set<UUID> excluded,Vec3 bodyOffset) {
             this.proxy=proxy;
+            this.physicalBody=physicalBody;
             this.excluded=Set.copyOf(excluded);
             this.bodyOffset=bodyOffset;
             DETACHED_BY_PROXY.put(proxy.getUUID(),this);
+        }
+
+        /** Apply a hit against the detached mind to its real physical host. */
+        private void redirectDamageToBody(DamageSource source,float amount) {
+            LivingEntity body=physicalBody;
+            if(closed||body==null||body.isRemoved()||!body.isAlive()
+                    ||!(body.level() instanceof ServerLevel level))return;
+            body.hurtServer(level,source,amount);
         }
 
         /**
@@ -524,7 +536,7 @@ public final class GoalMindRuntime {
         try {
             CompatibleCapture capture=captureCompatibleFor(donor,proxy,donorMind,excluded);
             apply(proxy,capture.snapshot());
-            return new DetachedController(proxy,excluded,bodyOffset);
+            return new DetachedController(proxy,physicalBody,excluded,bodyOffset);
         } catch(DynamicObjectGraph.Uncapturable|RuntimeException failure) {
             if(!proxy.isRemoved())proxy.discard();
             if(failure instanceof DynamicObjectGraph.Uncapturable unsupported) throw unsupported;
@@ -546,12 +558,28 @@ public final class GoalMindRuntime {
 
     @SubscribeEvent
     public static synchronized void onDetachedProxyDamage(LivingIncomingDamageEvent event) {
-        // The proxy is a decision-only entity. Damage to it is never part of
-        // the physical Player body's state, so suppress incoming damage too.
-        if(event.getEntity() instanceof Mob damaged
-                &&DETACHED_BY_PROXY.containsKey(damaged.getUUID())) {
-            event.setCanceled(true);
-            return;
+        // A proxy has no independent health pool. If an opposing mind attacks
+        // the proxy representing this mind, redirect the hit to the original
+        // physical body currently carrying that mind.
+        if(event.getEntity() instanceof Mob damaged) {
+            DetachedController victim=DETACHED_BY_PROXY.get(damaged.getUUID());
+            if(victim!=null) {
+                event.setCanceled(true);
+                if(event.getSource().getEntity() instanceof Mob attackerProxy) {
+                    DetachedController attacker=DETACHED_BY_PROXY.get(attackerProxy.getUUID());
+                    if(attacker!=null&&attacker!=victim) {
+                        // The attacking mind's real body performs the hit on
+                        // the victim mind's real body during its next Step.
+                        attacker.recordAttack(victim.physicalBody);
+                        return;
+                    }
+                }
+                // Non-proxy attackers still damage the real host body. Server
+                // PvP, invulnerability and other native damage checks remain
+                // in force because the original DamageSource is preserved.
+                victim.redirectDamageToBody(event.getSource(),event.getAmount());
+                return;
+            }
         }
         if(!(event.getSource().getEntity() instanceof Mob proxy))return;
         DetachedController controller=DETACHED_BY_PROXY.get(proxy.getUUID());
