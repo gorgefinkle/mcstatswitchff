@@ -34,23 +34,24 @@ public final class PlayerPlayerGameTests {
         BODY_DEATH_EJECTS_BOTH=FUNCTIONS.register(
             "player_death_ejects_both",()->PlayerPlayerGameTests::verifyDeathEjectsBoth);
 
-    /** Choose the actual vanilla view-vector orientation, not an assumed yaw sign. */
+    /** Choose a yaw only after the production melee validator confirms it. */
     private static float yawToward(ServerPlayer actor,ServerPlayer target) {
         double dx=target.getBoundingBox().getCenter().x-actor.getEyePosition().x;
         double dz=target.getBoundingBox().getCenter().z-actor.getEyePosition().z;
-        // Minecraft's current view-vector convention in this target profile
-        // uses +sin(yaw) for X. Keep the prior rotation in sync as well so
-        // interpolated getViewVector(1) is exactly the facing being tested.
-        float yaw=(float)Math.toDegrees(Math.atan2(dx,dz));
-        actor.setXRot(0.0f);
-        actor.xRotO=0.0f;
-        actor.setYRot(yaw);
-        actor.yRotO=yaw;
-        actor.setYHeadRot(yaw);
+        float a=(float)Math.toDegrees(Math.atan2(dx,dz));
+        float b=(float)Math.toDegrees(Math.atan2(-dx,dz));
+        float[] candidates={a,b,a+180.0f,b+180.0f};
         var level=(net.minecraft.server.level.ServerLevel)actor.level();
-        if(PossessionCombat.findValidMeleeTarget(level,actor,target.getId(),target)==null)
-            throw new IllegalStateException("Could not orient the physical player body toward its melee target");
-        return yaw;
+        for(float yaw:candidates) {
+            actor.setXRot(0.0f);
+            actor.xRotO=0.0f;
+            actor.setYRot(yaw);
+            actor.yRotO=yaw;
+            actor.setYHeadRot(yaw);
+            if(PossessionCombat.findValidMeleeTarget(level,actor,target.getId(),target)==target)
+                return yaw;
+        }
+        throw new IllegalStateException("Could not orient the physical player body toward its melee target");
     }
 
     private static void verify(GameTestHelper helper) {
