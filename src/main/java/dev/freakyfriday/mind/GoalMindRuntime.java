@@ -429,12 +429,12 @@ public final class GoalMindRuntime {
         Snapshot donorMind=snapshot(donor);
         if(donorMind.goals().isEmpty()&&donorMind.targets().isEmpty())
             throw new DynamicObjectGraph.Uncapturable("The donor Mob has no native Goal controller");
-        Mob proxy=donor.getType().create(level,EntitySpawnReason.COMMAND);
-        if(proxy==null)
-            throw new DynamicObjectGraph.Uncapturable("The donor EntityType could not create a detached AI proxy");
+        Entity created=donor.getType().create(level,EntitySpawnReason.COMMAND);
+        if(!(created instanceof Mob proxy))
+            throw new DynamicObjectGraph.Uncapturable(
+                "The donor EntityType did not create a Mob controller proxy");
         proxy.setNoAi(false);
         proxy.setNoGravity(true);
-        proxy.setInvulnerable(true);
         proxy.setSilent(true);
         proxy.setPersistenceRequired();
         proxy.setPos(physicalBody.getX(),physicalBody.getY(),physicalBody.getZ());
@@ -463,6 +463,13 @@ public final class GoalMindRuntime {
 
     @SubscribeEvent
     public static synchronized void onDetachedProxyDamage(LivingIncomingDamageEvent event) {
+        // The proxy is a decision-only entity. Damage to it is never part of
+        // the physical Player body's state, so suppress incoming damage too.
+        if(event.getEntity() instanceof Mob damaged
+                &&DETACHED_BY_PROXY.containsKey(damaged.getUUID())) {
+            event.setCanceled(true);
+            return;
+        }
         if(!(event.getSource().getEntity() instanceof Mob proxy))return;
         DetachedController controller=DETACHED_BY_PROXY.get(proxy.getUUID());
         if(controller==null)return;
