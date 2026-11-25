@@ -766,7 +766,6 @@ public final class PlayerMobGameTests {
             System.out.println("FF-GAMEPLAY mob_origin_attack_original_body PASS");
             System.out.println("FF-GAMEPLAY invalid_entity_attack_guard PASS");
             zombie.discard();
-            opponent.discard();
             helper.succeed();
         });
     }
@@ -1080,6 +1079,7 @@ public final class PlayerMobGameTests {
                 +" sameServerNativeAI=true playerBodyDrivenByMobMind=true"
                 +" mobBodyDrivenByPlayerInput=true noMirroredMovement=true restored=true");
             zombie.discard();
+            opponent.discard();
             helper.succeed();
         });
     }
