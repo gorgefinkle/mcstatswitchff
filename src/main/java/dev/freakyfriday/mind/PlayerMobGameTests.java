@@ -830,8 +830,6 @@ public final class PlayerMobGameTests {
     /** A non-universal experimental path must never mutate either real mob. */
     private static void verifyPartialSwapRejected(GameTestHelper helper) {
         var level=helper.getLevel();
-        System.setProperty("freakyfriday.debugProxy","true");
-
         // Active-Brain pairs must still fail closed without mutating either mob.
         Mob villager=EntityTypes.VILLAGER.create(level,EntitySpawnReason.COMMAND);
         Mob brainZombie=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
@@ -902,7 +900,6 @@ public final class PlayerMobGameTests {
         List<GoalSnapshot> zombieTargets=snapshotGoals(zombie,true);
         boolean chickenNoAi=chicken.isNoAi(),zombieNoAi=zombie.isNoAi();
         UUID requester=java.util.UUID.randomUUID();
-        System.setProperty("freakyfriday.debugProxy","true");
         String firstError=GoalMindRuntime.begin(requester,chicken,zombie);
         helper.assertTrue(firstError==null,
             "Live Chicken↔Zombie native goal exchange failed: "+firstError);
@@ -926,7 +923,6 @@ public final class PlayerMobGameTests {
         double chickenStart=chicken.distanceToSqr(target);
         double zombieStart=zombie.distanceToSqr(target);
         helper.runAfterDelay(40,()->{
-            System.clearProperty("freakyfriday.debugProxy");
             helper.assertTrue(chicken.isAlive()&&zombie.isAlive()
                     &&secondChicken.isAlive()&&secondZombie.isAlive(),
                 "One of the original physical Mob bodies stopped ticking during the swap");
