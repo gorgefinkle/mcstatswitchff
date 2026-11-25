@@ -930,6 +930,9 @@ public final class PlayerMobGameTests {
                   +" dist="+zombie.distanceTo(player)
                   +" yaw="+zombie.getYRot()
                   +" sight="+zombie.hasLineOfSight(player));
+            // The mock original Player may retain its spawn-protection
+            // hurt timer even though the entity has remained in the level.
+            clearHurtCooldown(player);
             PlayerMobPossession.attack(player,player.getId(),1);
             helper.assertTrue(player.getHealth()<initial,
                 "Zombie physical attack caused no damage to mock player"
@@ -1156,7 +1159,9 @@ public final class PlayerMobGameTests {
         Mob zombieTarget=EntityTypes.IRON_GOLEM.create(level,EntitySpawnReason.COMMAND);
         helper.assertTrue(zombieTarget!=null,"Zombie mind target fixture requires an Iron Golem");
         zombieTarget.setNoAi(true);
-        BlockPos zombieTargetPos=helper.absolutePos(new BlockPos(4,1,7));
+        // Keep the Golem directly along the proxy's unobstructed X axis;
+        // diagonal paths in this template cross its internal barrier boundary.
+        BlockPos zombieTargetPos=helper.absolutePos(new BlockPos(4,1,4));
         zombieTarget.setPos(zombieTargetPos.getX()+0.5,zombieTargetPos.getY(),
             zombieTargetPos.getZ()+0.5);
         helper.assertTrue(level.addFreshEntity(zombieTarget),
