@@ -165,7 +165,10 @@ public final class PlayerMobGameTests {
             chicken.discard();
             MindSwapSessions.clearOnLogout(ownerId);
             verifyPlayerBodyActionPort(helper);
-            helper.succeed();
+            // Chain the full reciprocal attack acceptance into this required
+            // GameTest so the Player↔Mob mind/body combat check cannot be
+            // silently omitted by a test-function selector.
+            verifyPlayerMobNativeMindProxy(helper);
         });
     }
 
@@ -1094,6 +1097,9 @@ public final class PlayerMobGameTests {
                     &&!GoalMindRuntime.bodyReserved(secondZombieB.getUUID()),
                 "Cancelled Mob bodies remained reserved");
 
+            System.out.println("FF-GAMEPLAY mob_mob_reciprocal_attack PASS"
+                +" bothMindProxiesAttackOppositeMind=true"
+                +" damageRedirectedToBothPhysicalBodies=true proxyHealthUntouched=true");
             System.out.println("FF-GAMEPLAY partial_native_swap_fails_closed PASS"
                 +" oppositeMindsDamageRealBodies=true externalDamageHitsBothBodies=true"
                 +" proxyHealthUntouched=true");
