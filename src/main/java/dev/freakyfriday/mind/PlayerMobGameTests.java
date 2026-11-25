@@ -878,6 +878,8 @@ public final class PlayerMobGameTests {
         Mob secondBodyMind=GoalMindRuntime.proxyForGameTest(second.getUUID());
         helper.assertTrue(firstBodyMind!=null&&secondBodyMind!=null,
             "Each physical body must have the opposite native mind proxy");
+        float firstProxyHealth=firstBodyMind.getHealth();
+        float secondProxyHealth=secondBodyMind.getHealth();
         firstBodyMind.goalSelector.addGoal(0,new OneShotNativeAttackGoal(firstBodyMind,second));
         secondBodyMind.goalSelector.addGoal(0,new OneShotNativeAttackGoal(secondBodyMind,first));
         helper.runAfterDelay(4,()->{
@@ -885,6 +887,9 @@ public final class PlayerMobGameTests {
                 "Both opposite native minds must damage the other participant's real body"
                     +" first="+firstHealth+"->"+first.getHealth()
                     +" second="+secondHealth+"->"+second.getHealth());
+            helper.assertTrue(firstBodyMind.getHealth()==firstProxyHealth
+                    &&secondBodyMind.getHealth()==secondProxyHealth,
+                "Damage must land on each mind's real physical body, never on its detached decision proxy");
             helper.assertTrue(GoalMindRuntime.activeSessions(requester)==1,
                 "Nonfatal reciprocal body damage unexpectedly terminated the Mob↔Mob swap");
             helper.assertTrue(GoalMindRuntime.cancelByAccount(requester),
@@ -1159,10 +1164,13 @@ public final class PlayerMobGameTests {
             controller.setXRot(0.0f);
             mindProxy.goalSelector.addGoal(0,new OneShotNativeAttackGoal(mindProxy,zombie));
             float mobBeforeMindAttack=zombie.getHealth();
+            float proxyHealthBeforeAttack=mindProxy.getHealth();
 
             helper.runAfterDelay(4,()->{
                 helper.assertTrue(zombie.getHealth()<mobBeforeMindAttack,
                     "Zombie mind on the Player body could not damage the opposite mind's physical Mob body");
+                helper.assertTrue(mindProxy.getHealth()==proxyHealthBeforeAttack,
+                    "The detached mind proxy was damaged instead of the original Player/Mob physical body");
                 // A third-party attacker must still be able to damage both
                 // original physical health pools independently during a swap.
                 float playerBeforeExternal=controller.getHealth();
