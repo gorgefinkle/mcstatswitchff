@@ -6,6 +6,9 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.level.block.Blocks;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -52,10 +55,15 @@ public final class PlayerPlayerGameTests {
         double sallyX=sally.getX(),sallyZ=sally.getZ();
         fred.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
         sally.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
-        opponent.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
         fred.getAbilities().invulnerable=false;
         sally.getAbilities().invulnerable=false;
-        opponent.getAbilities().invulnerable=false;
+        Mob opponent=EntityTypes.SKELETON.create(level,EntitySpawnReason.COMMAND);
+        helper.assertTrue(opponent!=null,"Player-pair damage test needs an opposing Skeleton");
+        opponent.setNoAi(true);
+        BlockPos opponentPos=helper.absolutePos(new BlockPos(9,1,7));
+        opponent.setPos(opponentPos.getX()+0.5,opponentPos.getY(),opponentPos.getZ()+0.5);
+        helper.assertTrue(level.addFreshEntity(opponent),
+            "Opposing Skeleton failed to register in Player↔Player test");
         float fredHealth=fred.getHealth(),sallyHealth=sally.getHealth();
         try {
             String failed=PlayerPlayerExchange.begin(fred,sally);
@@ -93,11 +101,11 @@ public final class PlayerPlayerGameTests {
                 helper.assertTrue(fred.getUUID().equals(fredId)
                         && sally.getUUID().equals(sallyId),
                     "Reciprocal control replaced an actual physical player");
-                var opponentDamage=level.damageSources().playerAttack(opponent);
+                var opponentDamage=level.damageSources().mobAttack(opponent);
                 helper.assertTrue(fred.hurtServer(level,opponentDamage,2.0f)
                         &&sally.hurtServer(level,opponentDamage,2.0f)
                         &&fred.getHealth()<fredHealth&&sally.getHealth()<sallyHealth,
-                    "The opponent could not independently damage both original player bodies during the swap");
+                    "The opposing Skeleton could not independently damage both original player bodies during the swap");
                 helper.assertTrue(PlayerPlayerExchange.active(fredId)
                         &&PlayerPlayerExchange.active(sallyId),
                     "Nonfatal opponent damage incorrectly ended reciprocal Player↔Player control");
@@ -115,6 +123,7 @@ public final class PlayerPlayerGameTests {
                 System.out.println("FF-GAMEPLAY player_player_cancel_restores_both PASS"
                     +" immediateExchange=true noConsentRequired=true");
                 helper.succeed();
+                opponent.discard();
             });
         } catch(RuntimeException failure) {
             PlayerPlayerExchange.clearOnLogout(fredId);
