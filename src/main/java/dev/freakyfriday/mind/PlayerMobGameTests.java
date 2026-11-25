@@ -916,7 +916,7 @@ public final class PlayerMobGameTests {
         var zombieBrain=brainZombie.getBrain();
         var villagerGoals=List.copyOf(villager.goalSelector.getAvailableGoals());
         var brainZombieGoals=List.copyOf(brainZombie.goalSelector.getAvailableGoals());
-        var villagerTargets=List.copyOf(villager.targetSelector.getAvailableGoals());
+        var targets=List.copyOf(villager.targetSelector.getAvailableGoals());
         var brainZombieTargets=List.copyOf(brainZombie.targetSelector.getAvailableGoals());
         String rejection=NativeBrainSwap.exchange(villager,brainZombie);
         helper.assertTrue(rejection!=null&&rejection.contains("active Brain AI"),
@@ -925,7 +925,7 @@ public final class PlayerMobGameTests {
             "Rejected exchange changed a physical body's Brain reference");
         helper.assertTrue(villagerGoals.equals(List.copyOf(villager.goalSelector.getAvailableGoals()))
                 &&brainZombieGoals.equals(List.copyOf(brainZombie.goalSelector.getAvailableGoals()))
-                &&villagerTargets.equals(List.copyOf(villager.targetSelector.getAvailableGoals()))
+                &&targets.equals(List.copyOf(villager.targetSelector.getAvailableGoals()))
                 &&brainZombieTargets.equals(List.copyOf(brainZombie.targetSelector.getAvailableGoals())),
             "Rejected active-Brain exchange mutated a native goal or target selector");
         // Do not let the fail-closed fixtures become unintended AI targets
@@ -951,21 +951,13 @@ public final class PlayerMobGameTests {
         helper.assertTrue(level.addFreshEntity(opponent),
             "Opposing Skeleton failed to register for physical-body damage test");
         target.getAbilities().invulnerable=false;
-        // Chicken's native TemptGoal uses the Player-held seeds; Zombie's
-        // native target goals use a Villager. Keeping the stimuli separate
-        // tests each original AI graph rather than depending on one entity
-        // type being accepted by both vanilla target selectors.
+        // Both native minds use the same real Player stimulus: Chicken's
+        // TemptGoal sees the held Wheat Seeds while Zombie's target selector
+        // can acquire and pursue the Player. This keeps the two tests grounded
+        // in one stable target instead of a separate Villager.
         BlockPos seedPos=helper.absolutePos(new BlockPos(6,1,4));
         target.setPos(seedPos.getX()+0.5,seedPos.getY(),seedPos.getZ()+0.5);
         target.setItemInHand(InteractionHand.MAIN_HAND,new ItemStack(Items.WHEAT_SEEDS));
-        Mob villagerTarget=EntityTypes.VILLAGER.create(level,EntitySpawnReason.COMMAND);
-        helper.assertTrue(villagerTarget!=null,"Zombie AI stimulus needs a real Villager target");
-        villagerTarget.setNoAi(true);
-        BlockPos villagerTargetPos=helper.absolutePos(new BlockPos(6,1,6));
-        villagerTarget.setPos(villagerTargetPos.getX()+0.5,
-            villagerTargetPos.getY(),villagerTargetPos.getZ()+0.5);
-        helper.assertTrue(level.addFreshEntity(villagerTarget),
-            "Zombie AI Villager target failed to register");
 
         Mob chicken=EntityTypes.CHICKEN.create(level,EntitySpawnReason.COMMAND);
         Mob zombie=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
@@ -1019,7 +1011,7 @@ public final class PlayerMobGameTests {
         helper.assertTrue(secondError==null&&GoalMindRuntime.activeSessions(requester)==2,
             "One requester could not manage two independent live Mob exchanges: "+secondError);
 
-        double chickenStart=chicken.distanceToSqr(villagerTarget);
+        double chickenStart=chicken.distanceToSqr(target);
         double zombieStart=zombie.distanceToSqr(target);
         float chickenHealthBeforeOpponentAttack=chicken.getHealth();
         float zombieHealthBeforeOpponentAttack=zombie.getHealth();
@@ -1028,7 +1020,7 @@ public final class PlayerMobGameTests {
             helper.assertTrue(chicken.isAlive()&&zombie.isAlive()
                     &&secondChicken.isAlive()&&secondZombie.isAlive(),
                 "One of the original physical Mob bodies stopped ticking during the swap");
-            double chickenEnd=chicken.distanceToSqr(villagerTarget);
+            double chickenEnd=chicken.distanceToSqr(target);
             double zombieEnd=zombie.distanceToSqr(target);
             helper.assertTrue(chickenEnd<chickenStart&&zombieEnd<zombieStart,
                 "Both donor-native controllers must independently move their opposite real bodies toward the Player stimulus"
@@ -1066,7 +1058,6 @@ public final class PlayerMobGameTests {
                 +" liveTargetAcquisition=true physicalMovement=true independentPairs=true"
                 +" exactGoalRestore=true");
             villager.discard();
-            villagerTarget.discard();
             brainZombie.discard();
             chicken.discard();
             zombie.discard();
