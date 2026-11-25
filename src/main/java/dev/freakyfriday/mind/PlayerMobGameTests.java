@@ -1254,29 +1254,31 @@ public final class PlayerMobGameTests {
             float secondZombieMindAProxyHealth=secondZombieMindA.getHealth();
             float secondZombieMindBProxyHealth=secondZombieMindB.getHealth();
 
-            // Phase 1: each mind attacks the opposite detached mind proxy.
-            // The hit must be redirected to the physical body hosting it.
-            secondZombieMindA.goalSelector.addGoal(0,
-                new OneShotNativeAttackGoal(secondZombieMindA,secondZombieMindB));
-            secondZombieMindB.goalSelector.addGoal(0,
-                new OneShotNativeAttackGoal(secondZombieMindB,secondZombieMindA));
-            helper.runAfterDelay(4,()->{
+            // Phase 1: each PHYSICAL body attacks the opposite detached mind.
+            // A proxy has no independent health: its hit must be redirected
+            // to the real physical body currently hosting that mind.
+            secondZombieA.doHurtTarget(level,secondZombieMindA);
+            secondZombieB.doHurtTarget(level,secondZombieMindB);
+            helper.assertTrue(secondZombieA.getHealth()==secondZombieAHealthBeforeMindAttack
+                    &&secondZombieB.getHealth()==secondZombieBHealthBeforeMindAttack,
+                "Hitting a detached mind incorrectly damaged the attacker's physical body");
+            helper.assertTrue(secondZombieA.getHealth()==secondZombieAHealthBeforeMindAttack
+                    &&secondZombieB.getHealth()==secondZombieBHealthBeforeMindAttack,
+                "A detached mind proxy must not own an independent physical health pool");
+            helper.runAfterDelay(1,()->{
                 helper.assertTrue(secondZombieA.getHealth()<secondZombieAHealthBeforeMindAttack
                         &&secondZombieB.getHealth()<secondZombieBHealthBeforeMindAttack,
-                    "Attacks on opposite mind proxies did not damage both real host bodies");
+                    "Opposite physical bodies could not damage the minds they were swapped with");
                 helper.assertTrue(secondZombieMindA.getHealth()==secondZombieMindAProxyHealth
                         &&secondZombieMindB.getHealth()==secondZombieMindBProxyHealth,
-                    "Proxy mind health changed; attacks must land on the physical bodies");
+                    "Damage to a detached mind changed proxy health instead of its physical host");
 
-                // Phase 2: each mind attacks the opposite REAL physical body.
+                // Phase 2: each detached mind attacks the opposite REAL
+                // physical body. Its assigned physical host executes the hit.
                 float secondAAfterMindHit=secondZombieA.getHealth();
                 float secondBAfterMindHit=secondZombieB.getHealth();
                 clearHurtCooldown(secondZombieA);
                 clearHurtCooldown(secondZombieB);
-                // Mind A is hosted by physical body B, so its opposite
-                // physical body A is the target. Mind B is hosted by A and
-                // targets physical body B. Never ask a mind to attack its own
-                // host body; that is self-targeting, not an opposing attack.
                 secondZombieMindA.goalSelector.addGoal(0,
                     new OneShotNativeAttackGoal(secondZombieMindA,secondZombieA));
                 secondZombieMindB.goalSelector.addGoal(0,
