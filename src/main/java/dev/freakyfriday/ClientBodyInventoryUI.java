@@ -45,13 +45,13 @@ public final class ClientBodyInventoryUI {
 
     @SubscribeEvent
     public static void onInventoryScreen(ScreenEvent.Opening event) {
-        if(occupiedBody()!=null&&event.getNewScreen() instanceof InventoryScreen)
+        if(occupiedMob()!=null&&event.getNewScreen() instanceof InventoryScreen)
             event.setCanceled(true);
     }
 
     @SubscribeEvent
     public static void hideAccountHotbar(RenderGuiOverlayEvent.Pre event) {
-        if(occupiedBody()!=null
+        if(occupiedMob()!=null
                 &&event.getOverlay().id().equals(VanillaGuiOverlay.HOTBAR.id()))
             event.setCanceled(true);
     }
