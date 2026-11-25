@@ -380,7 +380,11 @@ public final class PlayerMobGameTests {
                     "Slow native body did not move using its own movement attribute: "+slowDistance);
                 helper.assertTrue(fastDistance>slowDistance+0.10,
                     "Higher native movement attribute did not increase travel: fast="
-                        +fastDistance+" slow="+slowDistance);
+                        +fastDistance+" slow="+slowDistance
+                        +" fastAttribute="+fastChicken.getAttributeValue(
+                            net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED)
+                        +" slowAttribute="+slowChicken.getAttributeValue(
+                            net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED));
                 helper.assertTrue(fastChicken.getBoundingBox().maxZ<=wallFront+0.0001,
                     "Fast Chicken passed through a solid vanilla block wall: box="
                         +fastChicken.getBoundingBox()+" wallZ="+wallFront);
@@ -859,6 +863,8 @@ public final class PlayerMobGameTests {
                 net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
         }
         ServerPlayer target=helper.makeMockServerPlayerInLevel();
+        target.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+        target.setInvulnerable(false);
         target.setPos(helper.absolutePos(new BlockPos(6,1,4)).getX()+0.5,
             helper.absolutePos(new BlockPos(6,1,4)).getY(),
             helper.absolutePos(new BlockPos(6,1,4)).getZ()+0.5);
