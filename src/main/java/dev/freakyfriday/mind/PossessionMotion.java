@@ -58,6 +58,9 @@ public final class PossessionMotion {
                 &&Math.abs(vertical)<1.0e-5&&!jump)return;
         boolean originallyNoAi=body.isNoAi();
         if(originallyNoAi)body.setNoAi(false);
+        double nativeSpeed=body.getAttributeValue(Attributes.MOVEMENT_SPEED);
+        if(Double.isFinite(nativeSpeed)&&nativeSpeed>=0.0)
+            body.setSpeed((float)nativeSpeed);
         try {
             if(jump)body.getJumpControl().jump();
             body.travel(new Vec3(strafe,vertical,forward));
@@ -82,6 +85,9 @@ public final class PossessionMotion {
         if(body instanceof Mob mob) {
             boolean originallyNoAi=mob.isNoAi();
             if(originallyNoAi) mob.setNoAi(false);
+            double nativeSpeed=mob.getAttributeValue(Attributes.MOVEMENT_SPEED);
+            if(Double.isFinite(nativeSpeed)&&nativeSpeed>=0.0)
+                mob.setSpeed((float)nativeSpeed);
             try {
                 if(jump) {
                     mob.getJumpControl().jump();
