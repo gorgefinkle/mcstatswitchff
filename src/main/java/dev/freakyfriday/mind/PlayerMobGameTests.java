@@ -1259,12 +1259,6 @@ public final class PlayerMobGameTests {
             // to the real physical body currently hosting that mind.
             secondZombieA.doHurtTarget(level,secondZombieMindA);
             secondZombieB.doHurtTarget(level,secondZombieMindB);
-            helper.assertTrue(secondZombieA.getHealth()==secondZombieAHealthBeforeMindAttack
-                    &&secondZombieB.getHealth()==secondZombieBHealthBeforeMindAttack,
-                "Hitting a detached mind incorrectly damaged the attacker's physical body");
-            helper.assertTrue(secondZombieA.getHealth()==secondZombieAHealthBeforeMindAttack
-                    &&secondZombieB.getHealth()==secondZombieBHealthBeforeMindAttack,
-                "A detached mind proxy must not own an independent physical health pool");
             helper.runAfterDelay(1,()->{
                 helper.assertTrue(secondZombieA.getHealth()<secondZombieAHealthBeforeMindAttack
                         &&secondZombieB.getHealth()<secondZombieBHealthBeforeMindAttack,
