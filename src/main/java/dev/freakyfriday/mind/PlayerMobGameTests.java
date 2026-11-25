@@ -106,27 +106,45 @@ public final class PlayerMobGameTests {
         var originalBrain=chicken.getBrain();
         var originalGoals=List.copyOf(chicken.goalSelector.getAvailableGoals());
         var originalTargets=List.copyOf(chicken.targetSelector.getAvailableGoals());
+
         MindSwapSessions.selectFromInteraction(player,chicken);
         helper.assertTrue(MindSwapSessions.selectionRemainingTicks(player)
                 ==MindSwapSessions.SELECTION_TIMEOUT_TICKS,
             "Selecting first body did not start the eight-second HUD countdown");
         MindSwapSessions.select(player,player);
         helper.assertTrue(MindSwapSessions.selectionRemainingTicks(player)==0,
-            "Rejected reciprocal pair did not clear its pending HUD selection");
-        helper.assertTrue(!PlayerMobPossession.hasSession(ownerId)
-                && !PlayerMobPossession.hasSession(UUID.randomUUID()),
-            "One-way possession started despite reciprocal runtime being unavailable");
-        helper.assertTrue(!chicken.isNoAi() && chicken.getBrain()==originalBrain
-                && originalGoals.equals(List.copyOf(chicken.goalSelector.getAvailableGoals()))
-                && originalTargets.equals(List.copyOf(chicken.targetSelector.getAvailableGoals()))
-                && level.getEntity(bodyId)==chicken,
-            "Rejected player/mob request mutated the original physical mob or its AI");
-        System.out.println("FF-GAMEPLAY player_mob_reciprocal_gate PASS"
-            +" oneWayPossessionStarted=false originalBodyAndAiUnchanged=true");
-        chicken.discard();
-        MindSwapSessions.clearOnLogout(ownerId);
-        verifyPlayerBodyActionPort(helper);
-        helper.succeed();
+            "Successful reciprocal pair did not clear its pending HUD selection");
+        helper.assertTrue(PlayerMobPossession.hasSession(ownerId)
+                &&chicken.isNoAi()&&player.isAlive(),
+            "Book selection did not start reciprocal Player/Chicken control");
+        helper.assertTrue(level.getEntity(bodyId)==chicken,
+            "Player/Chicken exchange replaced the original physical Chicken");
+
+        double chickenStart=chicken.getZ();
+        for(int pulse=0;pulse<3;pulse++) {
+            final long sequence=pulse+1L;
+            helper.runAfterDelay(pulse*2,()->PlayerMobPossession.input(player,
+                new PlayerMobPossession.Input(1.0f,0.0f,false,0.0f,0.0f,sequence)));
+        }
+        helper.runAfterDelay(8,()->{
+            helper.assertTrue(chicken.getZ()>chickenStart+0.02,
+                "Authenticated player input did not move the real Chicken body; "
+                    +"startZ="+chickenStart+" finalZ="+chicken.getZ());
+            helper.assertTrue(PlayerMobPossession.end(player),
+                "Cancel did not end reciprocal Player/Chicken control");
+            helper.assertTrue(!chicken.isNoAi()&&chicken.getBrain()==originalBrain
+                    &&originalGoals.equals(List.copyOf(chicken.goalSelector.getAvailableGoals()))
+                    &&originalTargets.equals(List.copyOf(chicken.targetSelector.getAvailableGoals()))
+                    &&level.getEntity(bodyId)==chicken,
+                "Cancel did not restore the Chicken's original AI and physical identity");
+            System.out.println("FF-GAMEPLAY player_mob_reciprocal_gate PASS"
+                +" reciprocalControlStarted=true playerInputMovesRealChicken=true"
+                +" originalBodyAndAiRestored=true");
+            chicken.discard();
+            MindSwapSessions.clearOnLogout(ownerId);
+            verifyPlayerBodyActionPort(helper);
+            helper.succeed();
+        });
     }
 
     /** Exercise the separate player-body adapter against a real GameTest world. */
