@@ -34,59 +34,9 @@ public final class PlayerPlayerGameTests {
         BODY_DEATH_EJECTS_BOTH=FUNCTIONS.register(
             "player_death_ejects_both",()->PlayerPlayerGameTests::verifyDeathEjectsBoth);
 
-    /** Read the server PvP policy without binding to version-specific accessors. */
-    private static boolean serverPvpAllowed(net.minecraft.server.MinecraftServer server) {
-        for(Class<?> type=server.getClass();type!=null;type=type.getSuperclass()) {
-            for(java.lang.reflect.Method method:type.getDeclaredMethods()) {
-                String name=method.getName().toLowerCase(java.util.Locale.ROOT);
-                if(!name.contains("pvp")||method.getParameterCount()!=0
-                        ||method.getReturnType()!=boolean.class)continue;
-                try {
-                    method.setAccessible(true);
-                    return (boolean)method.invoke(server);
-                } catch(ReflectiveOperationException|RuntimeException ignored) {
-                    // An inaccessible optional accessor means the harness is
-                    // treated as PvP-disabled, which is the safe default.
-                }
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Enable PvP only inside this disposable GameTest, then restore the
-     * server's original policy. Player-vs-player attacks must use the same
-     * native ServerPlayer.attack path as normal combat, not bypass protection.
-     */
-    private static boolean setServerPvpAllowed(
-            net.minecraft.server.MinecraftServer server,boolean allowed) {
-        Object playerList=null;
-        try {
-            for(Class<?> type=server.getClass();type!=null;type=type.getSuperclass()) {
-                for(java.lang.reflect.Method method:type.getDeclaredMethods()) {
-                    if(!method.getName().toLowerCase(java.util.Locale.ROOT).contains("playerlist")
-                            ||method.getParameterCount()!=0)continue;
-                    if(!method.trySetAccessible())continue;
-                    playerList=method.invoke(server);
-                    if(playerList!=null)break;
-                }
-                if(playerList!=null)break;
-            }
-        } catch(ReflectiveOperationException|RuntimeException ignored) {}
-        if(playerList==null)return false;
-        for(Class<?> type=playerList.getClass();type!=null;type=type.getSuperclass()) {
-            for(java.lang.reflect.Method method:type.getDeclaredMethods()) {
-                if(!method.getName().toLowerCase(java.util.Locale.ROOT).contains("pvp")
-                        ||method.getParameterCount()!=1
-                        ||method.getParameterTypes()[0]!=boolean.class)continue;
-                try {
-                    if(!method.trySetAccessible())continue;
-                    method.invoke(playerList,allowed);
-                    return serverPvpAllowed(server)==allowed;
-                } catch(ReflectiveOperationException|RuntimeException ignored) {}
-            }
-        }
-        return false;
+    /** Read the actual world PvP game rule used by ServerPlayer damage. */
+    private static boolean serverPvpAllowed(net.minecraft.server.level.ServerLevel level) {
+        return level.getGameRules().get(net.minecraft.world.level.gamerules.GameRules.PVP);
     }
 
     /** Find a physical facing that passes the exact server-side melee validator. */
@@ -181,12 +131,13 @@ public final class PlayerPlayerGameTests {
                     "Reciprocal control replaced an actual physical player");
                 // Each mind attempts to attack the opposite original
                 // physical body through its authenticated controller route.
-                // The test server may disable PvP; preserve that policy rather
-                // than forcing it on just for this fixture.
-                boolean originalPvpAllowed=serverPvpAllowed(level.getServer());
-                helper.assertTrue(setServerPvpAllowed(level.getServer(),true),
-                    "GameTest could not enable native PvP for opposite-player combat acceptance");
-                boolean pvpAllowed=serverPvpAllowed(level.getServer());
+                // PvP is a world game rule in current Minecraft versions.
+                // Enable it only for this disposable GameTest and restore it
+                // after both real ServerPlayer.attack paths have been checked.
+                boolean originalPvpAllowed=serverPvpAllowed(level);
+                level.getGameRules().set(
+                    net.minecraft.world.level.gamerules.GameRules.PVP,true,level.getServer());
+                boolean pvpAllowed=serverPvpAllowed(level);
                 helper.assertTrue(pvpAllowed,
                     "The test server still reports PvP disabled after enabling it");
                 float fredBeforeMindAttack=fred.getHealth();
@@ -230,7 +181,7 @@ public final class PlayerPlayerGameTests {
                         "Cancel left body control or command routing swapped");
                     System.out.println("FF-GAMEPLAY player_player_reciprocal_attack PASS"
                         +" oppositePlayerMeleeAllowedByServer="+pvpAllowed
-                        +" originalPvpPolicyRestored="+(serverPvpAllowed(level.getServer())==originalPvpAllowed)
+                        +" originalPvpPolicyRestored="+(serverPvpAllowed(level)==originalPvpAllowed)
                         +" externalAttackerDamagesBoth=true independentHealthPools=true");
                     System.out.println("FF-GAMEPLAY player_player_reciprocal_movement PASS"
                         +" fredBodyFromSally="+(fred.getX()-fredX)
@@ -238,8 +189,11 @@ public final class PlayerPlayerGameTests {
                         +" intactPhysicalPlayers=true opponentDamagesBothBodies=true independentHealthPools=true");
                     System.out.println("FF-GAMEPLAY player_player_cancel_restores_both PASS"
                         +" immediateExchange=true noConsentRequired=true");
-                    helper.assertTrue(setServerPvpAllowed(level.getServer(),originalPvpAllowed),
-                        "Player↔Player test did not restore the server's original PvP policy");
+                    level.getGameRules().set(
+                        net.minecraft.world.level.gamerules.GameRules.PVP,
+                        originalPvpAllowed,level.getServer());
+                    helper.assertTrue(serverPvpAllowed(level)==originalPvpAllowed,
+                        "Player↔Player test did not restore the original world PvP game rule");
                     opponent.discard();
                     // Run the Player↔Mob combat gate from this already
                     // executed GameTest, independently of locomotion tests.
