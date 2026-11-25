@@ -822,6 +822,92 @@ public final class PlayerMobGameTests {
      * missing behavior is now a reproducible acceptance gate. Do not count
      * this as a passed swap unless native behavior actually transfers.
      */
+    /**
+     * Combat-only reciprocal Player↔Mob acceptance. This is intentionally
+     * independent of the still-separate native locomotion test: combat must
+     * not be skipped just because an AI movement assertion fails.
+     *
+     * It checks all three routes:
+     * 1. The Mob mind hosted by the original Player attacks the occupied Mob.
+     * 2. The Player mind hosted by the Mob attacks the original Player body.
+     * 3. The occupied Mob attacks the detached mind proxy; damage is redirected
+     *    to that mind's real Player host and never consumes proxy health.
+     */
+    static void verifyPlayerMobReciprocalCombat(GameTestHelper helper) {
+        var level=helper.getLevel();
+        for(int x=1;x<=10;x++)for(int z=1;z<=8;z++) {
+            level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,0,z)),
+                net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+            level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,5,z)),
+                net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+        }
+        ServerPlayer player=helper.makeMockServerPlayerInLevel();
+        player.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+        player.getAbilities().invulnerable=false;
+        BlockPos playerPos=helper.absolutePos(new BlockPos(4,1,4));
+        player.setPos(playerPos.getX()+0.5,playerPos.getY(),playerPos.getZ()+0.5);
+        Mob body=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
+        helper.assertTrue(body!=null,"Reciprocal combat requires a real Zombie body");
+        body.setPersistenceRequired();
+        body.setPos(player.getX()+1.5,player.getY(),player.getZ());
+        helper.assertTrue(level.addFreshEntity(body),
+            "Reciprocal combat Zombie body did not register");
+        String issue=PlayerMobPossession.beginReciprocal(player,body);
+        helper.assertTrue(issue==null,"Reciprocal combat session rejected: "+issue);
+        Mob mindProxy=PlayerMobPossession.mindProxyForGameTest(player.getUUID());
+        helper.assertTrue(mindProxy!=null,
+            "Mob mind proxy for original Player body was not created");
+
+        float bodyBeforeMindAttack=body.getHealth();
+        float proxyBeforeMindAttack=mindProxy.getHealth();
+        mindProxy.goalSelector.addGoal(0,new OneShotNativeAttackGoal(mindProxy,body));
+        helper.runAfterDelay(5,()->{
+            helper.assertTrue(body.getHealth()<bodyBeforeMindAttack,
+                "Mob mind hosted by the Player body could not attack the occupied physical Mob body");
+            helper.assertTrue(mindProxy.getHealth()==proxyBeforeMindAttack,
+                "Mob mind's own proxy health changed when it attacked the occupied Mob body");
+
+            // Wait out the mock ServerPlayer's initial damage-protection
+            // window, then let the Player mind attack the opposite original
+            // Player body through the actual occupied Mob's melee capability.
+            helper.runAfterDelay(80,()->{
+                body.setPos(player.getX()+1.35,player.getY(),player.getZ());
+                body.setYRot(-90.0f);
+                body.yRotO=-90.0f;
+                body.setYHeadRot(-90.0f);
+                PlayerMobPossession.input(player,
+                    new PlayerMobPossession.Input(0,0,false,-90.0f,0,1));
+                float playerBeforeBodyAttack=player.getHealth();
+                PlayerMobPossession.attack(player,player.getId(),1);
+                helper.assertTrue(player.getHealth()<playerBeforeBodyAttack,
+                    "Player mind hosted by the Mob body could not attack the opposite original Player body");
+
+                // Attack the detached mind itself from the opposing physical
+                // body. The proxy has no independent health pool: the hit
+                // must be redirected to its original Player host.
+                clearHurtCooldown(player);
+                float playerBeforeMindHit=player.getHealth();
+                float proxyBeforeMindHit=mindProxy.getHealth();
+                body.doHurtTarget(level,mindProxy);
+                helper.assertTrue(player.getHealth()<playerBeforeMindHit,
+                    "Opposing Mob body could not damage the detached mind's real Player host");
+                helper.assertTrue(mindProxy.getHealth()==proxyBeforeMindHit,
+                    "A hit on the detached mind proxy consumed proxy health instead of host-body health");
+
+                helper.assertTrue(PlayerMobPossession.end(player),
+                    "Reciprocal combat session could not be returned cleanly");
+                helper.assertTrue(!body.isNoAi(),
+                    "Reciprocal combat return did not restore the original Mob AI flag");
+                System.out.println("FF-GAMEPLAY player_mob_reciprocal_attack PASS"
+                    +" mobMindAttacksMobBody=true playerMindAttacksPlayerBody=true"
+                    +" oppositeBodyAttacksDetachedMind=true proxyDamageRedirected=true");
+                body.discard();
+                player.discard();
+                helper.succeed();
+            });
+        });
+    }
+
     private static void verifyZombieChickenBehaviorAcceptance(GameTestHelper helper) {
         var level=helper.getLevel();
         Mob zombie=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
