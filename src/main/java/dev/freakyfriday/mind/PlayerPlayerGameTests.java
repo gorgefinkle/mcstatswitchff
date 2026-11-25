@@ -38,9 +38,7 @@ public final class PlayerPlayerGameTests {
         var level=helper.getLevel();
         ServerPlayer fred=helper.makeMockServerPlayerInLevel();
         ServerPlayer sally=helper.makeMockServerPlayerInLevel();
-        ServerPlayer opponent=helper.makeMockServerPlayerInLevel();
-        helper.assertTrue(fred!=null && sally!=null && opponent!=null
-                &&fred!=sally &&fred!=opponent &&sally!=opponent
+        helper.assertTrue(fred!=null && sally!=null &&fred!=sally
                 && !fred.getUUID().equals(sally.getUUID()),
             "Two unique real ServerPlayer entities required for reciprocal control");
         for(int x=1;x<=11;x++) for(int z=1;z<=11;z++)
