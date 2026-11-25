@@ -323,13 +323,13 @@ public final class PlayerMobGameTests {
             new ItemStack(FreakyFriday.BOOK.get()));
         Mob chicken=EntityTypes.CHICKEN.create(level,EntitySpawnReason.COMMAND);
         helper.assertTrue(chicken!=null,"Chicken factory failed in native-speed regression");
-        for(int x=1;x<=7;x++)for(int z=1;z<=9;z++)
+        for(int x=1;x<=7;x++)for(int z=1;z<=12;z++)
             level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,0,z)),
                 net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
-        // Full-height physical wall in the forward direction, unlike an
-        // artificial setPos clamp. Real Entity.move must resolve its collision.
+        // Keep clear acceleration room before the physical wall. The test
+        // must measure the faster native speed before wall collision clamps it.
         for(int x=1;x<=7;x++)for(int y=1;y<=3;y++)
-            level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,y,5)),
+            level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,y,9)),
                 net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
         BlockPos start=helper.absolutePos(new BlockPos(3,1,4));
         chicken.setPos(start.getX()+0.5,start.getY(),start.getZ()+0.5);
@@ -367,7 +367,7 @@ public final class PlayerMobGameTests {
                 double total=chicken.getZ()-startZ;
                 double fastDistance=total-slow[0];
                 // The chicken's width must not enter the solid wall.
-                double wallFront=helper.absolutePos(new BlockPos(3,1,5)).getZ();
+                double wallFront=helper.absolutePos(new BlockPos(3,1,9)).getZ();
                 helper.assertTrue(Double.isFinite(slow[0])
                         && fastDistance>slow[0]+0.10,
                     "Native movement attribute did not increase travel: slow="
