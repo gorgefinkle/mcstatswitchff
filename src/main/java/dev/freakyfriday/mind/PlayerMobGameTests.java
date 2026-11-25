@@ -857,6 +857,10 @@ public final class PlayerMobGameTests {
                 &&villagerTargets.equals(List.copyOf(villager.targetSelector.getAvailableGoals()))
                 &&brainZombieTargets.equals(List.copyOf(brainZombie.targetSelector.getAvailableGoals())),
             "Rejected active-Brain exchange mutated a native goal or target selector");
+        // Do not let the fail-closed fixtures become unintended AI targets
+        // during the independent reciprocal behavior acceptance scenario.
+        villager.discard();
+        brainZombie.discard();
 
         // Build a real, roofed arena and two independent live Mob pairs.
         for(int x=0;x<=24;x++) for(int z=0;z<=10;z++) {
