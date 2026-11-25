@@ -909,7 +909,7 @@ public final class PlayerMobGameTests {
         // Zombie target-selection goals are disabled in Peaceful. The fixture
         // explicitly exercises the real hostile target AI under Normal
         // difficulty; this changes only the GameTest world's difficulty.
-        level.getLevelData().setDifficulty(net.minecraft.world.Difficulty.NORMAL);
+        level.getServer().setDifficulty(net.minecraft.world.Difficulty.NORMAL);
         // Active-Brain pairs must still fail closed without mutating either mob.
         Mob villager=EntityTypes.VILLAGER.create(level,EntitySpawnReason.COMMAND);
         Mob brainZombie=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
