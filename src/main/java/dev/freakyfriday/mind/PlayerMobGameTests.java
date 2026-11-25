@@ -1028,7 +1028,6 @@ public final class PlayerMobGameTests {
 
         double chickenStart=chicken.distanceToSqr(target);
         double zombieStart=zombie.distanceToSqr(target);
-        Mob zombieMind=GoalMindRuntime.proxyForGameTest(chicken.getUUID());
         Mob chickenMind=GoalMindRuntime.proxyForGameTest(zombie.getUUID());
         helper.assertTrue(zombieMind!=null&&chickenMind!=null,
             "Both opposite native mind proxies must remain available for combat");
