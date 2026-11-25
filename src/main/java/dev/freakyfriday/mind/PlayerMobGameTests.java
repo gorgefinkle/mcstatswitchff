@@ -1272,7 +1272,7 @@ public final class PlayerMobGameTests {
                     +" proxyHealthUntouched=true");
                 System.out.println("FF-GAMEPLAY native_goal_mind_exchange PASS"
                     +" reciprocalNativeGoals=true sameServer=true bothBodiesTick=true"
-                    +" seededTargetNativeGoalProjection=true independentPairs=true"
+                    +" nativeTargetAcquisition=true nativeGoalProjection=true independentPairs=true"
                     +" exactGoalRestore=true");
                 villager.discard();
                 brainZombie.discard();
