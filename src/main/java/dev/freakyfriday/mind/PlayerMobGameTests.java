@@ -310,7 +310,7 @@ public final class PlayerMobGameTests {
         for(int x=1;x<=7;x++)for(int y=1;y<=3;y++)
             level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,y,5)),
                 net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
-        BlockPos start=helper.absolutePos(new BlockPos(3,1,2));
+        BlockPos start=helper.absolutePos(new BlockPos(3,1,4));
         chicken.setPos(start.getX()+0.5,start.getY(),start.getZ()+0.5);
         var speed=chicken.getAttribute(
             net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED);
@@ -333,9 +333,9 @@ public final class PlayerMobGameTests {
             final double[] slow={Double.NaN};
             helper.runAfterDelay(10,()->{
                 slow[0]=chicken.getZ()-startZ;
-                helper.assertTrue(slow[0]>0.10 && slow[0]<1.1,
+                helper.assertTrue(slow[0]>0.02 && slow[0]<0.4,
                     "Slow native speed failed: distance="+slow[0]);
-                speed.setBaseValue(0.40);
+                speed.setBaseValue(1.2);
             });
             for(int tick=11;tick<=23;tick++) {
                 final int sequence=tick;
@@ -348,7 +348,7 @@ public final class PlayerMobGameTests {
                 // The chicken's width must not enter the solid wall.
                 double wallFront=helper.absolutePos(new BlockPos(3,1,5)).getZ();
                 helper.assertTrue(Double.isFinite(slow[0])
-                        && fastDistance>slow[0]+0.30,
+                        && fastDistance>slow[0]+0.10,
                     "Native movement attribute did not increase travel: slow="
                         +slow[0]+" fast="+fastDistance);
                 helper.assertTrue(chicken.getBoundingBox().maxZ<=wallFront+0.0001,

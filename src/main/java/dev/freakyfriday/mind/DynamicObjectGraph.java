@@ -182,7 +182,7 @@ public final class DynamicObjectGraph {
                                 + declaring.getName() + "." + field.getName()
                                 + " requires " + field.getType().getName()
                                 + " but got " + rebound.getClass().getName());
-                        field.set(result, rebound);
+                        writeField(result, field, rebound);
                         Object readBack = field.get(result);
                         if (field.getType().isPrimitive()) {
                             if (!Objects.equals(readBack, rebound))
@@ -229,17 +229,65 @@ public final class DynamicObjectGraph {
         return type;
     }
 
+    private static Object unsafe() throws ReflectiveOperationException {
+        Class<?> unsafeType=Class.forName("sun.misc.Unsafe");
+        Field singleton=unsafeType.getDeclaredField("theUnsafe");
+        if(!singleton.trySetAccessible())
+            throw new IllegalAccessException("Unsafe singleton is inaccessible");
+        return singleton.get(null);
+    }
+
+    /**
+     * Reflection cannot write captured lambda final fields on modern JDKs.
+     * The same bounded graph copier already requires Unsafe allocation, so use
+     * its typed field-offset writes for final instance state as well.
+     */
+    private static void writeField(Object target,Field field,Object value)
+            throws ReflectiveOperationException {
+        if(!Modifier.isFinal(field.getModifiers())) {
+            field.set(target,value);
+            return;
+        }
+        Class<?> unsafeType=Class.forName("sun.misc.Unsafe");
+        Object unsafe=unsafe();
+        long offset=(Long)unsafeType.getMethod("objectFieldOffset",Field.class)
+            .invoke(unsafe,field);
+        Class<?> fieldType=field.getType();
+        String operation;
+        Class<?> argumentType;
+        if(!fieldType.isPrimitive()) {
+            operation="putObject";
+            argumentType=Object.class;
+        } else if(fieldType==boolean.class) {
+            operation="putBoolean"; argumentType=boolean.class;
+        } else if(fieldType==byte.class) {
+            operation="putByte"; argumentType=byte.class;
+        } else if(fieldType==short.class) {
+            operation="putShort"; argumentType=short.class;
+        } else if(fieldType==char.class) {
+            operation="putChar"; argumentType=char.class;
+        } else if(fieldType==int.class) {
+            operation="putInt"; argumentType=int.class;
+        } else if(fieldType==long.class) {
+            operation="putLong"; argumentType=long.class;
+        } else if(fieldType==float.class) {
+            operation="putFloat"; argumentType=float.class;
+        } else if(fieldType==double.class) {
+            operation="putDouble"; argumentType=double.class;
+        } else {
+            throw new IllegalArgumentException("Unsupported final AI field type: "+fieldType);
+        }
+        unsafeType.getMethod(operation,Object.class,long.class,argumentType)
+            .invoke(unsafe,target,offset,value);
+    }
+
     private static Object allocate(Class<?> type) throws Uncapturable {
         try {
             Class<?> unsafeType = Class.forName("sun.misc.Unsafe");
-            Field singleton = unsafeType.getDeclaredField("theUnsafe");
-            if (!singleton.trySetAccessible())
-                throw new Uncapturable("Unsafe allocation is inaccessible on this runtime");
-            Object unsafe = singleton.get(null);
+            Object unsafe = unsafe();
             Method method = unsafeType.getMethod("allocateInstance", Class.class);
             return method.invoke(unsafe, type);
         } catch (ReflectiveOperationException | RuntimeException failure) {
             throw new Uncapturable("Cannot allocate whole AI instance of " + type.getName(), failure);
         }
-    }
-}
+    }}
