@@ -33,6 +33,39 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 public final class PlayerMobGameTests {
     private PlayerMobGameTests() {}
 
+    /**
+     * GameTest's mock player factory may leave the entity in creative ability
+     * state even after setGameMode(SURVIVAL). Make the real Player body
+     * damageable and give its native melee attack a full cooldown, so these
+     * tests exercise combat routing rather than mock-player setup artifacts.
+     */
+    private static void makeDamageableSurvivalPlayer(ServerPlayer player) {
+        player.gameMode.changeGameModeForPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        player.getAbilities().invulnerable=false;
+        player.getAbilities().instabuild=false;
+        player.getAbilities().mayBuild=true;
+        boolean primed=false;
+        for(Class<?> type=player.getClass();type!=null;type=type.getSuperclass()) {
+            for(java.lang.reflect.Field field:type.getDeclaredFields()) {
+                String name=field.getName().toLowerCase(java.util.Locale.ROOT);
+                if(field.getType()!=int.class||!name.contains("attackstrengthticker"))continue;
+                try {
+                    if(!field.trySetAccessible())continue;
+                    field.setInt(player,100);
+                    primed=true;
+                } catch(ReflectiveOperationException|RuntimeException ignored) {
+                    // Continue searching mapped superclass fields.
+                }
+            }
+        }
+        if(!primed)throw new IllegalStateException(
+            "Could not prime native Player melee cooldown for reciprocal combat GameTest");
+        if(player.isCreative()||player.isSpectator()||player.isInvulnerable()
+                ||player.getAttackStrengthScale(0.5f)<0.9f)
+            throw new IllegalStateException(
+                "Mock Player did not enter damageable Survival/full melee state");
+    }
+
     /** Clear the vanilla damage immunity timer across mapped server versions. */
     private static void clearHurtCooldown(LivingEntity body) {
         int cleared=0;
@@ -867,13 +900,9 @@ public final class PlayerMobGameTests {
         player.setPos(pos.getX()+0.5,pos.getY(),pos.getZ()+0.5);
         zombie.setPos(pos.getX()+1.5,pos.getY(),pos.getZ()+0.5);
         helper.assertTrue(level.addFreshEntity(zombie),"Zombie not registered");
-        player.gameMode.changeGameModeForPlayer(
-            net.minecraft.world.level.GameType.SURVIVAL);
-        // Survival gamemode clears creative abilities. The separate
-        // entity-level immunity is asserted below rather than mutated via
-        // an API that is unavailable in Minecraft 26.3.
-        helper.assertTrue(!player.getAbilities().invulnerable
-                && !player.isInvulnerable(),
+        makeDamageableSurvivalPlayer(player);
+        helper.assertTrue(!player.isCreative()&&!player.getAbilities().invulnerable
+                &&!player.isInvulnerable(),
             "Attack test requires a genuinely damageable Survival player");
         String issue=PlayerMobPossession.begin(player,zombie);
         helper.assertTrue(issue==null,"Zombie possession rejected: "+issue);
@@ -1091,7 +1120,7 @@ public final class PlayerMobGameTests {
                 net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
         }
         ServerPlayer target=helper.makeMockServerPlayerInLevel();
-        target.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+        makeDamageableSurvivalPlayer(target);
         // The mock Player is a real level entity and is a native Zombie
         // target as well as the Chicken TemptGoal's Wheat Seeds stimulus.
 
@@ -1244,10 +1273,14 @@ public final class PlayerMobGameTests {
                 float secondBAfterMindHit=secondZombieB.getHealth();
                 clearHurtCooldown(secondZombieA);
                 clearHurtCooldown(secondZombieB);
+                // Mind A is hosted by physical body B, so its opposite
+                // physical body A is the target. Mind B is hosted by A and
+                // targets physical body B. Never ask a mind to attack its own
+                // host body; that is self-targeting, not an opposing attack.
                 secondZombieMindA.goalSelector.addGoal(0,
-                    new OneShotNativeAttackGoal(secondZombieMindA,secondZombieB));
+                    new OneShotNativeAttackGoal(secondZombieMindA,secondZombieA));
                 secondZombieMindB.goalSelector.addGoal(0,
-                    new OneShotNativeAttackGoal(secondZombieMindB,secondZombieA));
+                    new OneShotNativeAttackGoal(secondZombieMindB,secondZombieB));
                 helper.runAfterDelay(4,()->{
                     helper.assertTrue(secondZombieA.getHealth()<secondAAfterMindHit
                             &&secondZombieB.getHealth()<secondBAfterMindHit,
@@ -1356,8 +1389,7 @@ public final class PlayerMobGameTests {
         helper.assertTrue(level.addFreshEntity(zombie),
             "Player-controlled Zombie body failed to register");
 
-        controller.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
-        controller.getAbilities().invulnerable=false;
+        makeDamageableSurvivalPlayer(controller);
         Mob opponent=EntityTypes.SKELETON.create(level,EntitySpawnReason.COMMAND);
         helper.assertTrue(opponent!=null,"Player/Mob damage test needs an opposing Skeleton");
         opponent.setNoAi(true);
