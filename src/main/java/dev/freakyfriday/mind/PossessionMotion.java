@@ -109,8 +109,7 @@ public final class PossessionMotion {
             mob.setSpeed(MOB_TRAVEL_BASE_SPEED);
             strafe*=nativeScale;
             forward*=nativeScale;
-            boolean debugMotion=Boolean.getBoolean("freakyfriday.debugMotion");
-            Vec3 beforeTravel=debugMotion?mob.position():Vec3.ZERO;
+            boolean originallyNoAi=mob.isNoAi();
             boolean originallyNoAi=mob.isNoAi();
             if(originallyNoAi) mob.setNoAi(false);
             try {
@@ -122,11 +121,6 @@ public final class PossessionMotion {
                 // input. Mob.travel selects the correct native behavior for
                 // land, water, lava, climbing, flying and modded bodies.
                 mob.travel(new Vec3(strafe,jump?1.0:0.0,forward));
-                if(debugMotion)
-                    System.out.println("[FF-MOTION] type="+mob.getType()
-                        +" attr="+nativeSpeed+" speed="+mob.getSpeed()
-                        +" input="+forward+","+strafe
-                        +" moved="+mob.position().subtract(beforeTravel));
             } finally {
                 if(originallyNoAi) mob.setNoAi(true);
             }
