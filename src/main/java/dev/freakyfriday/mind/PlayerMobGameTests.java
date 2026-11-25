@@ -1350,7 +1350,7 @@ public final class PlayerMobGameTests {
             helper.assertTrue(mindProxy.getTarget()==zombieTarget,
                 "Zombie mind's native target selector did not acquire the registered Iron Golem");
             helper.assertTrue(controller.getX()<playerStartX-0.15,
-                "Zombie mind did not move the original Player body toward the real Iron Golem target; 
+                "Zombie mind did not move the original Player body toward the real Iron Golem target; "
                     +"startX="+playerStartX+" finalX="+controller.getX());
             helper.assertTrue(zombie.getZ()>zombieStartZ+0.15,
                 "Player input did not independently move the occupied Zombie body; "
