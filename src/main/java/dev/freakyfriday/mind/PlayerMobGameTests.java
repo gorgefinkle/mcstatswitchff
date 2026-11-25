@@ -956,6 +956,14 @@ public final class PlayerMobGameTests {
         }
         ServerPlayer target=helper.makeMockServerPlayerInLevel();
         target.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+        Mob zombieTarget=EntityTypes.VILLAGER.create(level,EntitySpawnReason.COMMAND);
+        helper.assertTrue(zombieTarget!=null,"Zombie mind needs a real Villager target");
+        zombieTarget.setNoAi(true);
+        zombieTarget.setPos(helper.absolutePos(new BlockPos(6,1,8)).getX()+0.5,
+            helper.absolutePos(new BlockPos(6,1,8)).getY(),
+            helper.absolutePos(new BlockPos(6,1,8)).getZ()+0.5);
+        helper.assertTrue(level.addFreshEntity(zombieTarget),
+            "Zombie mind's Villager target failed to register");
         Mob opponent=EntityTypes.SKELETON.create(level,EntitySpawnReason.COMMAND);
         helper.assertTrue(opponent!=null,"Mob-pair damage test needs an opposing Skeleton");
         opponent.setNoAi(true);
@@ -1013,7 +1021,7 @@ public final class PlayerMobGameTests {
         // isolates the cross-species decision-to-recipient movement projection.
         Mob zombieMind=GoalMindRuntime.proxyForGameTest(chicken.getUUID());
         helper.assertTrue(zombieMind!=null,"Zombie mind proxy for Chicken body is missing");
-        zombieMind.setTarget(target);
+        zombieMind.setTarget(zombieTarget);
         helper.assertTrue(chicken.goalSelector.getAvailableGoals().isEmpty()
                 &&zombie.goalSelector.getAvailableGoals().isEmpty()
                 &&chicken.targetSelector.getAvailableGoals().isEmpty()
@@ -1031,7 +1039,7 @@ public final class PlayerMobGameTests {
         helper.assertTrue(secondError==null&&GoalMindRuntime.activeSessions(requester)==2,
             "One requester could not manage two independent live Mob exchanges: "+secondError);
 
-        double chickenStart=chicken.distanceToSqr(target);
+        double chickenStart=chicken.distanceToSqr(zombieTarget);
         double zombieStart=zombie.distanceToSqr(target);
         Mob secondZombieMindA=GoalMindRuntime.proxyForGameTest(secondZombieA.getUUID());
         Mob secondZombieMindB=GoalMindRuntime.proxyForGameTest(secondZombieB.getUUID());
@@ -1052,7 +1060,7 @@ public final class PlayerMobGameTests {
             helper.assertTrue(chicken.isAlive()&&zombie.isAlive()
                     &&secondZombieA.isAlive()&&secondZombieB.isAlive(),
                 "One of the original physical Mob bodies stopped ticking during the swap");
-            double chickenEnd=chicken.distanceToSqr(target);
+            double chickenEnd=chicken.distanceToSqr(zombieTarget);
             double zombieEnd=zombie.distanceToSqr(target);
             helper.assertTrue(chickenEnd<chickenStart&&zombieEnd<zombieStart,
                 "Both donor-native controllers must independently move their opposite real bodies toward the Player stimulus"
@@ -1114,6 +1122,7 @@ public final class PlayerMobGameTests {
             chicken.discard();
             zombie.discard();
             opponent.discard();
+            zombieTarget.discard();
             secondZombieA.discard();
             secondZombieB.discard();
             helper.succeed();
