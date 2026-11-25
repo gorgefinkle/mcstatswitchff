@@ -343,6 +343,12 @@ public final class GoalMindRuntime {
                 proxy.goalSelector.tickRunningGoals(false);
             }
             proxy.getNavigation().tick();
+            // These controls are normally ticked from Mob.serverAiStep,
+            // which is skipped for an unregistered proxy. Tick the native
+            // controls explicitly before the ordinary LivingEntity travel.
+            proxy.getMoveControl().tick();
+            proxy.getLookControl().tick();
+            proxy.getJumpControl().tick();
             proxy.tick();
             Vec3 moved=proxy.position().subtract(origin);
             Entity target=proxy.getTarget();
