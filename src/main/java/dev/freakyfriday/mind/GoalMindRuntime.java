@@ -13,6 +13,11 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.Mob;
@@ -206,7 +211,13 @@ public final class GoalMindRuntime {
                     || value.getClass() == BlockPos.class
                     || value.getClass() == Vec3.class
                     || value instanceof Identifier || value instanceof TagKey<?>
-                    || value instanceof Item;
+                    // Registry-owned immutable content objects can be shared
+                    // by native goals. Chicken's avoid-TurtleEgg goal captures
+                    // TurtleEggBlock directly; cloning a Block/Fluid instance
+                    // would corrupt registry identity and state definitions.
+                    || value instanceof Block || value instanceof BlockState
+                    || value instanceof Fluid || value instanceof FluidState
+                    || value instanceof EntityType<?> || value instanceof Item;
             }
 
             @Override
