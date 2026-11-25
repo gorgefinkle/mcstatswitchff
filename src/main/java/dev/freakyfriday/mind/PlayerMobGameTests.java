@@ -1343,8 +1343,8 @@ public final class PlayerMobGameTests {
                 &&chicken.targetSelector.getAvailableGoals().isEmpty()
                 &&zombie.targetSelector.getAvailableGoals().isEmpty(),
             "The original bodies' autonomous goals were not suspended during the proxy exchange");
-        helper.assertTrue(chicken.isNoAi()==chickenNoAi&&zombie.isNoAi()==zombieNoAi,
-            "Pausing autonomous goals changed a physical body's NoAI/body state");
+        helper.assertTrue(chicken.isNoAi()&&zombie.isNoAi(),
+            "Original autonomous Goal controllers were not paused for the live swap");
 
         // A requester is only a session manager: an occupied body is exclusive,
         // but a second unrelated pair is allowed under the same requester.
