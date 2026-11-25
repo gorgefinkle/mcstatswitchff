@@ -364,7 +364,13 @@ public final class GoalMindRuntime {
                     +" recipient="+physicalBody.getType()
                     +" moved="+moved+" target="+(target==null?"none":target.getType())
                     +" goals="+proxy.goalSelector.getAvailableGoals().size()
-                    +" targetGoals="+proxy.targetSelector.getAvailableGoals().size());
+                    +" targetGoals="+proxy.targetSelector.getAvailableGoals().size()
+                    +" runningGoals="+proxy.goalSelector.getAvailableGoals().stream()
+                        .filter(WrappedGoal::isRunning)
+                        .map(w->w.getGoal().getClass().getSimpleName()).toList()
+                    +" runningTargetGoals="+proxy.targetSelector.getAvailableGoals().stream()
+                        .filter(WrappedGoal::isRunning)
+                        .map(w->w.getGoal().getClass().getSimpleName()).toList());
             }
             proxy.setPos(origin.x,origin.y,origin.z);
             return new Step(moved,yaw,pitch,target,attack);
