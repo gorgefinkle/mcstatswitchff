@@ -141,6 +141,13 @@ public final class PlayerPlayerGameTests {
                 boolean pvpAllowed=serverPvpAllowed(level);
                 helper.assertTrue(pvpAllowed,
                     "The test server still reports PvP disabled after enabling it");
+                // Movement acceptance deliberately sends the two
+                // physical players apart. Re-stage them within native melee
+                // reach for the separate reciprocal-combat assertion.
+                double combatMidX=(fred.getX()+sally.getX())*0.5;
+                double combatMidZ=(fred.getZ()+sally.getZ())*0.5;
+                fred.setPos(combatMidX-0.75,fred.getY(),combatMidZ);
+                sally.setPos(combatMidX+0.75,sally.getY(),combatMidZ);
                 float fredBeforeMindAttack=fred.getHealth();
                 float sallyBeforeMindAttack=sally.getHealth();
                 float fredAttackYaw=yawToward(sally,fred);
