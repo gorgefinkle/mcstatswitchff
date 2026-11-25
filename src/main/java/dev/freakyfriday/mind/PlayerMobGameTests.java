@@ -846,6 +846,11 @@ public final class PlayerMobGameTests {
         player.getAbilities().invulnerable=false;
         BlockPos playerPos=helper.absolutePos(new BlockPos(4,1,4));
         player.setPos(playerPos.getX()+0.5,playerPos.getY(),playerPos.getZ()+0.5);
+        // Face the nearby occupied Mob body so the Player-hosted Mob mind's
+        // projected native player attack uses the real player's valid view.
+        player.setYRot(-90.0f);
+        player.yRotO=-90.0f;
+        player.setYHeadRot(-90.0f);
         Mob body=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
         helper.assertTrue(body!=null,"Reciprocal combat requires a real Zombie body");
         body.setPersistenceRequired();
