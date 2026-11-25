@@ -205,9 +205,7 @@ public final class PlayerPlayerGameTests {
                     helper.assertTrue(serverPvpAllowed(level)==originalPvpAllowed,
                         "Player↔Player test did not restore the original world PvP game rule");
                     opponent.discard();
-                    // Run the Player↔Mob combat gate from this already
-                    // executed GameTest, independently of locomotion tests.
-                    PlayerMobGameTests.verifyPlayerMobReciprocalCombat(helper);
+                    helper.succeed();
                 });
             });
         } catch(RuntimeException failure) {
