@@ -1133,8 +1133,15 @@ public final class PlayerMobGameTests {
                 "One of the original physical Mob bodies stopped ticking during the swap");
             double chickenEnd=chicken.distanceToSqr(target);
             double zombieEnd=zombie.distanceToSqr(target);
+            String targetGoalState=zombieMind.targetSelector.getAvailableGoals().stream()
+                .map(w->w.getGoal().getClass().getSimpleName()
+                    +"[running="+w.isRunning()+",canUse="+w.getGoal().canUse()+"]")
+                .toList().toString();
+            System.out.println("[FF-TARGET-STATE] MobMob target="+zombieMind.getTarget()
+                +" goals="+targetGoalState);
             helper.assertTrue(zombieMind.getTarget()==target,
-                "Zombie mind's native target selector did not acquire the real Player stimulus");
+                "Zombie mind's native target selector did not acquire the real Player stimulus; "
+                    +"target="+zombieMind.getTarget()+" goals="+targetGoalState);
             helper.assertTrue(chickenEnd<chickenStart&&zombieEnd<zombieStart,
                 "Both donor-native controllers must independently move their opposite real bodies toward the Player stimulus"
                     +" chicken="+chickenStart+"->"+chickenEnd
@@ -1280,7 +1287,10 @@ public final class PlayerMobGameTests {
         }
         ServerPlayer controller=helper.makeMockServerPlayerInLevel();
         BlockPos controllerPos=helper.absolutePos(new BlockPos(10,1,5));
-        BlockPos targetPos=helper.absolutePos(new BlockPos(4,1,5));
+        // Keep the target on the same side of the GameTest barrier as the
+        // unregistered proxy. The test boundary itself is solid and must not
+        // be mistaken for an AI LOS failure.
+        BlockPos targetPos=helper.absolutePos(new BlockPos(13,1,5));
         controller.setPos(controllerPos.getX()+0.5,controllerPos.getY(),controllerPos.getZ()+0.5);
         Mob zombieTarget=EntityTypes.IRON_GOLEM.create(level,EntitySpawnReason.COMMAND);
         helper.assertTrue(zombieTarget!=null,"Zombie mind needs a real Iron Golem target");
@@ -1334,7 +1344,7 @@ public final class PlayerMobGameTests {
         helper.runAfterDelay(35,()->{
             helper.assertTrue(mindProxy.getTarget()==zombieTarget,
                 "Zombie mind's native target selector did not acquire the registered Iron Golem");
-            helper.assertTrue(controller.getX()<playerStartX-0.15,
+            helper.assertTrue(controller.getX()>playerStartX+0.15,
                 "Zombie mind did not move the original Player body toward the real Iron Golem target; "
                     +"startX="+playerStartX+" finalX="+controller.getX());
             helper.assertTrue(zombie.getZ()>zombieStartZ+0.15,
