@@ -34,24 +34,29 @@ public final class PlayerPlayerGameTests {
         BODY_DEATH_EJECTS_BOTH=FUNCTIONS.register(
             "player_death_ejects_both",()->PlayerPlayerGameTests::verifyDeathEjectsBoth);
 
-    /** Choose a yaw only after the production melee validator confirms it. */
+    /** Find a physical facing that passes the exact server-side melee validator. */
     private static float yawToward(ServerPlayer actor,ServerPlayer target) {
-        double dx=target.getBoundingBox().getCenter().x-actor.getEyePosition().x;
-        double dz=target.getBoundingBox().getCenter().z-actor.getEyePosition().z;
-        float a=(float)Math.toDegrees(Math.atan2(dx,dz));
-        float b=(float)Math.toDegrees(Math.atan2(-dx,dz));
-        float[] candidates={a,b,a+180.0f,b+180.0f};
         var level=(net.minecraft.server.level.ServerLevel)actor.level();
-        for(float yaw:candidates) {
+        float bestYaw=0.0f;
+        double bestDot=-Double.MAX_VALUE;
+        for(int degree=-180;degree<=180;degree++) {
+            float yaw=degree;
             actor.setXRot(0.0f);
             actor.xRotO=0.0f;
             actor.setYRot(yaw);
             actor.yRotO=yaw;
             actor.setYHeadRot(yaw);
+            double dx=target.getBoundingBox().getCenter().x-actor.getEyePosition().x;
+            double dy=target.getBoundingBox().getCenter().y-actor.getEyePosition().y;
+            double dz=target.getBoundingBox().getCenter().z-actor.getEyePosition().z;
+            double dot=actor.getViewVector(1.0f).dot(
+                new net.minecraft.world.phys.Vec3(dx,dy,dz).normalize());
+            if(dot>bestDot) { bestDot=dot; bestYaw=yaw; }
             if(PossessionCombat.findValidMeleeTarget(level,actor,target.getId(),target)==target)
                 return yaw;
         }
-        throw new IllegalStateException("Could not orient the physical player body toward its melee target");
+        throw new IllegalStateException("No valid facing for reciprocal attack; bestDot="
+            +bestDot+" bestYaw="+bestYaw);
     }
 
     private static void verify(GameTestHelper helper) {
