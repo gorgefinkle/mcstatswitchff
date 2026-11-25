@@ -15,10 +15,9 @@ import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 public final class NativeMindWorkerSupervisor {
     private NativeMindWorkerSupervisor() {}
 
-    /** Player↔Mob is rejected until the incoming Mob mind can pilot the real
-     * ServerPlayer body without freezing it or borrowing the account inventory. */
+    /** Start a same-server reciprocal Player↔Mob controller exchange. */
     public static synchronized String startPlayerMob(ServerPlayer player,Mob mob) {
-        return "Player/Mob reciprocal AI is not ready yet. No body was changed.";
+        return PlayerMobPossession.beginReciprocal(player,mob);
     }
 
     /** Live, in-process, reciprocal native controller exchange. */
