@@ -24,6 +24,7 @@ import net.minecraft.network.chat.Component;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.minecraft.world.item.Item;
@@ -448,6 +449,14 @@ public final class GoalMindRuntime {
             if(failure instanceof DynamicObjectGraph.Uncapturable unsupported) throw unsupported;
             throw new DynamicObjectGraph.Uncapturable(
                 "Could not initialize the complete detached native Mob mind",failure);
+        }
+    }
+
+    @SubscribeEvent
+    public static synchronized void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        UUID playerId=event.getEntity().getUUID();
+        for(DetachedController controller:List.copyOf(DETACHED_BY_PROXY.values())) {
+            if(controller.excluded.contains(playerId)) controller.close();
         }
     }
 
