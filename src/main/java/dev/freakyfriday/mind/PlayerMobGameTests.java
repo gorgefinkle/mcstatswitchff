@@ -32,6 +32,25 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 public final class PlayerMobGameTests {
     private PlayerMobGameTests() {}
 
+    /** Clear the vanilla damage immunity timer across mapped server versions. */
+    private static void clearHurtCooldown(LivingEntity body) {
+        for(Class<?> type=body.getClass();type!=null;type=type.getSuperclass()) {
+            for(java.lang.reflect.Field field:type.getDeclaredFields()) {
+                String name=field.getName().toLowerCase(java.util.Locale.ROOT);
+                if(field.getType()!=int.class||!name.contains("invulnerable"))continue;
+                try {
+                    if(!field.trySetAccessible())continue;
+                    field.setInt(body,0);
+                    return;
+                } catch(ReflectiveOperationException|RuntimeException ignored) {
+                    // Continue searching mapped superclass fields.
+                }
+            }
+        }
+        throw new IllegalStateException("Could not clear vanilla invulnerability cooldown for "
+            +body.getType());
+    }
+
     private static final class OneShotNativeAttackGoal extends Goal {
         private final Mob attacker;
         private final LivingEntity target;
@@ -1080,10 +1099,10 @@ public final class PlayerMobGameTests {
             // Clear only the test entities' vanilla hurt cooldown so the
             // independent third-party hits are not rejected by the immediately
             // preceding reciprocal mind attacks.
-            chicken.setInvulnerableTime(0);
-            zombie.setInvulnerableTime(0);
-            secondZombieA.setInvulnerableTime(0);
-            secondZombieB.setInvulnerableTime(0);
+            clearHurtCooldown(chicken);
+            clearHurtCooldown(zombie);
+            clearHurtCooldown(secondZombieA);
+            clearHurtCooldown(secondZombieB);
             var opponentDamage=level.damageSources().mobAttack(opponent);
             boolean chickenHit=chicken.hurtServer(level,opponentDamage,2.0f);
             boolean zombieHit=zombie.hurtServer(level,opponentDamage,2.0f);
