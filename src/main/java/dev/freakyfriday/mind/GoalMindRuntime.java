@@ -422,9 +422,14 @@ public final class GoalMindRuntime {
             throw new DynamicObjectGraph.Uncapturable(
                 "The donor EntityType did not create a Mob controller proxy");
         proxy.setNoAi(false);
-        // A Player recipient owns gravity itself. Mob recipients need the
-        // donor type's native gravity mode so its same-type proxy computes
-        // meaningful native locomotion decisions.
+        // The decision proxy shares the recipient's coordinates, so it must
+        // not collide with the real body it is piloting. Its native goals,
+        // sensing and navigation still query the same level; only its own
+        // collision/physical movement is disabled. Recipient-native travel
+        // below remains responsible for all real block/entity collision.
+        proxy.noPhysics=true;
+        // A Player recipient owns gravity itself. Mob recipients retain the
+        // donor type's native gravity mode for sensing/navigation decisions.
         proxy.setNoGravity(donor.isNoGravity() || physicalBody instanceof ServerPlayer);
         proxy.setSilent(true);
         proxy.setPersistenceRequired();
