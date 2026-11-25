@@ -766,6 +766,7 @@ public final class PlayerMobGameTests {
             System.out.println("FF-GAMEPLAY mob_origin_attack_original_body PASS");
             System.out.println("FF-GAMEPLAY invalid_entity_attack_guard PASS");
             zombie.discard();
+            opponent.discard();
             helper.succeed();
         });
     }
@@ -876,12 +877,20 @@ public final class PlayerMobGameTests {
         }
         ServerPlayer target=helper.makeMockServerPlayerInLevel();
         target.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+        Mob opponent=EntityTypes.SKELETON.create(level,EntitySpawnReason.COMMAND);
+        helper.assertTrue(opponent!=null,"Mob-pair damage test needs an opposing Skeleton");
+        opponent.setNoAi(true);
+        opponent.setPos(helper.absolutePos(new BlockPos(23,1,4)).getX()+0.5,
+            helper.absolutePos(new BlockPos(23,1,4)).getY(),
+            helper.absolutePos(new BlockPos(23,1,4)).getZ()+0.5);
+        helper.assertTrue(level.addFreshEntity(opponent),
+            "Opposing Skeleton failed to register for physical-body damage test");
         target.getAbilities().invulnerable=false;
-        // Put the seed-holding Player inside Chicken TemptGoal's native
-        // acquisition radius from the Zombie physical body's position.
-        target.setPos(helper.absolutePos(new BlockPos(8,1,4)).getX()+0.5,
-            helper.absolutePos(new BlockPos(8,1,4)).getY(),
-            helper.absolutePos(new BlockPos(8,1,4)).getZ()+0.5);
+        // Put the seed-holding Player between the two physical bodies so
+        // both same-type native proxies can acquire the same stimulus.
+        target.setPos(helper.absolutePos(new BlockPos(6,1,4)).getX()+0.5,
+            helper.absolutePos(new BlockPos(6,1,4)).getY(),
+            helper.absolutePos(new BlockPos(6,1,4)).getZ()+0.5);
         target.setItemInHand(InteractionHand.MAIN_HAND,new ItemStack(Items.WHEAT_SEEDS));
 
         Mob chicken=EntityTypes.CHICKEN.create(level,EntitySpawnReason.COMMAND);
@@ -892,8 +901,8 @@ public final class PlayerMobGameTests {
             "Live cross-species exchange fixtures could not be created");
         // Keep both physical bodies well outside the chicken's close-range
         // TemptGoal stop radius so each incoming controller has room to move.
-        BlockPos chickenPos=helper.absolutePos(new BlockPos(1,1,4));
-        BlockPos zombiePos=helper.absolutePos(new BlockPos(11,1,4));
+        BlockPos chickenPos=helper.absolutePos(new BlockPos(4,1,4));
+        BlockPos zombiePos=helper.absolutePos(new BlockPos(8,1,4));
         BlockPos secondChickenPos=helper.absolutePos(new BlockPos(15,1,4));
         BlockPos secondZombiePos=helper.absolutePos(new BlockPos(19,1,4));
         chicken.setPos(chickenPos.getX()+0.5,chickenPos.getY(),chickenPos.getZ()+0.5);
@@ -953,12 +962,12 @@ public final class PlayerMobGameTests {
             // The opposing player must still be able to hit BOTH original
             // physical bodies during the swap. Damage belongs to each body,
             // never to its proxy mind or the other participant's health.
-            var opponentDamage=level.damageSources().playerAttack(target);
+            var opponentDamage=level.damageSources().mobAttack(opponent);
             helper.assertTrue(chicken.hurtServer(level,opponentDamage,2.0f)
                     &&zombie.hurtServer(level,opponentDamage,2.0f)
                     &&chicken.getHealth()<chickenHealthBeforeOpponentAttack
                     &&zombie.getHealth()<zombieHealthBeforeOpponentAttack,
-                "The opponent could not independently damage both swapped physical Mob bodies");
+                "The opposing Skeleton could not independently damage both swapped physical Mob bodies");
             helper.assertTrue(GoalMindRuntime.activeSessions(requester)==2,
                 "Incoming damage incorrectly ended one of the live Mob mind/body swaps");
             helper.assertTrue(GoalMindRuntime.cancelByAccount(requester)
@@ -985,6 +994,7 @@ public final class PlayerMobGameTests {
             brainZombie.discard();
             chicken.discard();
             zombie.discard();
+            opponent.discard();
             secondChicken.discard();
             secondZombie.discard();
             helper.succeed();
@@ -1019,6 +1029,14 @@ public final class PlayerMobGameTests {
         controller.getAbilities().invulnerable=false;
         otherPlayer.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
         otherPlayer.getAbilities().invulnerable=false;
+        Mob opponent=EntityTypes.SKELETON.create(level,EntitySpawnReason.COMMAND);
+        helper.assertTrue(opponent!=null,"Player/Mob damage test needs an opposing Skeleton");
+        opponent.setNoAi(true);
+        opponent.setPos(helper.absolutePos(new BlockPos(18,1,5)).getX()+0.5,
+            helper.absolutePos(new BlockPos(18,1,5)).getY(),
+            helper.absolutePos(new BlockPos(18,1,5)).getZ()+0.5);
+        helper.assertTrue(level.addFreshEntity(opponent),
+            "Opposing Skeleton failed to register in Player/Mob test");
         double playerStartX=controller.getX();
         double zombieStartZ=zombie.getZ();
         float playerHealthBeforeOpponentAttack=controller.getHealth();
@@ -1046,12 +1064,12 @@ public final class PlayerMobGameTests {
             // While the mind/body split is live, the opposing Player can
             // damage the original Player body and the occupied Mob body
             // separately. Neither health pool is copied or redirected.
-            var opponentDamage=level.damageSources().playerAttack(otherPlayer);
+            var opponentDamage=level.damageSources().mobAttack(opponent);
             helper.assertTrue(controller.hurtServer(level,opponentDamage,2.0f)
                     &&zombie.hurtServer(level,opponentDamage,2.0f)
                     &&controller.getHealth()<playerHealthBeforeOpponentAttack
                     &&zombie.getHealth()<zombieHealthBeforeOpponentAttack,
-                "The opponent could not damage both real bodies in reciprocal Player↔Mob control");
+                "The opposing Skeleton could not damage both real bodies in reciprocal Player↔Mob control");
             helper.assertTrue(PlayerMobPossession.hasSession(controller.getUUID()),
                 "Nonfatal damage unexpectedly ended reciprocal Player↔Mob control");
             helper.assertTrue(PlayerMobPossession.end(controller),
