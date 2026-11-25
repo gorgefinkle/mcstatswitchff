@@ -865,7 +865,6 @@ public final class PlayerMobGameTests {
         }
         ServerPlayer target=helper.makeMockServerPlayerInLevel();
         target.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
-        target.setInvulnerable(false);
         target.setPos(helper.absolutePos(new BlockPos(6,1,4)).getX()+0.5,
             helper.absolutePos(new BlockPos(6,1,4)).getY(),
             helper.absolutePos(new BlockPos(6,1,4)).getZ()+0.5);
