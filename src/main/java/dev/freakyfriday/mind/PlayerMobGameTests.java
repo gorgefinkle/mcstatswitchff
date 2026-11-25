@@ -35,6 +35,7 @@ public final class PlayerMobGameTests {
 
     /** Clear the vanilla damage immunity timer across mapped server versions. */
     private static void clearHurtCooldown(LivingEntity body) {
+        int cleared=0;
         for(Class<?> type=body.getClass();type!=null;type=type.getSuperclass()) {
             for(java.lang.reflect.Field field:type.getDeclaredFields()) {
                 String name=field.getName().toLowerCase(java.util.Locale.ROOT);
@@ -42,14 +43,14 @@ public final class PlayerMobGameTests {
                 try {
                     if(!field.trySetAccessible())continue;
                     field.setInt(body,0);
-                    return;
+                    cleared++;
                 } catch(ReflectiveOperationException|RuntimeException ignored) {
                     // Continue searching mapped superclass fields.
                 }
             }
         }
-        throw new IllegalStateException("Could not clear vanilla invulnerability cooldown for "
-            +body.getType());
+        if(cleared==0)throw new IllegalStateException(
+            "Could not clear vanilla invulnerability cooldown for "+body.getType());
     }
 
     private static final class OneShotNativeAttackGoal extends Goal {
@@ -112,7 +113,30 @@ public final class PlayerMobGameTests {
             var method=proxy.getClass().getMethod("isEffectiveAi");
             effectiveAi=String.valueOf(method.invoke(proxy));
         } catch(ReflectiveOperationException ignored) {}
+        String actualGoalConditions="none";
+        for(WrappedGoal wrapped:proxy.targetSelector.getAvailableGoals()) {
+            Goal goal=wrapped.getGoal();
+            if(!goal.getClass().getSimpleName().contains("NearestAttackableTargetGoal"))continue;
+            for(Class<?> type=goal.getClass();type!=null;type=type.getSuperclass()) {
+                for(java.lang.reflect.Field field:type.getDeclaredFields()) {
+                    if(!field.getType().getName().equals(
+                            "net.minecraft.world.entity.ai.targeting.TargetingConditions"))continue;
+                    try {
+                        if(!field.trySetAccessible())continue;
+                        Object conditionsObject=field.get(goal);
+                        var method=conditionsObject.getClass().getMethod(
+                            "test",net.minecraft.server.level.ServerLevel.class,
+                            LivingEntity.class,LivingEntity.class);
+                        actualGoalConditions=String.valueOf(method.invoke(
+                            conditionsObject,level,proxy,target));
+                    } catch(ReflectiveOperationException|RuntimeException failure) {
+                        actualGoalConditions=failure.getClass().getSimpleName();
+                    }
+                }
+            }
+        }
         return "target="+target.getType()+" follow="+follow
+            +" actualGoalConditions="+actualGoalConditions
             +" targeterCanAttack="+proxy.canAttack(target)
             +" targetVisible="+target.canBeSeenByAnyone()
             +" los="+proxy.getSensing().hasLineOfSight(target)
