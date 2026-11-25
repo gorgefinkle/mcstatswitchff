@@ -959,7 +959,7 @@ public final class PlayerMobGameTests {
                 "Both donor-native controllers must independently move their opposite real bodies toward the Player stimulus"
                     +" chicken="+chickenStart+"->"+chickenEnd
                     +" zombie="+zombieStart+"->"+zombieEnd);
-            // The opposing player must still be able to hit BOTH original
+            // The opposing Skeleton must still be able to hit BOTH original
             // physical bodies during the swap. Damage belongs to each body,
             // never to its proxy mind or the other participant's health.
             var opponentDamage=level.damageSources().mobAttack(opponent);
