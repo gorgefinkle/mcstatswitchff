@@ -484,12 +484,30 @@ public final class GoalMindRuntime {
             // which is skipped for an unregistered proxy. Tick the native
             // controls explicitly before the ordinary LivingEntity travel.
             proxy.getMoveControl().tick();
+            // The detached Mob is intentionally not world-registered, so
+            // some native Entity.tick paths do not apply its MoveControl
+            // displacement even though its own AI has issued a valid
+            // navigation command. Capture the exact native wanted position
+            // before travel; if the proxy cannot physically advance, project
+            // that directional intent onto the real recipient body instead.
+            Vec3 nativeMoveIntent=Vec3.ZERO;
+            if(proxy.getMoveControl().hasWanted()) {
+                nativeMoveIntent=new Vec3(
+                    proxy.getMoveControl().getWantedX()-proxy.getX(),
+                    proxy.getMoveControl().getWantedY()-proxy.getY(),
+                    proxy.getMoveControl().getWantedZ()-proxy.getZ());
+            }
             proxy.getLookControl().tick();
             proxy.getJumpControl().tick();
             proxy.tick();
             syncProxyInventoryToBody(proxy,physicalBody);
             Vec3 moved=proxy.position().subtract(proxyOrigin);
+            if(moved.horizontalDistanceSqr()<1.0e-6
+                    &&nativeMoveIntent.horizontalDistanceSqr()>1.0e-6)
+                moved=nativeMoveIntent;
             Entity target=proxy.getTarget();
+            if(moved.horizontalDistanceSqr()<1.0e-6&&target!=null)
+                moved=target.position().subtract(proxyOrigin);
             if(target!=null&&excluded.contains(target.getUUID())) {
                 proxy.setTarget(null);
                 target=null;
@@ -500,7 +518,9 @@ public final class GoalMindRuntime {
             if(Boolean.getBoolean("freakyfriday.debugProxy")) {
                 System.out.println("[FF-PROXY] mind="+proxy.getType()
                     +" recipient="+physicalBody.getType()
-                    +" moved="+moved+" target="+(target==null?"none":target.getType())
+                    +" moved="+moved+" nativeMoveIntent="+nativeMoveIntent
+                    +" hasWanted="+proxy.getMoveControl().hasWanted()
+                    +" target="+(target==null?"none":target.getType())
                     +" goals="+proxy.goalSelector.getAvailableGoals().size()
                     +" targetGoals="+proxy.targetSelector.getAvailableGoals().size()
                     +" allGoals="+proxy.goalSelector.getAvailableGoals().stream()
