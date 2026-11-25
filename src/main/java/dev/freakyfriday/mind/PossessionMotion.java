@@ -88,6 +88,9 @@ public final class PossessionMotion {
             // from the physical body's own movement attribute here.
             double nativeSpeed=mob.getAttributeValue(Attributes.MOVEMENT_SPEED);
             mob.setSpeed((float)Math.max(0.0,Math.min(1.5,nativeSpeed)));
+            if(Boolean.getBoolean("freakyfriday.debugMotion"))
+                System.out.println("[FF-MOTION] type="+mob.getType()+" attr="+nativeSpeed
+                    +" speed="+mob.getSpeed()+" forward="+forward+" strafe="+strafe);
             boolean originallyNoAi=mob.isNoAi();
             if(originallyNoAi) mob.setNoAi(false);
             try {
