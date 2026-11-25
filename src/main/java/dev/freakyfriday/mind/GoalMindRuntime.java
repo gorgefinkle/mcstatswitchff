@@ -493,28 +493,33 @@ public final class GoalMindRuntime {
             proxy.setYHeadRot(physicalBody.getYHeadRot());
             proxy.setOnGround(physicalBody.onGround());
             syncBodyInventoryToProxy(physicalBody,proxy);
-            // Mob.isEffectiveAi() is independent of entity-manager
-            // registration on current profiles. If true, proxy.tick() already
-            // runs the complete native serverAiStep (sensing, both selectors,
-            // navigation and controls). Manually ticking those stages as well
-            // double-runs native goals and can start/stop target goals in one
-            // server tick. Only older profiles where effective AI is false
-            // need the explicit native-stage fallback.
+            // An unregistered Entity is not processed by ServerLevel's
+            // entity manager, and Mob.tick() alone does not reliably schedule
+            // its native selectors on every supported profile. Run the same
+            // native decision stages explicitly, exactly once, then suppress
+            // Mob's automatic AI pass during the physical entity tick below.
+            // This keeps target acquisition, GoalSelector, Brain/schedule,
+            // navigation and controls native without double-running them.
             pendingAttack=null;
-            boolean manualAiStages=!proxy.isEffectiveAi();
-            if(manualAiStages) {
-                proxy.getSensing().tick();
-                proxy.targetSelector.tick();
-                proxy.getSensing().tick();
-                proxy.goalSelector.tick();
-                proxy.getNavigation().tick();
-                if(!proxy.getBrain().isBrainDead())
-                    invokeNativeBrainStep(proxy);
-                proxy.getMoveControl().tick();
-                proxy.getLookControl().tick();
-                proxy.getJumpControl().tick();
+            proxy.getSensing().tick();
+            proxy.targetSelector.tick();
+            proxy.getSensing().tick();
+            proxy.goalSelector.tick();
+            proxy.getNavigation().tick();
+            invokeNativeCustomServerAiStep(proxy);
+            proxy.getMoveControl().tick();
+            proxy.getLookControl().tick();
+            proxy.getJumpControl().tick();
+            boolean proxyNoAi=proxy.isNoAi();
+            proxy.setNoAi(true);
+            try {
+                // NoAI suppresses the automatic server AI pass only. Entity
+                // movement, native collision and living-entity physics still
+                // run, using the controls just produced by the native stages.
+                proxy.tick();
+            } finally {
+                proxy.setNoAi(proxyNoAi);
             }
-            proxy.tick();
             // Some versions do not apply MoveControl displacement for an
             // unregistered proxy. Preserve its native wanted direction as a
             // fallback; the real recipient still resolves movement with its
@@ -574,9 +579,8 @@ public final class GoalMindRuntime {
             return new Step(moved,yaw,pitch,target,attack);
         }
 
-        /** Run the subclass's real Brain/schedule hook on profiles where an
-         * unregistered decision proxy is not considered effective AI. */
-        private static void invokeNativeBrainStep(Mob proxy) {
+        /** Run the real subclass AI hook once after its native selectors. */
+        private static void invokeNativeCustomServerAiStep(Mob proxy) {
             try {
                 Method step=null;
                 for(Class<?> type=proxy.getClass();type!=null;type=type.getSuperclass()) {
@@ -590,7 +594,7 @@ public final class GoalMindRuntime {
                 step.invoke(proxy,(ServerLevel)proxy.level());
             } catch(ReflectiveOperationException|RuntimeException failure) {
                 throw new IllegalStateException(
-                    "Could not tick the native Brain/schedule for "+proxy.getType(),failure);
+                    "Could not tick native subclass AI for "+proxy.getType(),failure);
             }
         }
 
