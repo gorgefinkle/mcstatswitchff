@@ -973,10 +973,9 @@ public final class PlayerMobGameTests {
         helper.assertTrue(level.addFreshEntity(opponent),
             "Opposing Skeleton failed to register for physical-body damage test");
         target.getAbilities().invulnerable=false;
-        // Both native minds use the same real Player stimulus: Chicken's
-        // TemptGoal sees the held Wheat Seeds while Zombie's target selector
-        // can acquire and pursue the Player. This keeps the two tests grounded
-        // in one stable target instead of a separate Villager.
+        // Chicken's TemptGoal uses the Player holding Wheat Seeds; the
+        // Zombie mind is given a registered Villager target below because the
+        // GameTest mock Player is not in the server's normal player target list.
         BlockPos seedPos=helper.absolutePos(new BlockPos(6,1,4));
         target.setPos(seedPos.getX()+0.5,seedPos.getY(),seedPos.getZ()+0.5);
         target.setItemInHand(InteractionHand.MAIN_HAND,new ItemStack(Items.WHEAT_SEEDS));
@@ -1175,6 +1174,10 @@ public final class PlayerMobGameTests {
         String issue=PlayerMobPossession.beginReciprocal(controller,zombie);
         helper.assertTrue(issue==null,
             "Reciprocal Player↔Zombie native mind proxy was rejected: "+issue);
+        Mob mindProxy=PlayerMobPossession.mindProxyForGameTest(controller.getUUID());
+        helper.assertTrue(mindProxy!=null,
+            "Reciprocal Zombie mind proxy was not created for the original Player body");
+        mindProxy.setTarget(zombieTarget);
         helper.assertTrue(PlayerMobPossession.hasSession(controller.getUUID())
                 &&zombie.isNoAi()==true&&controller.isAlive(),
             "Reciprocal session did not assign separate controllers to both real bodies");
@@ -1210,8 +1213,8 @@ public final class PlayerMobGameTests {
             // In the other direction, the Zombie mind proxy performs a native
             // melee attack against the occupied Mob body. Proxy damage itself
             // is cancelled; the actual original Player body must execute it.
-            Mob mindProxy=PlayerMobPossession.mindProxyForGameTest(controller.getUUID());
-            helper.assertTrue(mindProxy!=null,"Reciprocal Zombie mind proxy disappeared");
+            helper.assertTrue(!mindProxy.isRemoved(),
+                "Reciprocal Zombie mind proxy disappeared during the live session");
             // The proxy copies its host Player body's view every tick.
             // Face that real body toward the Mob before the next native AI pass.
             controller.setYRot(-90.0f);
