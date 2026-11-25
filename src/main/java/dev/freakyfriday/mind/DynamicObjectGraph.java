@@ -195,7 +195,7 @@ public final class DynamicObjectGraph {
             if(copies.containsKey(source)) return copies.get(source);
             List<Field> captures=Arrays.stream(type.getDeclaredFields())
                 .filter(field->!Modifier.isStatic(field.getModifiers()))
-                .sorted(Comparator.comparingInt(DynamicObjectGraph::captureOrdinal))
+                .sorted(Comparator.comparingInt(Copier::captureOrdinal))
                 .toList();
             if(captures.isEmpty()) {
                 Object shared=policy.afterCopy(source,source);
