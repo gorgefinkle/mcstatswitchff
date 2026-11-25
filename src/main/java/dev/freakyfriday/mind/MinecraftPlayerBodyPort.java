@@ -76,7 +76,7 @@ public final class MinecraftPlayerBodyPort implements BodyActionGate.BodyPort {
             return BodyActionGate.Result.blocked("Movement request outside player-body bounds");
         }
         double distance = Math.sqrt(distanceSquared);
-        if (distance < 0.05) return BodyActionGate.Result.executed();
+        if (distance < 1.0e-4) return BodyActionGate.Result.executed();
 
         double nativeSpeed = body.getAttributeValue(Attributes.MOVEMENT_SPEED);
         if (!Double.isFinite(nativeSpeed) || nativeSpeed <= 0.0) {
