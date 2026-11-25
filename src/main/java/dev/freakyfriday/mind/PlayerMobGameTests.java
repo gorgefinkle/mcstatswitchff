@@ -935,6 +935,8 @@ public final class PlayerMobGameTests {
 
         double chickenStart=chicken.distanceToSqr(target);
         double zombieStart=zombie.distanceToSqr(target);
+        float chickenHealthBeforeOpponentAttack=chicken.getHealth();
+        float zombieHealthBeforeOpponentAttack=zombie.getHealth();
         helper.runAfterDelay(40,()->{
             System.clearProperty("freakyfriday.debugProxy");
             helper.assertTrue(chicken.isAlive()&&zombie.isAlive()
@@ -946,6 +948,17 @@ public final class PlayerMobGameTests {
                 "Both donor-native controllers must independently move their opposite real bodies toward the Player stimulus"
                     +" chicken="+chickenStart+"->"+chickenEnd
                     +" zombie="+zombieStart+"->"+zombieEnd);
+            // The opposing player must still be able to hit BOTH original
+            // physical bodies during the swap. Damage belongs to each body,
+            // never to its proxy mind or the other participant's health.
+            var opponentDamage=level.damageSources().playerAttack(target);
+            helper.assertTrue(chicken.hurtServer(level,opponentDamage,2.0f)
+                    &&zombie.hurtServer(level,opponentDamage,2.0f)
+                    &&chicken.getHealth()<chickenHealthBeforeOpponentAttack
+                    &&zombie.getHealth()<zombieHealthBeforeOpponentAttack,
+                "The opponent could not independently damage both swapped physical Mob bodies");
+            helper.assertTrue(GoalMindRuntime.activeSessions(requester)==2,
+                "Incoming damage incorrectly ended one of the live Mob mind/body swaps");
             helper.assertTrue(GoalMindRuntime.cancelByAccount(requester)
                     &&GoalMindRuntime.activeSessions(requester)==0,
                 "Cancel did not restore every independently managed Mob pair");
@@ -1000,8 +1013,14 @@ public final class PlayerMobGameTests {
         helper.assertTrue(level.addFreshEntity(zombie),
             "Player-controlled Zombie body failed to register");
 
+        controller.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+        controller.getAbilities().invulnerable=false;
+        otherPlayer.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+        otherPlayer.getAbilities().invulnerable=false;
         double playerStartX=controller.getX();
         double zombieStartZ=zombie.getZ();
+        float playerHealthBeforeOpponentAttack=controller.getHealth();
+        float zombieHealthBeforeOpponentAttack=zombie.getHealth();
         boolean originalNoAi=zombie.isNoAi();
         String issue=PlayerMobPossession.beginReciprocal(controller,zombie);
         helper.assertTrue(issue==null,
@@ -1022,6 +1041,17 @@ public final class PlayerMobGameTests {
             helper.assertTrue(zombie.getZ()>zombieStartZ+0.15,
                 "Player input did not independently move the occupied Zombie body; "
                     +"startZ="+zombieStartZ+" finalZ="+zombie.getZ());
+            // While the mind/body split is live, the opposing Player can
+            // damage the original Player body and the occupied Mob body
+            // separately. Neither health pool is copied or redirected.
+            var opponentDamage=level.damageSources().playerAttack(otherPlayer);
+            helper.assertTrue(controller.hurtServer(level,opponentDamage,2.0f)
+                    &&zombie.hurtServer(level,opponentDamage,2.0f)
+                    &&controller.getHealth()<playerHealthBeforeOpponentAttack
+                    &&zombie.getHealth()<zombieHealthBeforeOpponentAttack,
+                "The opponent could not damage both real bodies in reciprocal Player↔Mob control");
+            helper.assertTrue(PlayerMobPossession.hasSession(controller.getUUID()),
+                "Nonfatal damage unexpectedly ended reciprocal Player↔Mob control");
             helper.assertTrue(PlayerMobPossession.end(controller),
                 "Player/Mob reciprocal controller did not return on cancel");
             helper.assertTrue(zombie.isNoAi()==originalNoAi,
