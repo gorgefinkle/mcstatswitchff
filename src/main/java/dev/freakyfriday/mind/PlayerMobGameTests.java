@@ -895,8 +895,9 @@ public final class PlayerMobGameTests {
         Mob villagerTarget=EntityTypes.VILLAGER.create(level,EntitySpawnReason.COMMAND);
         helper.assertTrue(villagerTarget!=null,"Zombie AI stimulus needs a real Villager target");
         villagerTarget.setNoAi(true);
-        BlockPos villagerPos=helper.absolutePos(new BlockPos(6,1,6));
-        villagerTarget.setPos(villagerPos.getX()+0.5,villagerPos.getY(),villagerPos.getZ()+0.5);
+        BlockPos villagerTargetPos=helper.absolutePos(new BlockPos(6,1,6));
+        villagerTarget.setPos(villagerTargetPos.getX()+0.5,
+            villagerTargetPos.getY(),villagerTargetPos.getZ()+0.5);
         helper.assertTrue(level.addFreshEntity(villagerTarget),
             "Zombie AI Villager target failed to register");
 
