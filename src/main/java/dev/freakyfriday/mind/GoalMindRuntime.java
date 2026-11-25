@@ -26,6 +26,7 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.goal.Goal;
+import net.minecraft.world.entity.ai.sensing.Sensing;
 import net.minecraft.world.entity.ai.goal.GoalSelector;
 import net.minecraft.world.entity.ai.goal.WrappedGoal;
 import net.minecraft.server.level.ServerLevel;
@@ -39,7 +40,9 @@ import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.HitResult;
 
 /**
  * Native Goal-graph runtime for reciprocal Mob and Player body possession.
@@ -301,6 +304,50 @@ public final class GoalMindRuntime {
             :session.firstMindController.proxyForGameTest();
     }
 
+    /**
+     * Detached proxies are intentionally not inserted into the world's entity
+     * manager. Native Sensing still performs its own block ray trace, but some
+     * version profiles cache a miss for an unregistered owner. Use the exact
+     * vanilla block-collision ray test directly so target goals and attack
+     * goals keep their normal LOS semantics without registering a second body.
+     */
+    private static final class DetachedSensing extends Sensing {
+        private final Mob owner;
+        DetachedSensing(Mob owner) { super(owner); this.owner=owner; }
+
+        @Override public boolean hasLineOfSight(Entity target) {
+            if(target==null||target.isRemoved()||target.level()!=owner.level())return false;
+            Vec3 from=owner.getEyePosition();
+            Vec3 to=target.getEyePosition();
+            if(from.distanceToSqr(to)>128.0*128.0)return false;
+            return owner.level().clip(new ClipContext(from,to,
+                ClipContext.Block.COLLIDER,ClipContext.Fluid.NONE,owner))
+                .getType()==HitResult.Type.MISS;
+        }
+    }
+
+    private static void installDetachedSensing(Mob proxy)
+            throws DynamicObjectGraph.Uncapturable {
+        for(Class<?> type=proxy.getClass();type!=null;type=type.getSuperclass()) {
+            for(Field field:type.getDeclaredFields()) {
+                if(!Sensing.class.isAssignableFrom(field.getType()))continue;
+                try {
+                    if(!field.trySetAccessible())
+                        throw new IllegalAccessException("Mob sensing field is inaccessible");
+                    field.set(proxy,new DetachedSensing(proxy));
+                    if(!(proxy.getSensing() instanceof DetachedSensing))
+                        throw new IllegalStateException("Detached Sensing replacement did not take effect");
+                    return;
+                } catch(ReflectiveOperationException|RuntimeException failure) {
+                    throw new DynamicObjectGraph.Uncapturable(
+                        "Could not install world-backed Sensing on detached native AI proxy",failure);
+                }
+            }
+        }
+        throw new DynamicObjectGraph.Uncapturable(
+            "Mob EntityType exposes no replaceable native Sensing field");
+    }
+
     /** Prevent a detached controller proxy from sensing its own physical bodies as targets. */
     private record ExcludingEntityPredicate(Predicate<Object> delegate,Set<UUID> excluded)
             implements Predicate<Object> {
@@ -532,6 +579,7 @@ public final class GoalMindRuntime {
             physicalBody.getY(),physicalBody.getZ()+bodyOffset.z);
         proxy.setYRot(physicalBody.getYRot());
         proxy.setXRot(physicalBody.getXRot());
+        installDetachedSensing(proxy);
         // The recipient body is the physical body currently hosting this
         // mind, so it must not attack itself. The donor's original physical
         // body is NOT excluded: it now hosts the opposite mind and remains a
