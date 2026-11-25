@@ -110,7 +110,6 @@ public final class PossessionMotion {
             strafe*=nativeScale;
             forward*=nativeScale;
             boolean originallyNoAi=mob.isNoAi();
-            boolean originallyNoAi=mob.isNoAi();
             if(originallyNoAi) mob.setNoAi(false);
             try {
                 if(jump) {
