@@ -1172,7 +1172,10 @@ public final class PlayerMobGameTests {
 
         double chickenStart=chicken.distanceToSqr(target);
         double zombieStart=zombie.distanceToSqr(target);
-        helper.runAfterDelay(40,()->{
+        // Native nearest-target goals have an internal random acquisition
+        // interval. Allow enough real server ticks for the unmodified vanilla
+        // selector to make its ordinary acquisition attempt.
+        helper.runAfterDelay(120,()->{
             helper.assertTrue(chicken.isAlive()&&zombie.isAlive()
                     &&secondZombieA.isAlive()&&secondZombieB.isAlive(),
                 "One of the original physical Mob bodies stopped ticking during the swap");
@@ -1180,7 +1183,7 @@ public final class PlayerMobGameTests {
             double zombieEnd=zombie.distanceToSqr(target);
             String targetGoalState=zombieMind.targetSelector.getAvailableGoals().stream()
                 .map(w->w.getGoal().getClass().getSimpleName()
-                    +"[running="+w.isRunning()+",canUse="+w.getGoal().canUse()+"]")
+                    +"[running="+w.isRunning()+"]")
                 .toList().toString();
             System.out.println("[FF-TARGET-STATE] MobMob target="+zombieMind.getTarget()
                 +" goals="+targetGoalState);
