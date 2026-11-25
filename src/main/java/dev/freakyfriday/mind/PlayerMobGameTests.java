@@ -877,9 +877,11 @@ public final class PlayerMobGameTests {
         ServerPlayer target=helper.makeMockServerPlayerInLevel();
         target.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
         target.getAbilities().invulnerable=false;
-        target.setPos(helper.absolutePos(new BlockPos(6,1,4)).getX()+0.5,
-            helper.absolutePos(new BlockPos(6,1,4)).getY(),
-            helper.absolutePos(new BlockPos(6,1,4)).getZ()+0.5);
+        // Put the seed-holding Player inside Chicken TemptGoal's native
+        // acquisition radius from the Zombie physical body's position.
+        target.setPos(helper.absolutePos(new BlockPos(8,1,4)).getX()+0.5,
+            helper.absolutePos(new BlockPos(8,1,4)).getY(),
+            helper.absolutePos(new BlockPos(8,1,4)).getZ()+0.5);
         target.setItemInHand(InteractionHand.MAIN_HAND,new ItemStack(Items.WHEAT_SEEDS));
 
         Mob chicken=EntityTypes.CHICKEN.create(level,EntitySpawnReason.COMMAND);
