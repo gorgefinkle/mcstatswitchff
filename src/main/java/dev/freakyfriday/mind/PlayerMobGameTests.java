@@ -970,27 +970,27 @@ public final class PlayerMobGameTests {
 
         Mob chicken=EntityTypes.CHICKEN.create(level,EntitySpawnReason.COMMAND);
         Mob zombie=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
-        Mob secondZombieBA=EntityTypes.CHICKEN.create(level,EntitySpawnReason.COMMAND);
+        Mob secondZombieA=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
         Mob secondZombieB=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
-        helper.assertTrue(chicken!=null&&zombie!=null&&secondZombieBA!=null&&secondZombieB!=null,
+        helper.assertTrue(chicken!=null&&zombie!=null&&secondZombieA!=null&&secondZombieB!=null,
             "Live cross-species exchange fixtures could not be created");
         // Keep both physical bodies about three blocks from the Player
         // stimulus: inside native acquisition range, but outside the
         // Chicken TemptGoal's close-range stop radius.
         BlockPos chickenPos=helper.absolutePos(new BlockPos(3,1,4));
         BlockPos zombiePos=helper.absolutePos(new BlockPos(9,1,4));
-        BlockPos secondZombieBAPos=helper.absolutePos(new BlockPos(15,1,4));
+        BlockPos secondZombieAPos=helper.absolutePos(new BlockPos(15,1,4));
         BlockPos secondZombieBPos=helper.absolutePos(new BlockPos(19,1,4));
         chicken.setPos(chickenPos.getX()+0.5,chickenPos.getY(),chickenPos.getZ()+0.5);
         zombie.setPos(zombiePos.getX()+0.5,zombiePos.getY(),zombiePos.getZ()+0.5);
-        secondZombieBA.setPos(secondZombieBAPos.getX()+0.5,secondZombieBAPos.getY(),secondZombieBAPos.getZ()+0.5);
+        secondZombieA.setPos(secondZombieAPos.getX()+0.5,secondZombieAPos.getY(),secondZombieAPos.getZ()+0.5);
         secondZombieB.setPos(secondZombieBPos.getX()+0.5,secondZombieBPos.getY(),secondZombieBPos.getZ()+0.5);
         helper.assertTrue(level.addFreshEntity(chicken)&&level.addFreshEntity(zombie)
-                &&level.addFreshEntity(secondZombieBA)&&level.addFreshEntity(secondZombieB),
+                &&level.addFreshEntity(secondZombieA)&&level.addFreshEntity(secondZombieB),
             "Live cross-species bodies failed to register");
         chicken.setPersistenceRequired();
         zombie.setPersistenceRequired();
-        secondZombieBA.setPersistenceRequired();
+        secondZombieA.setPersistenceRequired();
         secondZombieB.setPersistenceRequired();
 
         List<GoalSnapshot> chickenGoals=snapshotGoals(chicken,false);
@@ -1022,7 +1022,7 @@ public final class PlayerMobGameTests {
         String occupiedError=GoalMindRuntime.begin(requester,chicken,secondZombieB);
         helper.assertTrue(occupiedError!=null,
             "An already-occupied physical body was allowed into a second exchange");
-        String secondError=GoalMindRuntime.begin(requester,secondZombieBA,secondZombieB);
+        String secondError=GoalMindRuntime.begin(requester,secondZombieA,secondZombieB);
         helper.assertTrue(secondError==null&&GoalMindRuntime.activeSessions(requester)==2,
             "One requester could not manage two independent live Mob exchanges: "+secondError);
 
@@ -1045,7 +1045,7 @@ public final class PlayerMobGameTests {
         helper.runAfterDelay(40,()->{
             System.clearProperty("freakyfriday.debugProxy");
             helper.assertTrue(chicken.isAlive()&&zombie.isAlive()
-                    &&secondZombieBA.isAlive()&&secondZombieB.isAlive(),
+                    &&secondZombieA.isAlive()&&secondZombieB.isAlive(),
                 "One of the original physical Mob bodies stopped ticking during the swap");
             double chickenEnd=chicken.distanceToSqr(target);
             double zombieEnd=zombie.distanceToSqr(target);
@@ -1090,7 +1090,7 @@ public final class PlayerMobGameTests {
                 "Cancel did not preserve the exact original Chicken/Zombie goals and AI flags");
             helper.assertTrue(!GoalMindRuntime.bodyReserved(chicken.getUUID())
                     &&!GoalMindRuntime.bodyReserved(zombie.getUUID())
-                    &&!GoalMindRuntime.bodyReserved(secondZombieBA.getUUID())
+                    &&!GoalMindRuntime.bodyReserved(secondZombieA.getUUID())
                     &&!GoalMindRuntime.bodyReserved(secondZombieB.getUUID()),
                 "Cancelled Mob bodies remained reserved");
 
@@ -1106,7 +1106,7 @@ public final class PlayerMobGameTests {
             chicken.discard();
             zombie.discard();
             opponent.discard();
-            secondZombieBA.discard();
+            secondZombieA.discard();
             secondZombieB.discard();
             helper.succeed();
         });
