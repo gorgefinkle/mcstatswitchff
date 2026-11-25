@@ -107,12 +107,18 @@ public final class PlayerMobGameTests {
             net.minecraft.world.level.ClipContext.Fluid.NONE,proxy));
         String rayBlock=ray.getType()==net.minecraft.world.phys.HitResult.Type.MISS
             ?"MISS":level.getBlockState(ray.getBlockPos()).toString();
+        String effectiveAi="unknown";
+        try {
+            var method=proxy.getClass().getMethod("isEffectiveAi");
+            effectiveAi=String.valueOf(method.invoke(proxy));
+        } catch(ReflectiveOperationException ignored) {}
         return "target="+target.getType()+" follow="+follow
             +" targeterCanAttack="+proxy.canAttack(target)
             +" targetVisible="+target.canBeSeenByAnyone()
             +" los="+proxy.getSensing().hasLineOfSight(target)
             +" conditions="+conditions
             +" ray="+ray.getType()+" rayBlock="+rayBlock
+            +" effectiveAI="+effectiveAi+" noAI="+proxy.isNoAi()
             +" from="+from+" to="+to
             +" playerList="+playerList+" entityQuery="+entityQuery;
     }
@@ -125,11 +131,13 @@ public final class PlayerMobGameTests {
             Object owner=null,targetType=null;
             for(Class<?> type=goal.getClass();type!=null;type=type.getSuperclass()) {
                 for(java.lang.reflect.Field field:type.getDeclaredFields()) {
-                    if(!field.getName().equals("mob")&&!field.getName().equals("targetType"))continue;
+                    if(!field.getName().equals("mob")&&!field.getName().equals("targetType")
+                            &&!LivingEntity.class.isAssignableFrom(field.getType()))continue;
                     try {
                         if(!field.trySetAccessible())continue;
                         if(field.getName().equals("mob"))owner=field.get(goal);
-                        else targetType=field.get(goal);
+                        else if(field.getName().equals("targetType"))targetType=field.get(goal);
+                        else if(field.get(goal)!=null)targetType=field.getName()+"="+field.get(goal);
                     } catch(ReflectiveOperationException|RuntimeException ignored) {}
                 }
             }
