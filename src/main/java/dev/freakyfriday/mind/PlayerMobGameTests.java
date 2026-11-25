@@ -328,13 +328,13 @@ public final class PlayerMobGameTests {
         Mob slowChicken=EntityTypes.CHICKEN.create(level,EntitySpawnReason.COMMAND);
         helper.assertTrue(fastChicken!=null&&slowChicken!=null,
             "Chicken factory failed in native-speed regression");
-        for(int x=1;x<=7;x++)for(int z=1;z<=12;z++)
+        for(int x=1;x<=7;x++)for(int z=1;z<=22;z++)
             level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,0,z)),
                 net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
-        // Both physical bodies run at the same time in separate lanes. The
-        // high-speed body has room to accelerate before meeting a real wall.
+        // Both physical bodies run at the same time in separate lanes. Give
+        // the high-speed profile room to accelerate before the solid wall.
         for(int x=1;x<=7;x++)for(int y=1;y<=3;y++)
-            level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,y,9)),
+            level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,y,20)),
                 net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
         BlockPos fastStartPos=helper.absolutePos(new BlockPos(3,1,4));
         BlockPos slowStartPos=helper.absolutePos(new BlockPos(5,1,4));
@@ -373,7 +373,7 @@ public final class PlayerMobGameTests {
             helper.runAfterDelay(25,()->{
                 double fastDistance=fastChicken.getZ()-fastStartZ;
                 double slowDistance=slowChicken.getZ()-slowStartZ;
-                double wallFront=helper.absolutePos(new BlockPos(3,1,9)).getZ();
+                double wallFront=helper.absolutePos(new BlockPos(3,1,20)).getZ();
                 helper.assertTrue(slowDistance>0.02,
                     "Slow native body did not move using its own movement attribute: "+slowDistance);
                 helper.assertTrue(fastDistance>slowDistance+0.10,
@@ -817,6 +817,7 @@ public final class PlayerMobGameTests {
 
     /** A non-universal experimental path must never mutate either real mob. */
     private static void verifyPartialSwapRejected(GameTestHelper helper) {
+        System.setProperty("freakyfriday.debugProxy","true");
         var level=helper.getLevel();
         System.setProperty("freakyfriday.debugProxy","true");
 
@@ -916,9 +917,12 @@ public final class PlayerMobGameTests {
             helper.assertTrue(chicken.isAlive()&&zombie.isAlive()
                     &&secondChicken.isAlive()&&secondZombie.isAlive(),
                 "One of the original physical Mob bodies stopped ticking during the swap");
-            helper.assertTrue(chicken.distanceToSqr(target)<chickenStart
-                    &&zombie.distanceToSqr(target)<zombieStart,
-                "Both donor-native controllers must independently move their opposite real bodies toward the Player stimulus");
+            double chickenEnd=chicken.distanceToSqr(target);
+            double zombieEnd=zombie.distanceToSqr(target);
+            helper.assertTrue(chickenEnd<chickenStart&&zombieEnd<zombieStart,
+                "Both donor-native controllers must independently move their opposite real bodies toward the Player stimulus"
+                    +" chicken="+chickenStart+"->"+chickenEnd
+                    +" zombie="+zombieStart+"->"+zombieEnd);
             helper.assertTrue(GoalMindRuntime.cancelByAccount(requester)
                     &&GoalMindRuntime.activeSessions(requester)==0,
                 "Cancel did not restore every independently managed Mob pair");
