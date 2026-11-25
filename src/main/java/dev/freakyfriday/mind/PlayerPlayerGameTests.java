@@ -136,11 +136,11 @@ public final class PlayerPlayerGameTests {
                 // production attack handler.
                 float fredBeforeMindAttack=fred.getHealth();
                 float sallyBeforeMindAttack=sally.getHealth();
-                boolean fredHit=fred.hurtServer(level,
+                boolean fredMindHit=fred.hurtServer(level,
                     level.damageSources().playerAttack(sally),2.0f);
-                boolean sallyHit=sally.hurtServer(level,
+                boolean sallyMindHit=sally.hurtServer(level,
                     level.damageSources().playerAttack(fred),2.0f);
-                helper.assertTrue(fredHit&&sallyHit
+                helper.assertTrue(fredMindHit&&sallyMindHit
                         &&fred.getHealth()<fredBeforeMindAttack
                         &&sally.getHealth()<sallyBeforeMindAttack,
                     "Both opposite player minds/bodies must be able to damage the other original physical body"
