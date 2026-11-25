@@ -102,7 +102,6 @@ public final class PlayerMobGameTests {
             target.getClass(),proxy.getBoundingBox().inflate(follow),entity->true).contains(target);
         return "target="+target.getType()+" follow="+follow
             +" targeterCanAttack="+proxy.canAttack(target)
-            +" targeterCanAttackType="+proxy.canAttackType(target.getType())
             +" targetVisible="+target.canBeSeenByAnyone()
             +" los="+proxy.getSensing().hasLineOfSight(target)
             +" conditions="+conditions
