@@ -1100,10 +1100,20 @@ public final class PlayerMobGameTests {
      * original Zombie body must run the Villager Brain and flee from the
      * Zombie mind now hosted by the original Villager body.
      */
+    /**
+     * Cross-species identity acceptance:
+     * - Zombie mind on the original Villager body attacks an independent
+     *   physical Villager, but does NOT classify the swapped partner (whose
+     *   physical body is still a Zombie) as a Villager.
+     * - Villager mind on the original Zombie body flees an independent
+     *   physical Zombie, but does NOT classify the swapped partner (whose
+     *   physical body is still a Villager) as a Zombie.
+     * This proves target identity follows the BODY species, not the donor mind.
+     */
     private static void verifyVillagerZombieBrainSwap(GameTestHelper helper) {
         ServerLevel level=helper.getLevel();
         level.getServer().setDifficulty(net.minecraft.world.Difficulty.NORMAL,true);
-        for(int x=0;x<=16;x++)for(int z=0;z<=8;z++) {
+        for(int x=0;x<=18;x++)for(int z=0;z<=8;z++) {
             level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,0,z)),
                 net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
             level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,7,z)),
@@ -1113,34 +1123,54 @@ public final class PlayerMobGameTests {
                     net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
         }
 
-        Mob villager=EntityTypes.VILLAGER.create(level,EntitySpawnReason.COMMAND);
-        Mob zombie=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
-        helper.assertTrue(villager!=null&&zombie!=null,
-            "Villager/Zombie behavior test requires both real entity types");
-        BlockPos villagerPos=helper.absolutePos(new BlockPos(3,1,4));
-        BlockPos zombiePos=helper.absolutePos(new BlockPos(9,1,4));
-        villager.setPos(villagerPos.getX()+0.5,villagerPos.getY(),villagerPos.getZ()+0.5);
-        zombie.setPos(zombiePos.getX()+0.5,zombiePos.getY(),zombiePos.getZ()+0.5);
-        villager.setPersistenceRequired();
-        zombie.setPersistenceRequired();
-        helper.assertTrue(!villager.getBrain().isBrainDead()
-                &&zombie.getBrain().isBrainDead(),
+        Mob physicalVillager=EntityTypes.VILLAGER.create(level,EntitySpawnReason.COMMAND);
+        Mob physicalZombie=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
+        Mob stimulusVillager=EntityTypes.VILLAGER.create(level,EntitySpawnReason.COMMAND);
+        Mob stimulusZombie=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
+        helper.assertTrue(physicalVillager!=null&&physicalZombie!=null
+                &&stimulusVillager!=null&&stimulusZombie!=null,
+            "Villager/Zombie swap requires two swapped bodies and two independent AI stimuli");
+
+        BlockPos villagerBodyPos=helper.absolutePos(new BlockPos(5,1,4));
+        BlockPos zombieBodyPos=helper.absolutePos(new BlockPos(12,1,4));
+        BlockPos villagerStimulusPos=helper.absolutePos(new BlockPos(2,1,4));
+        BlockPos zombieStimulusPos=helper.absolutePos(new BlockPos(16,1,4));
+        physicalVillager.setPos(villagerBodyPos.getX()+0.5,villagerBodyPos.getY(),
+            villagerBodyPos.getZ()+0.5);
+        physicalZombie.setPos(zombieBodyPos.getX()+0.5,zombieBodyPos.getY(),
+            zombieBodyPos.getZ()+0.5);
+        stimulusVillager.setPos(villagerStimulusPos.getX()+0.5,villagerStimulusPos.getY(),
+            villagerStimulusPos.getZ()+0.5);
+        stimulusZombie.setPos(zombieStimulusPos.getX()+0.5,zombieStimulusPos.getY(),
+            zombieStimulusPos.getZ()+0.5);
+        // Fixed stimuli: only the swapped native minds decide and move.
+        stimulusVillager.setNoAi(true);
+        stimulusZombie.setNoAi(true);
+        physicalVillager.setPersistenceRequired();
+        physicalZombie.setPersistenceRequired();
+        stimulusVillager.setPersistenceRequired();
+        stimulusZombie.setPersistenceRequired();
+        helper.assertTrue(!physicalVillager.getBrain().isBrainDead()
+                &&physicalZombie.getBrain().isBrainDead(),
             "Fixture must exercise a native Villager Brain against a Goal-driven Zombie");
-        helper.assertTrue(level.addFreshEntity(villager)&&level.addFreshEntity(zombie),
-            "Villager/Zombie physical bodies failed to register");
+        helper.assertTrue(level.addFreshEntity(physicalVillager)
+                &&level.addFreshEntity(physicalZombie)
+                &&level.addFreshEntity(stimulusVillager)
+                &&level.addFreshEntity(stimulusZombie),
+            "Villager/Zombie behavior actors failed to register");
 
         UUID requester=UUID.randomUUID();
-        UUID villagerId=villager.getUUID(),zombieId=zombie.getUUID();
-        var villagerBrain=villager.getBrain();
-        var zombieBrain=zombie.getBrain();
-        List<GoalSnapshot> villagerGoals=snapshotGoals(villager,false);
-        List<GoalSnapshot> villagerTargets=snapshotGoals(villager,true);
-        List<GoalSnapshot> zombieGoals=snapshotGoals(zombie,false);
-        List<GoalSnapshot> zombieTargets=snapshotGoals(zombie,true);
-        boolean villagerNoAi=villager.isNoAi(),zombieNoAi=zombie.isNoAi();
-        Vec3 villagerStart=villager.position(),zombieStart=zombie.position();
+        UUID villagerId=physicalVillager.getUUID(),zombieId=physicalZombie.getUUID();
+        var villagerBrain=physicalVillager.getBrain();
+        var zombieBrain=physicalZombie.getBrain();
+        List<GoalSnapshot> villagerGoals=snapshotGoals(physicalVillager,false);
+        List<GoalSnapshot> villagerTargets=snapshotGoals(physicalVillager,true);
+        List<GoalSnapshot> zombieGoals=snapshotGoals(physicalZombie,false);
+        List<GoalSnapshot> zombieTargets=snapshotGoals(physicalZombie,true);
+        boolean villagerNoAi=physicalVillager.isNoAi(),zombieNoAi=physicalZombie.isNoAi();
+        Vec3 villagerStart=physicalVillager.position(),zombieStart=physicalZombie.position();
 
-        String issue=GoalMindRuntime.begin(requester,villager,zombie);
+        String issue=GoalMindRuntime.begin(requester,physicalVillager,physicalZombie);
         helper.assertTrue(issue==null,
             "Native Villager Brain↔Zombie Goal swap was rejected: "+issue);
         Mob zombieMindProxy=GoalMindRuntime.proxyForPhysicalBody(villagerId);
@@ -1151,93 +1181,123 @@ public final class PlayerMobGameTests {
                 &&zombieMindProxy.getType().equals(EntityTypes.ZOMBIE)
                 &&villagerMindProxy.getType().equals(EntityTypes.VILLAGER),
             "Both incoming minds must run on same-type native proxies");
+        // The hidden target identities deliberately use the PHYSICAL host
+        // types: Villager for the Zombie mind's opposite body, Zombie for the
+        // Villager mind's opposite body. Mind type must not rewrite anatomy.
         helper.assertTrue(zombieMindAlias!=null&&villagerMindAlias!=null
-                &&zombieMindAlias.getType().equals(EntityTypes.ZOMBIE)
-                &&villagerMindAlias.getType().equals(EntityTypes.VILLAGER)
+                &&zombieMindAlias.getType().equals(physicalVillager.getType())
+                &&villagerMindAlias.getType().equals(physicalZombie.getType())
                 &&zombieMindAlias.isInvisible()&&villagerMindAlias.isInvisible(),
-            "Each swapped mind must expose an invisible, native-type target identity");
-        helper.assertTrue(villager.isNoAi()&&zombie.isNoAi(),
+            "Mind target identities were not typed from their original physical bodies");
+        helper.assertTrue(physicalVillager.isNoAi()&&physicalZombie.isNoAi(),
             "Original autonomous Brain/Goal controllers were not paused during the exchange");
 
-        helper.runAfterDelay(85,()->{
+        double villagerBodyStartX=physicalVillager.getX();
+        double zombieBodyStartX=physicalZombie.getX();
+        helper.runAfterDelay(95,()->{
             try {
                 Entity zombieMindTarget=zombieMindProxy.getTarget();
-                double villagerTowardZombie=(villager.position().x-villagerStart.x);
-                double zombieAwayFromVillager=(zombie.position().x-zombieStart.x);
-                helper.assertTrue(zombieMindTarget==villagerMindAlias,
-                    "Zombie mind on the Villager body did not acquire the opposite Villager-mind identity; "
-                        +"target="+(zombieMindTarget==null?"null":zombieMindTarget.getType()));
-                helper.assertTrue(villagerTowardZombie>0.20,
-                    "The original Villager body did not chase the Villager mind now hosted by the Zombie body; "
-                        +"start="+villagerStart+" final="+villager.position());
-                helper.assertTrue(zombieAwayFromVillager>0.20,
-                    "The original Zombie body did not execute the native Villager Brain flee behavior; "
-                        +"start="+zombieStart+" final="+zombie.position());
+                double villagerBodyDeltaX=physicalVillager.getX()-villagerBodyStartX;
+                double zombieBodyDeltaX=physicalZombie.getX()-zombieBodyStartX;
+                helper.assertTrue(zombieMindTarget==stimulusVillager,
+                    "Zombie mind on the Villager body did not acquire the independent physical Villager stimulus; "
+                        +"target="+(zombieMindTarget==null?"null":zombieMindTarget.getType())
+                        +" expected="+stimulusVillager.getType());
+                helper.assertTrue(zombieMindTarget!=villagerMindAlias
+                        &&zombieMindTarget!=physicalZombie,
+                    "Zombie mind incorrectly treated its swapped Zombie partner as a Villager target");
+                helper.assertTrue(villagerBodyDeltaX<-0.20,
+                    "Zombie mind did not make the original Villager body approach the real Villager target; "
+                        +"start="+villagerBodyStartX+" final="+physicalVillager.getX());
+                helper.assertTrue(zombieBodyDeltaX<-0.20,
+                    "Villager mind did not make the original Zombie body flee from the independent Zombie threat; "
+                        +"start="+zombieBodyStartX+" final="+physicalZombie.getX());
 
-                // Attack the physical bodies and the opposite mind aliases
-                // independently. Alias damage must resolve through the host
-                // body's real health pipeline, not remain on the hidden proxy.
-                float villagerBodyHealth=villager.getHealth();
-                float zombieBodyHealth=zombie.getHealth();
-                var villagerAttack=level.damageSources().mobAttack(villager);
-                var zombieAttack=level.damageSources().mobAttack(zombie);
-                clearHurtCooldown(zombie);
-                boolean zombieBodyHit=zombie.hurtServer(level,villagerAttack,2.0f);
-                clearHurtCooldown(villager);
-                boolean villagerBodyHit=villager.hurtServer(level,zombieAttack,2.0f);
+                // The swapped pair itself is not a valid threat/target by its
+                // physical species: Zombie mind sees a Zombie, and Villager
+                // mind sees a Villager. The two separate stimuli above prove
+                // that both native AI controllers still recognize real bodies.
+                helper.assertTrue(physicalVillager.getType().equals(EntityTypes.VILLAGER)
+                        &&physicalZombie.getType().equals(EntityTypes.ZOMBIE)
+                        &&villagerMindAlias.getType().equals(EntityTypes.ZOMBIE)
+                        &&zombieMindAlias.getType().equals(EntityTypes.VILLAGER),
+                    "Mind ownership changed either body's native target identity");
+
+                float villagerBodyHealth=physicalVillager.getHealth();
+                float zombieBodyHealth=physicalZombie.getHealth();
+                var villagerAttack=level.damageSources().mobAttack(physicalVillager);
+                var zombieAttack=level.damageSources().mobAttack(physicalZombie);
+                clearHurtCooldown(physicalZombie);
+                boolean zombieBodyHit=physicalZombie.hurtServer(level,villagerAttack,2.0f);
+                clearHurtCooldown(physicalVillager);
+                boolean villagerBodyHit=physicalVillager.hurtServer(level,zombieAttack,2.0f);
                 helper.assertTrue(zombieBodyHit&&villagerBodyHit
-                        &&zombie.getHealth()<zombieBodyHealth
-                        &&villager.getHealth()<villagerBodyHealth,
-                    "The opposite physical bodies could not damage both original body health pools");
+                        &&physicalZombie.getHealth()<zombieBodyHealth
+                        &&physicalVillager.getHealth()<villagerBodyHealth,
+                    "Opposite physical bodies could not damage both original body health pools");
 
-                float zombieMindHostHealth=zombie.getHealth();
-                float villagerMindHostHealth=villager.getHealth();
-                clearHurtCooldown(zombie);
-                boolean villagerMindHit=villagerMindAlias.hurtServer(
-                    level,villagerAttack,2.0f);
-                clearHurtCooldown(villager);
+                // Attacking the mind identity must resolve to the physical
+                // body carrying that mind; proxy/alias health is never spent.
+                float zombieMindHostHealth=physicalVillager.getHealth();
+                float villagerMindHostHealth=physicalZombie.getHealth();
+                float zombieAliasHealth=zombieMindAlias.getHealth();
+                float villagerAliasHealth=villagerMindAlias.getHealth();
+                clearHurtCooldown(physicalVillager);
                 boolean zombieMindHit=zombieMindAlias.hurtServer(
                     level,zombieAttack,2.0f);
-                helper.assertTrue(zombie.getHealth()<zombieMindHostHealth
-                        &&villager.getHealth()<villagerMindHostHealth,
-                    "Damage to either opposite mind identity was not redirected to its physical host");
+                clearHurtCooldown(physicalZombie);
+                boolean villagerMindHit=villagerMindAlias.hurtServer(
+                    level,villagerAttack,2.0f);
+                helper.assertTrue(physicalVillager.getHealth()<zombieMindHostHealth
+                        &&physicalZombie.getHealth()<villagerMindHostHealth
+                        &&zombieMindAlias.getHealth()==zombieAliasHealth
+                        &&villagerMindAlias.getHealth()==villagerAliasHealth,
+                    "An opposite hit on either mind identity did not damage its original physical host");
 
-                helper.assertTrue(level.getEntity(villagerId)==villager
-                        &&level.getEntity(zombieId)==zombie
-                        &&villager.getBrain()==villagerBrain&&zombie.getBrain()==zombieBrain,
-                    "The exchange replaced a physical entity or moved the live Brain off its body");
+                helper.assertTrue(level.getEntity(villagerId)==physicalVillager
+                        &&level.getEntity(zombieId)==physicalZombie
+                        &&physicalVillager.getBrain()==villagerBrain
+                        &&physicalZombie.getBrain()==zombieBrain,
+                    "The exchange replaced a physical entity or moved its Brain off the real body");
                 helper.assertTrue(GoalMindRuntime.cancelByAccount(requester)
                         &&GoalMindRuntime.activeSessions(requester)==0,
                     "Villager/Zombie mind return did not end the live swap");
-                helper.assertTrue(villager.isNoAi()==villagerNoAi
-                        &&zombie.isNoAi()==zombieNoAi
-                        &&hasSameGoals(villager,false,villagerGoals)
-                        &&hasSameGoals(villager,true,villagerTargets)
-                        &&hasSameGoals(zombie,false,zombieGoals)
-                        &&hasSameGoals(zombie,true,zombieTargets),
+                helper.assertTrue(physicalVillager.isNoAi()==villagerNoAi
+                        &&physicalZombie.isNoAi()==zombieNoAi
+                        &&hasSameGoals(physicalVillager,false,villagerGoals)
+                        &&hasSameGoals(physicalVillager,true,villagerTargets)
+                        &&hasSameGoals(physicalZombie,false,zombieGoals)
+                        &&hasSameGoals(physicalZombie,true,zombieTargets),
                     "Cancel did not restore both original native Brain/Goal states");
                 helper.assertTrue(zombieMindProxy.isRemoved()&&villagerMindProxy.isRemoved()
                         &&zombieMindAlias.isRemoved()&&villagerMindAlias.isRemoved(),
-                    "Cancel did not remove every proxy and hidden mind identity");
+                    "Cancel did not remove every proxy and physical-type target identity");
 
                 System.out.println("FF-GAMEPLAY villager_zombie_brain_swap PASS"
-                    +" zombieMindMakesVillagerBodyChase=true"
-                    +" villagerBrainMakesZombieBodyFlee=true"
-                    +" oppositeMindAliasesTargetable=true"
+                    +" zombieMindTargetsRealVillagerOnly=true"
+                    +" zombieMindDoesNotTargetSwappedZombieBody=true"
+                    +" villagerMindFleesRealZombieOnly=true"
+                    +" villagerMindDoesNotFleeSwappedVillagerBody=true"
+                    +" originalBodySpeciesPreserved=true"
                     +" bothPhysicalBodiesDamageable=true"
                     +" bothMindIdentitiesDamageRedirected=true"
                     +" nativeBrainCopied=true restored=true");
-                villager.discard();
-                zombie.discard();
+                physicalVillager.discard();
+                physicalZombie.discard();
+                stimulusVillager.discard();
+                stimulusZombie.discard();
                 helper.succeed();
             } catch(RuntimeException failure) {
                 GoalMindRuntime.cancelByAccount(requester);
-                if(!villager.isRemoved())villager.discard();
-                if(!zombie.isRemoved())zombie.discard();
+                if(!physicalVillager.isRemoved())physicalVillager.discard();
+                if(!physicalZombie.isRemoved())physicalZombie.discard();
+                if(!stimulusVillager.isRemoved())stimulusVillager.discard();
+                if(!stimulusZombie.isRemoved())stimulusZombie.discard();
                 throw failure;
             }
         });
     }
+
 
     private static void verifyPartialSwapRejected(GameTestHelper helper) {
         var level=helper.getLevel();
