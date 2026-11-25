@@ -181,11 +181,14 @@ public final class GoalMindRuntime {
 
             @Override
             public boolean cloneable(Class<?> type) {
-                // All Goal subclasses (including modded goals) are discovered
-                // without a whitelist. Auxiliary AI predicates/configurations
-                // are inspected only when their internal graph is accessible.
-                return Goal.class.isAssignableFrom(type)
-                    || type.getName().startsWith("net.minecraft.world.entity.ai.targeting.");
+                // Capture Goal implementations without a species/class table.
+                // For hidden captured lambdas, inspect the enclosing Goal class
+                // (their nest host) rather than rejecting every synthetic class.
+                Class<?> owner = type.isHidden() || type.isSynthetic()
+                    ? type.getNestHost() : type;
+                return Goal.class.isAssignableFrom(owner)
+                    || owner.getName().startsWith("net.minecraft.world.entity.ai.targeting.")
+                    || owner.getName().startsWith("net.minecraft.world.entity.ai.goal.");
             }
         };
 

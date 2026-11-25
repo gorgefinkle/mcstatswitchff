@@ -138,15 +138,26 @@ public final class DynamicObjectGraph {
                 return result;
             }
 
-            // Stateless lambdas (e.g. a static ItemTags food predicate) can be
-            // shared. Capturing lambdas have hidden private state that cannot
-            // reliably be rebound and are ALWAYS refused instead.
-            if (type.isHidden() || type.isSynthetic() && type.getName().contains("$$Lambda")) {
+            // Stateless lambdas (for example a registry-owned tag predicate)
+            // have no owner state and may be safely shared. A captured lambda
+            // nested in a Goal is different: its synthetic fields are part of
+            // the AI graph and must be copied/rebound just like the enclosing
+            // goal. The rebinding policy decides whether that lambda's nest
+            // host is an admitted Goal implementation.
+            if (type.isHidden() || type.isSynthetic() && type.getName().contains("$Lambda")) {
+                boolean capturesState=false;
                 for (Field field : type.getDeclaredFields()) {
-                    if (!Modifier.isStatic(field.getModifiers()))
-                        throw new Uncapturable("Opaque captured lambda cannot be rebound: " + type.getName());
+                    if (!Modifier.isStatic(field.getModifiers())) {
+                        capturesState=true;
+                        break;
+                    }
                 }
-                return source;
+                if (!capturesState) return source;
+                if (!policy.cloneable(type))
+                    throw new Uncapturable("Opaque captured lambda cannot be rebound: " + type.getName());
+                // Captured Goal lambdas continue through the ordinary bounded
+                // graph copier below. Their captured owner/control references
+                // are substituted by the same identity map as the Goal.
             }
 
             if (!policy.cloneable(type))
