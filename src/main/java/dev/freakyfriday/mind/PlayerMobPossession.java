@@ -195,7 +195,20 @@ public final class PlayerMobPossession {
             PossessionCombat.findValidMeleeTarget(level,body,candidateId,sender);
         if(victim==null)return;
         session.lastAttackTick=now;
-        body.doHurtTarget(level,victim);
+        float healthBefore=victim instanceof net.minecraft.world.entity.LivingEntity living
+            ?living.getHealth():Float.NaN;
+        boolean accepted=body.doHurtTarget(level,victim);
+        if(Boolean.getBoolean("freakyfriday.thirdPartyFixture"))
+            System.out.println("[FF-POSSESSION-ATTACK] body="+body.getType()
+                +" noAI="+body.isNoAi()
+                +" target="+victim.getType()
+                +" distanceSq="+body.distanceToSqr(victim)
+                +" yaw="+body.getYRot()
+                +" accepted="+accepted
+                +" healthBefore="+healthBefore
+                +" healthAfter="+(victim instanceof net.minecraft.world.entity.LivingEntity living
+                    ?living.getHealth():Float.NaN)
+                +" targetInvulnerable="+victim.isInvulnerable());
     }
 
     public static synchronized boolean end(ServerPlayer player) {
