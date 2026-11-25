@@ -117,6 +117,19 @@ public final class PlayerMobGameTests {
         for(WrappedGoal wrapped:proxy.targetSelector.getAvailableGoals()) {
             Goal goal=wrapped.getGoal();
             if(!goal.getClass().getSimpleName().contains("NearestAttackableTargetGoal"))continue;
+            boolean matchesTargetType=false;
+            for(Class<?> type=goal.getClass();type!=null;type=type.getSuperclass()) {
+                for(java.lang.reflect.Field field:type.getDeclaredFields()) {
+                    if(!field.getName().equals("targetType"))continue;
+                    try {
+                        if(!field.trySetAccessible())continue;
+                        Object value=field.get(goal);
+                        matchesTargetType=value instanceof Class<?> targetClass
+                            &&targetClass.isAssignableFrom(target.getClass());
+                    } catch(ReflectiveOperationException|RuntimeException ignored) {}
+                }
+            }
+            if(!matchesTargetType)continue;
             for(Class<?> type=goal.getClass();type!=null;type=type.getSuperclass()) {
                 for(java.lang.reflect.Field field:type.getDeclaredFields()) {
                     if(!field.getType().getName().equals(
