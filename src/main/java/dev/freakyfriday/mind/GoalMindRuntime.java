@@ -13,6 +13,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.goal.Goal;
@@ -264,79 +265,20 @@ public final class GoalMindRuntime {
      * The ONLY goal-based exchange entry point. Source discovery and both
      * complete recipient captures are finished before any selector is changed.
      */
-    public static synchronized String exchange(Mob first, Mob second) {
-        if (first == second || !first.isAlive() || !second.isAlive()
-                || first.level() != second.level())
-            return "Two different living bodies in the same level are required.";
-        if (!supports(first, second))
+    /**
+     * Stateless callers cannot safely own a live exchange. Mob↔Mob control
+     * must be started through begin(requester,...), which reserves both real
+     * bodies, runs same-type native proxies and has a deterministic return.
+     */
+    public static synchronized String exchange(Mob first,Mob second) {
+        if(first==null||second==null||first==second||!first.isAlive()||!second.isAlive()
+                ||first.level()!=second.level())
+            return "Two different living Mob bodies in the same level are required.";
+        if(!supports(first,second))
             return "The mob has active Brain AI beyond goal selectors; "
-                + "a complete dynamic transfer needs the Brain runtime as well.";
-
-        Snapshot originalFirst = snapshot(first);
-        Snapshot originalSecond = snapshot(second);
-        if (originalFirst.goals().isEmpty() && originalFirst.targets().isEmpty())
-            return "The first mob has no goal AI to capture.";
-        if (originalSecond.goals().isEmpty() && originalSecond.targets().isEmpty())
-            return "The second mob has no goal AI to capture.";
-
-        final Snapshot firstReceiving, secondReceiving;
-        final int omittedGoals;
-        try {
-            CompatibleCapture firstCapture=captureCompatibleFor(second,first,originalSecond);
-            CompatibleCapture secondCapture=captureCompatibleFor(first,second,originalFirst);
-            firstReceiving=firstCapture.snapshot();
-            secondReceiving=secondCapture.snapshot();
-            omittedGoals=firstCapture.omittedGoals()+secondCapture.omittedGoals();
-        } catch (DynamicObjectGraph.Uncapturable failure) {
-            return "Dynamic AI capture rejected the exchange: " + failure.getMessage();
-        }
-
-        UUID firstId = first.getUUID(), secondId = second.getUUID();
-        try {
-            if (!OWNERS.snapshot().containsKey(firstId))
-                OWNERS.registerOriginal(firstId, new MindLedger.Mind(
-                    firstId, MindLedger.Kind.NPC, first.getType().toString()));
-            if (!OWNERS.snapshot().containsKey(secondId))
-                OWNERS.registerOriginal(secondId, new MindLedger.Mind(
-                    secondId, MindLedger.Kind.NPC, second.getType().toString()));
-        } catch (Exception error) {
-            return "Cannot register unique controller ownership: " + error.getMessage();
-        }
-
-        if (!identical(first.goalSelector, originalFirst.goals())
-                || !identical(first.targetSelector, originalFirst.targets())
-                || !identical(second.goalSelector, originalSecond.goals())
-                || !identical(second.targetSelector, originalSecond.targets()))
-            return "One mob's AI changed during capture; no swap performed.";
-
-        try {
-            apply(first, firstReceiving);
-            apply(second, secondReceiving);
-            OWNERS.exchange(firstId, secondId, (body, incoming) -> {
-                if (incoming.kind() != MindLedger.Kind.NPC)
-                    throw new IllegalArgumentException("Incoming mind is not a complete NPC controller");
-            });
-            if(omittedGoals>0)
-                System.out.println("[Freaky Friday] Native mind exchange omitted "
-                    +omittedGoals+" goal(s) whose owner types are not supported by "
-                    +"the recipient physical bodies.");
-            return null;
-        } catch (Exception failure) {
-            // Goal selectors and the mind ledger have separate ownership.
-            // The ledger rolls its own transaction back; restore BOTH native
-            // selectors if either installation or the ledger fails.
-            try { apply(first, originalFirst); }
-            catch (Exception rollback) { failure.addSuppressed(rollback); }
-            try { apply(second, originalSecond); }
-            catch (Exception rollback) { failure.addSuppressed(rollback); }
-            if (failure.getSuppressed().length != 0)
-                return "Dynamic AI exchange FAILED; rollback could not be verified: "
-                    + failure.getMessage();
-            return "Dynamic AI exchange rejected and original goals restored: "
-                + failure.getMessage();
-        }
+                +"a complete dynamic transfer needs the Brain runtime as well.";
+        return "A requester-bound live session is required; use begin(requester, first, second).";
     }
-
 
     /** Prevent a detached controller proxy from sensing its own physical bodies as targets. */
     private record ExcludingEntityPredicate(Predicate<Object> delegate,Set<UUID> excluded)
@@ -354,7 +296,8 @@ public final class GoalMindRuntime {
 
     /** One in-process native Mob mind used to pilot an original ServerPlayer body. */
     public static final class DetachedController implements AutoCloseable {
-        public record Step(Vec3 displacement,float yaw,float pitch,Entity attackTarget) {}
+        public record Step(Vec3 displacement,float yaw,float pitch,
+                Entity target,Entity attackTarget) {}
         private final Mob proxy;
         private final Set<UUID> excluded;
         private Entity pendingAttack;
@@ -366,18 +309,20 @@ public final class GoalMindRuntime {
             DETACHED_BY_PROXY.put(proxy.getUUID(),this);
         }
 
-        public synchronized Step tick(ServerPlayer physicalBody) {
+        /** Tick one donor-native AI graph at the location of its real recipient body. */
+        public synchronized Step tick(LivingEntity physicalBody) {
             if(closed||physicalBody==null||!physicalBody.isAlive()
                     ||physicalBody.isRemoved()||proxy.isRemoved())
                 return new Step(Vec3.ZERO,physicalBody==null?0:physicalBody.getYRot(),
-                    physicalBody==null?0:physicalBody.getXRot(),null);
+                    physicalBody==null?0:physicalBody.getXRot(),null,null);
             Vec3 origin=physicalBody.position();
             proxy.setPos(origin.x,origin.y,origin.z);
             proxy.setYRot(physicalBody.getYRot());
             proxy.setXRot(physicalBody.getXRot());
             proxy.setYHeadRot(physicalBody.getYHeadRot());
             proxy.setOnGround(physicalBody.onGround());
-            proxy.setDeltaMovement(Vec3.ZERO);
+            // Preserve proxy-owned momentum/goal state between ticks. Only
+            // its position is resynchronized to the real physical recipient.
             pendingAttack=null;
             proxy.tick();
             Vec3 moved=proxy.position().subtract(origin);
@@ -389,10 +334,8 @@ public final class GoalMindRuntime {
             float yaw=proxy.getYRot(),pitch=proxy.getXRot();
             Entity attack=pendingAttack;
             pendingAttack=null;
-            // The proxy is a decision worker only; the only persistent
-            // physical entity remains the original ServerPlayer.
             proxy.setPos(origin.x,origin.y,origin.z);
-            return new Step(moved,yaw,pitch,attack);
+            return new Step(moved,yaw,pitch,target,attack);
         }
 
         private synchronized void recordAttack(Entity target) {
@@ -416,7 +359,7 @@ public final class GoalMindRuntime {
      * the real ServerPlayer adapter; the proxy has no independent collision,
      * health, inventory, network identity or world registration.
      */
-    public static DetachedController createDetachedController(Mob donor,ServerPlayer physicalBody)
+    public static DetachedController createDetachedController(Mob donor,LivingEntity physicalBody)
             throws DynamicObjectGraph.Uncapturable {
         if(donor==null||physicalBody==null||!donor.isAlive()||!physicalBody.isAlive()
                 ||donor.isRemoved()||physicalBody.isRemoved()
@@ -435,7 +378,10 @@ public final class GoalMindRuntime {
             throw new DynamicObjectGraph.Uncapturable(
                 "The donor EntityType did not create a Mob controller proxy");
         proxy.setNoAi(false);
-        proxy.setNoGravity(true);
+        // A Player recipient owns gravity itself. Mob recipients need the
+        // donor type's native gravity mode so its same-type proxy computes
+        // meaningful native locomotion decisions.
+        proxy.setNoGravity(donor.isNoGravity() || physicalBody instanceof ServerPlayer);
         proxy.setSilent(true);
         proxy.setPersistenceRequired();
         proxy.setPos(physicalBody.getX(),physicalBody.getY(),physicalBody.getZ());
@@ -489,18 +435,27 @@ public final class GoalMindRuntime {
         final ServerLevel level;
         final Mob first, second;
         final Snapshot firstOriginal, secondOriginal;
+        final boolean firstOriginalNoAi, secondOriginalNoAi;
         final MindLedger.Mind firstMind, secondMind;
+        // firstMindController drives the second physical body and vice versa.
+        final DetachedController firstMindController, secondMindController;
         ActiveSwap(UUID requester, ServerLevel level, Mob first, Mob second,
                 Snapshot firstOriginal, Snapshot secondOriginal,
-                MindLedger.Mind firstMind, MindLedger.Mind secondMind) {
+                boolean firstOriginalNoAi,boolean secondOriginalNoAi,
+                MindLedger.Mind firstMind, MindLedger.Mind secondMind,
+                DetachedController firstMindController,DetachedController secondMindController) {
             this.requester=requester;
             this.level=level;
             this.first=first;
             this.second=second;
             this.firstOriginal=firstOriginal;
             this.secondOriginal=secondOriginal;
+            this.firstOriginalNoAi=firstOriginalNoAi;
+            this.secondOriginalNoAi=secondOriginalNoAi;
             this.firstMind=firstMind;
             this.secondMind=secondMind;
+            this.firstMindController=firstMindController;
+            this.secondMindController=secondMindController;
         }
     }
 
@@ -538,21 +493,55 @@ public final class GoalMindRuntime {
         if(originalSecond.goals().isEmpty()&&originalSecond.targets().isEmpty())
             return "The second Mob has no transferable native goal controller.";
 
+        boolean originalFirstNoAi=first.isNoAi();
+        boolean originalSecondNoAi=second.isNoAi();
         final MindLedger.Mind firstMind,secondMind;
+        DetachedController firstController=null,secondController=null;
+        boolean ledgerExchanged=false;
         try {
             registerOriginalIfMissing(first);
             registerOriginalIfMissing(second);
             firstMind=OWNERS.controlling(first.getUUID());
             secondMind=OWNERS.controlling(second.getUUID());
-        } catch(RuntimeException failure) {
-            return "Could not reserve both native mind identities: "+failure.getMessage();
+
+            // Each mind runs on a same-EntityType proxy, so owner-bound
+            // Zombie/Chicken/modded Goal lambdas stay valid. The proxy is
+            // located at the other body's real position and projects native
+            // decisions onto that physical entity; no GoalSelector is ever
+            // transplanted across incompatible entity classes.
+            firstController=createDetachedController(first,second);
+            secondController=createDetachedController(second,first);
+            if(!identical(first.goalSelector,originalFirst.goals())
+                    ||!identical(first.targetSelector,originalFirst.targets())
+                    ||!identical(second.goalSelector,originalSecond.goals())
+                    ||!identical(second.targetSelector,originalSecond.targets()))
+                throw new IllegalStateException("A Mob's native GoalSelector changed while its proxies were captured");
+
+            OWNERS.exchange(first.getUUID(),second.getUUID(),(body,incoming)->{
+                if(incoming.kind()!=MindLedger.Kind.NPC)
+                    throw new IllegalArgumentException("Incoming mind is not a complete NPC controller");
+            });
+            ledgerExchanged=true;
+            // The real bodies keep their own physics/collision/health/etc.
+            // Only autonomous goal decisions are paused while the donor-native
+            // proxy controllers continuously pilot them.
+            first.setNoAi(true);
+            second.setNoAi(true);
+        } catch(Exception failure) {
+            if(firstController!=null) firstController.close();
+            if(secondController!=null) secondController.close();
+            if(!first.isRemoved()) first.setNoAi(originalFirstNoAi);
+            if(!second.isRemoved()) second.setNoAi(originalSecondNoAi);
+            if(ledgerExchanged) {
+                try { OWNERS.restorePair(first.getUUID(),firstMind,second.getUUID(),secondMind); }
+                catch(RuntimeException rollback) { failure.addSuppressed(rollback); }
+            }
+            return "Native Mob controllers could not be exchanged safely: "+failure.getMessage();
         }
 
-        String issue=exchange(first,second);
-        if(issue!=null) return issue;
-
         ActiveSwap active=new ActiveSwap(requester,level,first,second,
-            originalFirst,originalSecond,firstMind,secondMind);
+            originalFirst,originalSecond,originalFirstNoAi,originalSecondNoAi,
+            firstMind,secondMind,firstController,secondController);
         ACTIVE_BY_BODY.put(first.getUUID(),active);
         ACTIVE_BY_BODY.put(second.getUUID(),active);
         ACTIVE_BY_REQUESTER.computeIfAbsent(requester,ignored->new HashSet<>()).add(active);
@@ -580,18 +569,18 @@ public final class GoalMindRuntime {
     private static void end(ActiveSwap session,boolean notify,String reason) {
         if(!ACTIVE_BY_BODY.containsValue(session)) return;
         RuntimeException failure=null;
-        // Restore only bodies still present and alive. A dead or unloaded
-        // physical body is never recreated or teleported as part of a return.
-        if(session.first.isAlive()&&!session.first.isRemoved()) {
-            try { apply(session.first,session.firstOriginal); }
-            catch(RuntimeException problem) { failure=problem; }
+        // The original selectors were never replaced. Stop the two
+        // same-type proxy minds and restore the physical bodies' own AI flags.
+        try { session.firstMindController.close(); }
+        catch(RuntimeException problem) { failure=problem; }
+        try { session.secondMindController.close(); }
+        catch(RuntimeException problem) {
+            if(failure==null) failure=problem; else failure.addSuppressed(problem);
         }
-        if(session.second.isAlive()&&!session.second.isRemoved()) {
-            try { apply(session.second,session.secondOriginal); }
-            catch(RuntimeException problem) {
-                if(failure==null) failure=problem; else failure.addSuppressed(problem);
-            }
-        }
+        if(session.first.isAlive()&&!session.first.isRemoved())
+            session.first.setNoAi(session.firstOriginalNoAi);
+        if(session.second.isAlive()&&!session.second.isRemoved())
+            session.second.setNoAi(session.secondOriginalNoAi);
         try {
             OWNERS.restorePair(session.first.getUUID(),session.firstMind,
                 session.second.getUUID(),session.secondMind);
@@ -629,6 +618,18 @@ public final class GoalMindRuntime {
             "One Mob body died; the surviving body was returned to its original AI.");
     }
 
+    private static void applyIncomingMobMindStep(Mob physicalBody,DetachedController.Step step) {
+        if(physicalBody==null||step==null||!physicalBody.isAlive()||physicalBody.isRemoved())return;
+        PossessionMotion.applyNativeIntent(
+            physicalBody,step.displacement(),step.yaw(),step.pitch());
+        Entity target=step.attackTarget();
+        if(target!=null&&!target.isRemoved()&&target.isAlive()) {
+            BodyActionGate.dispatch(new MinecraftBodyPort(physicalBody),
+                new BodyActionGate.Intent(BodyActionGate.ATTACK_ENTITY,
+                    Map.of("targetId",target.getUUID().toString())));
+        }
+    }
+
     @SubscribeEvent
     public static synchronized void maintain(ServerTickEvent.Post event) {
         for(ActiveSwap session:List.copyOf(new HashSet<>(ACTIVE_BY_BODY.values()))) {
@@ -637,6 +638,19 @@ public final class GoalMindRuntime {
                     ||session.first.level()!=session.level||session.second.level()!=session.level) {
                 end(session,true,
                     "A Mob body died or unloaded; remaining native AI was restored.");
+                continue;
+            }
+            try {
+                DetachedController.Step firstMindOnSecond=
+                    session.firstMindController.tick(session.second);
+                DetachedController.Step secondMindOnFirst=
+                    session.secondMindController.tick(session.first);
+                applyIncomingMobMindStep(session.second,firstMindOnSecond);
+                applyIncomingMobMindStep(session.first,secondMindOnFirst);
+            } catch(RuntimeException failure) {
+                System.err.println("[Freaky Friday] Detached Mob AI tick failed: "+failure);
+                end(session,true,
+                    "A native Mob controller failed; original bodies and AI were restored.");
             }
         }
     }
