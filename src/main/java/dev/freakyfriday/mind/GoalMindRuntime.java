@@ -422,12 +422,10 @@ public final class GoalMindRuntime {
             throw new DynamicObjectGraph.Uncapturable(
                 "The donor EntityType did not create a Mob controller proxy");
         proxy.setNoAi(false);
-        // The decision proxy shares the recipient's coordinates, so it must
-        // not collide with the real body it is piloting. Its native goals,
-        // sensing and navigation still query the same level; only its own
-        // collision/physical movement is disabled. Recipient-native travel
-        // below remains responsible for all real block/entity collision.
-        proxy.noPhysics=true;
+        // A bodyOffset is applied when the proxy is positioned below, so
+        // it does not overlap the real recipient. Keep normal block collision,
+        // gravity and pathfinding enabled on the native AI proxy. The recipient
+        // separately resolves its own physical movement and collision.
         // The proxy is only an AI decision source, never a physical body.
         // Do not let it accumulate gravity or fall through the world while
         // unregistered/noPhysics; the real recipient retains its own gravity
