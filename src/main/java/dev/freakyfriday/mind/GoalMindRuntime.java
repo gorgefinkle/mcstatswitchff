@@ -682,9 +682,14 @@ public final class GoalMindRuntime {
                 // own native environmental damage from its real entity tick.
                 Entity sourceEntity=event.getSource().getEntity();
                 if(sourceEntity==null)return;
-                // Real external attackers still damage the host body. Native
-                // invulnerability, armor and hurt cooldown are checked by the
-                // original body's own damage pipeline.
+                // A body must not damage its own detached mind by colliding
+                // with or explicitly targeting its proxy. Only an opposite
+                // physical attacker (or an external attacker) can hit this
+                // mind; its damage is applied to the real body hosting it.
+                if(sourceEntity==victim.physicalBody||sourceEntity==damaged)return;
+                // Real external/opposite attackers still damage the host body.
+                // Native invulnerability, armor and hurt cooldown are checked
+                // by the original body's own damage pipeline.
                 victim.redirectDamageToBody(event.getSource(),event.getAmount());
                 if(Boolean.getBoolean("freakyfriday.thirdPartyFixture"))
                     System.out.println("[FF-PROXY-DAMAGE] redirected hostHealthAfter="
