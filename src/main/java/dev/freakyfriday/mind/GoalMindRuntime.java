@@ -288,6 +288,18 @@ public final class GoalMindRuntime {
         return "A requester-bound live session is required; use begin(requester, first, second).";
     }
 
+    /**
+     * Return the detached mind proxy assigned to a physical Mob body.
+     * Package-private and used only by in-process GameTests.
+     */
+    static synchronized Mob proxyForGameTest(UUID physicalBodyId) {
+        ActiveSwap session=ACTIVE_BY_BODY.get(physicalBodyId);
+        if(session==null)return null;
+        return session.first.getUUID().equals(physicalBodyId)
+            ?session.secondMindController.proxyForGameTest()
+            :session.firstMindController.proxyForGameTest();
+    }
+
     /** Prevent a detached controller proxy from sensing its own physical bodies as targets. */
     private record ExcludingEntityPredicate(Predicate<Object> delegate,Set<UUID> excluded)
             implements Predicate<Object> {
@@ -429,6 +441,13 @@ public final class GoalMindRuntime {
         private synchronized void recordAttack(Entity target) {
             if(!closed&&target!=null&&!excluded.contains(target.getUUID()))
                 pendingAttack=target;
+        }
+
+        // Package-private GameTest seam: tests add a one-shot native Goal to
+        // the actual detached controller and verify its attack is projected
+        // onto the assigned physical body, never the proxy.
+        synchronized Mob proxyForGameTest() {
+            return closed?null:proxy;
         }
 
         @Override public synchronized void close() {
