@@ -21,6 +21,46 @@ import net.minecraft.world.phys.Vec3;
 public final class PossessionMotion {
     private PossessionMotion() {}
 
+    /**
+     * Apply a donor's directional intent through the RECIPIENT Mob's own
+     * native travel implementation. The donor's displacement magnitude is
+     * deliberately not copied: the physical body supplies its own speed,
+     * collision, fluid, gravity, climbing and species-specific travel rules.
+     */
+    public static void applyNativeIntent(Mob body,Vec3 donorDisplacement,
+                                         float yaw,float pitch) {
+        body.setYRot(yaw);
+        body.setYHeadRot(yaw);
+        body.setXRot(pitch);
+
+        double angle=Math.toRadians(yaw);
+        double dx=donorDisplacement.x;
+        double dz=donorDisplacement.z;
+        double forward=-Math.sin(angle)*dx+Math.cos(angle)*dz;
+        double strafe=Math.cos(angle)*dx+Math.sin(angle)*dz;
+        double horizontal=Math.hypot(forward,strafe);
+        if(horizontal>1.0e-5) {
+            forward/=horizontal;
+            strafe/=horizontal;
+        } else {
+            forward=0.0;
+            strafe=0.0;
+        }
+
+        boolean mediumVertical=body.isInWater()||body.isInLava()||body.isNoGravity();
+        double vertical=mediumVertical
+            ?Math.max(-1.0,Math.min(1.0,donorDisplacement.y)):0.0;
+        boolean jump=body.onGround()&&donorDisplacement.y>0.12;
+        boolean originallyNoAi=body.isNoAi();
+        if(originallyNoAi)body.setNoAi(false);
+        try {
+            if(jump)body.getJumpControl().jump();
+            body.travel(new Vec3(strafe,vertical,forward));
+        } finally {
+            if(originallyNoAi)body.setNoAi(true);
+        }
+    }
+
     public static double step(LivingEntity body,float rawForward,float rawStrafe,
                               boolean jump,float yaw,float pitch) {
         double forward=rawForward,strafe=rawStrafe;
