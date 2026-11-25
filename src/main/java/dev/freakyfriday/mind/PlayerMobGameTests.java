@@ -860,12 +860,13 @@ public final class PlayerMobGameTests {
         String firstError=GoalMindRuntime.begin(requester,chicken,zombie);
         helper.assertTrue(firstError==null,
             "Live Chicken↔Zombie native goal exchange failed: "+firstError);
-        helper.assertTrue(!hasSameGoals(chicken,false,chickenGoals)
-                &&!hasSameGoals(zombie,false,zombieGoals),
-            "Incoming native goal graphs were not installed on both original bodies");
-        helper.assertTrue(chicken.isNoAi()==chickenNoAi&&zombie.isNoAi()==zombieNoAi
-                &&!chicken.isNoAi()&&!zombie.isNoAi(),
-            "The reciprocal exchange froze either original physical body");
+        helper.assertTrue(hasSameGoals(chicken,false,chickenGoals)
+                &&hasSameGoals(zombie,false,zombieGoals)
+                &&hasSameGoals(chicken,true,chickenTargets)
+                &&hasSameGoals(zombie,true,zombieTargets),
+            "The physical bodies' own GoalSelectors were mutated instead of isolated");
+        helper.assertTrue(chicken.isNoAi()&&zombie.isNoAi(),
+            "The original bodies' autonomous goals were not paused while donor-native controllers drove them");
 
         // A requester is only a session manager: an occupied body is exclusive,
         // but a second unrelated pair is allowed under the same requester.
@@ -882,19 +883,18 @@ public final class PlayerMobGameTests {
             helper.assertTrue(chicken.isAlive()&&zombie.isAlive()
                     &&secondChicken.isAlive()&&secondZombie.isAlive(),
                 "One of the original physical Mob bodies stopped ticking during the swap");
-            helper.assertTrue(chicken.getTarget()==target,
-                "The transferred Zombie targeting mind did not naturally acquire the real Player target");
             helper.assertTrue(chicken.distanceToSqr(target)<chickenStart
-                    ||zombie.distanceToSqr(target)<zombieStart,
-                "Neither transferred controller naturally moved its recipient physical body");
+                    &&zombie.distanceToSqr(target)<zombieStart,
+                "Both donor-native controllers must independently move their opposite real bodies toward the Player stimulus");
             helper.assertTrue(GoalMindRuntime.cancelByAccount(requester)
                     &&GoalMindRuntime.activeSessions(requester)==0,
                 "Cancel did not restore every independently managed Mob pair");
             helper.assertTrue(hasSameGoals(chicken,false,chickenGoals)
                     &&hasSameGoals(chicken,true,chickenTargets)
                     &&hasSameGoals(zombie,false,zombieGoals)
-                    &&hasSameGoals(zombie,true,zombieTargets),
-                "Cancel did not restore the exact original Chicken/Zombie goal graphs");
+                    &&hasSameGoals(zombie,true,zombieTargets)
+                    &&chicken.isNoAi()==chickenNoAi&&zombie.isNoAi()==zombieNoAi,
+                "Cancel did not preserve the exact original Chicken/Zombie goals and AI flags");
             helper.assertTrue(!GoalMindRuntime.bodyReserved(chicken.getUUID())
                     &&!GoalMindRuntime.bodyReserved(zombie.getUUID())
                     &&!GoalMindRuntime.bodyReserved(secondChicken.getUUID())
