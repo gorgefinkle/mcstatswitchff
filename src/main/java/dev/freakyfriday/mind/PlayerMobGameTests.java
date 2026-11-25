@@ -1376,9 +1376,18 @@ public final class PlayerMobGameTests {
                 clearHurtCooldown(controller);
                 float playerBeforeProxyHit=controller.getHealth();
                 float proxyHealthBeforeProxyHit=mindProxy.getHealth();
-                zombie.doHurtTarget(level,mindProxy);
+                boolean proxyHitAccepted=zombie.doHurtTarget(level,mindProxy);
+                System.out.println("[FF-ATTACK] physicalZombieHitProxy accepted="+proxyHitAccepted
+                    +" zombiePos="+zombie.position()+" proxyPos="+mindProxy.position()
+                    +" distanceSq="+zombie.distanceToSqr(mindProxy)
+                    +" proxyHealth="+mindProxy.getHealth()
+                    +" playerHealth="+controller.getHealth()
+                    +" beforePlayerHealth="+playerBeforeProxyHit);
                 helper.assertTrue(controller.getHealth()<playerBeforeProxyHit,
-                    "Opposing Mob body could not damage the Player body hosting the detached mind");
+                    "Opposing Mob body could not damage the Player body hosting the detached mind"
+                        +" accepted="+proxyHitAccepted+" player="+playerBeforeProxyHit
+                        +"->"+controller.getHealth()+" proxyHealth="+proxyHealthBeforeProxyHit
+                        +"->"+mindProxy.getHealth());
                 helper.assertTrue(mindProxy.getHealth()==proxyHealthBeforeProxyHit,
                     "Damage to the detached mind proxy was not redirected to its real Player host");
 
