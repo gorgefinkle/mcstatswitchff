@@ -1,10 +1,12 @@
 package dev.freakyfriday.mind;
 
 import java.lang.reflect.Array;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
@@ -12,6 +14,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Comparator;
 import java.util.Optional;
 import java.util.Set;
 
@@ -43,6 +46,7 @@ public final class DynamicObjectGraph {
         boolean shared(Object source);
         /** True only for types whose complete instance state we can capture. */
         boolean cloneable(Class<?> type);
+        default Object afterCopy(Object source,Object copy) { return copy; }
     }
 
     public static final class Uncapturable extends Exception {
@@ -138,27 +142,11 @@ public final class DynamicObjectGraph {
                 return result;
             }
 
-            // Stateless lambdas (for example a registry-owned tag predicate)
-            // have no owner state and may be safely shared. A captured lambda
-            // nested in a Goal is different: its synthetic fields are part of
-            // the AI graph and must be copied/rebound just like the enclosing
-            // goal. The rebinding policy decides whether that lambda's nest
-            // host is an admitted Goal implementation.
-            if (type.isHidden() || type.isSynthetic() && type.getName().contains("$Lambda")) {
-                boolean capturesState=false;
-                for (Field field : type.getDeclaredFields()) {
-                    if (!Modifier.isStatic(field.getModifiers())) {
-                        capturesState=true;
-                        break;
-                    }
-                }
-                if (!capturesState) return source;
-                if (!policy.cloneable(type))
-                    throw new Uncapturable("Opaque captured lambda cannot be rebound: " + type.getName());
-                // Captured Goal lambdas continue through the ordinary bounded
-                // graph copier below. Their captured owner/control references
-                // are substituted by the same identity map as the Goal.
-            }
+            // Captured lambdas are hidden JVM classes with final capture
+            // fields. Recreate them with their synthetic constructor after
+            // recursively rebinding every captured value.
+            if (type.isHidden() || type.isSynthetic() && type.getName().contains("$Lambda"))
+                return copyCapturedLambda(source,type,depth);
 
             if (!policy.cloneable(type))
                 throw new Uncapturable("Unknown AI object is mutable or owner-bound: " + type.getName());
@@ -195,7 +183,169 @@ public final class DynamicObjectGraph {
                     }
                 }
             }
-            return result;
+            Object completed=policy.afterCopy(source,result);
+            if(completed==null)
+                throw new Uncapturable("AI copy post-processor returned null: "+type.getName());
+            copies.put(source,completed);
+            return completed;
+        }
+
+        private Object copyCapturedLambda(Object source,Class<?> type,int depth)
+                throws Uncapturable {
+            if(copies.containsKey(source)) return copies.get(source);
+            List<Field> captures=Arrays.stream(type.getDeclaredFields())
+                .filter(field->!Modifier.isStatic(field.getModifiers()))
+                .sorted(Comparator.comparingInt(DynamicObjectGraph::captureOrdinal))
+                .toList();
+            if(captures.isEmpty()) {
+                Object shared=policy.afterCopy(source,source);
+                copies.put(source,shared);
+                return shared;
+            }
+            if(!policy.cloneable(type))
+                throw new Uncapturable("Opaque captured lambda cannot be rebound: "+type.getName());
+            Object[] values=new Object[captures.size()];
+            Class<?>[] captureTypes=new Class<?>[captures.size()];
+            try {
+                for(int i=0;i<captures.size();i++) {
+                    Field field=captures.get(i);
+                    if(!field.trySetAccessible())
+                        throw new Uncapturable("Cannot inspect captured lambda field: "+field);
+                    Object original=field.get(source);
+                    values[i]=copy(original,depth+1);
+                    captureTypes[i]=field.getType();
+                    if(values[i]!=null&&!boxed(captureTypes[i]).isInstance(values[i]))
+                        throw new Uncapturable("Captured lambda field incompatible after rebind: "+field);
+                }
+                Constructor<?> constructor=null;
+                for(Constructor<?> candidate:type.getDeclaredConstructors()) {
+                    Class<?>[] parameters=candidate.getParameterTypes();
+                    if(parameters.length!=captureTypes.length) continue;
+                    boolean exact=true;
+                    for(int i=0;i<parameters.length;i++) {
+                        if(parameters[i]!=captureTypes[i]) { exact=false;break; }
+                    }
+                    if(exact) { constructor=candidate;break; }
+                }
+                if(constructor==null)
+                    throw new Uncapturable("No constructor matches the complete captured lambda state: "+type.getName());
+                if(!constructor.trySetAccessible())
+                    throw new Uncapturable("Captured lambda constructor is inaccessible: "+type.getName());
+                Object result=constructor.newInstance(values);
+                Object completed=policy.afterCopy(source,result);
+                if(completed==null)
+                    throw new Uncapturable("AI lambda post-processor returned null: "+type.getName());
+                copies.put(source,completed);
+                return completed;
+            } catch(Uncapturable failure) {
+                throw failure;
+            } catch(ReflectiveOperationException|RuntimeException failure) {
+                throw new Uncapturable("Cannot reconstruct complete captured lambda: "
+                    +type.getName()+": "+failure.getClass().getSimpleName(),failure);
+            }
+        }
+
+        private static int captureOrdinal(Field field) {
+            String name=field.getName();
+            int marker=name.lastIndexOf('(Object array, int index, Object item, Class<?> component)
+                throws Uncapturable {
+            if (item != null && !boxed(component).isInstance(item))
+                throw new Uncapturable("AI array element cannot be rebound to "
+                    + component.getName() + ": " + item.getClass().getName());
+            try { Array.set(array, index, item); }
+            catch (IllegalArgumentException err) { throw new Uncapturable("Invalid AI array", err); }
+        }
+    }
+
+    private static boolean primitiveLike(Class<?> type) {
+        return type.isPrimitive() || type.isEnum() || type == String.class || type == Class.class
+            || type == Boolean.class || type == Byte.class || type == Short.class
+            || type == Integer.class || type == Long.class || type == Float.class
+            || type == Double.class || type == Character.class || type == java.util.UUID.class
+            || type == java.math.BigInteger.class || type == java.math.BigDecimal.class;
+    }
+
+    private static Class<?> boxed(Class<?> type) {
+        if (!type.isPrimitive()) return type;
+        if (type == int.class) return Integer.class;
+        if (type == long.class) return Long.class;
+        if (type == boolean.class) return Boolean.class;
+        if (type == float.class) return Float.class;
+        if (type == double.class) return Double.class;
+        if (type == byte.class) return Byte.class;
+        if (type == short.class) return Short.class;
+        if (type == char.class) return Character.class;
+        return type;
+    }
+
+    private static Object unsafe() throws ReflectiveOperationException {
+        Class<?> unsafeType=Class.forName("sun.misc.Unsafe");
+        Field singleton=unsafeType.getDeclaredField("theUnsafe");
+        if(!singleton.trySetAccessible())
+            throw new IllegalAccessException("Unsafe singleton is inaccessible");
+        return singleton.get(null);
+    }
+
+    /**
+     * Reflection cannot write captured lambda final fields on modern JDKs.
+     * The same bounded graph copier already requires Unsafe allocation, so use
+     * its typed field-offset writes for final instance state as well.
+     */
+    private static void writeField(Object target,Field field,Object value)
+            throws ReflectiveOperationException {
+        if(!Modifier.isFinal(field.getModifiers())) {
+            field.set(target,value);
+            return;
+        }
+        Class<?> unsafeType=Class.forName("sun.misc.Unsafe");
+        Object unsafe=unsafe();
+        long offset=(Long)unsafeType.getMethod("objectFieldOffset",Field.class)
+            .invoke(unsafe,field);
+        Class<?> fieldType=field.getType();
+        String operation;
+        Class<?> argumentType;
+        if(!fieldType.isPrimitive()) {
+            operation="putObject";
+            argumentType=Object.class;
+        } else if(fieldType==boolean.class) {
+            operation="putBoolean"; argumentType=boolean.class;
+        } else if(fieldType==byte.class) {
+            operation="putByte"; argumentType=byte.class;
+        } else if(fieldType==short.class) {
+            operation="putShort"; argumentType=short.class;
+        } else if(fieldType==char.class) {
+            operation="putChar"; argumentType=char.class;
+        } else if(fieldType==int.class) {
+            operation="putInt"; argumentType=int.class;
+        } else if(fieldType==long.class) {
+            operation="putLong"; argumentType=long.class;
+        } else if(fieldType==float.class) {
+            operation="putFloat"; argumentType=float.class;
+        } else if(fieldType==double.class) {
+            operation="putDouble"; argumentType=double.class;
+        } else {
+            throw new IllegalArgumentException("Unsupported final AI field type: "+fieldType);
+        }
+        unsafeType.getMethod(operation,Object.class,long.class,argumentType)
+            .invoke(unsafe,target,offset,value);
+    }
+
+    private static Object allocate(Class<?> type) throws Uncapturable {
+        try {
+            Class<?> unsafeType = Class.forName("sun.misc.Unsafe");
+            Object unsafe = unsafe();
+            Method method = unsafeType.getMethod("allocateInstance", Class.class);
+            return method.invoke(unsafe, type);
+        } catch (ReflectiveOperationException | RuntimeException failure) {
+            throw new Uncapturable("Cannot allocate whole AI instance of " + type.getName(), failure);
+        }
+    }}
+);
+            if(marker>=0&&marker+1<name.length()) {
+                try { return Integer.parseInt(name.substring(marker+1)); }
+                catch(NumberFormatException ignored) {}
+            }
+            return Integer.MAX_VALUE;
         }
 
         private static void storeArray(Object array, int index, Object item, Class<?> component)
