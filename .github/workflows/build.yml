@@ -101,6 +101,7 @@ jobs:
           grep -Fq 'FF-GAMEPLAY mob_origin_attack_original_body PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY invalid_entity_attack_guard PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY player_mob_reciprocal_gate PASS' gametest.log
+          grep -Fq 'FF-GAMEPLAY player_mob_native_mind_proxy PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY stale_selection_and_reciprocal_gate PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY player_body_action_port PASS' gametest.log
           grep -Fq 'FF-NATIVE-PROBE inventory PASS' gametest.log

@@ -79,6 +79,9 @@ public final class PlayerMobGameTests {
         MOB_ORIGIN_ATTACK=FUNCTIONS.register(
             "possessed_mob_attack",()->PlayerMobGameTests::verifyMobOriginAttack);
     public static final DeferredHolder<Consumer<GameTestHelper>,Consumer<GameTestHelper>>
+        PLAYER_MOB_NATIVE_PROXY=FUNCTIONS.register(
+            "player_mob_native_mind_proxy",()->PlayerMobGameTests::verifyPlayerMobNativeMindProxy);
+    public static final DeferredHolder<Consumer<GameTestHelper>,Consumer<GameTestHelper>>
         ZOMBIE_CHICKEN_BEHAVIOR=FUNCTIONS.register(
             "zombie_chicken_behavior_acceptance",
             ()->PlayerMobGameTests::verifyZombieChickenBehaviorAcceptance);
@@ -888,6 +891,64 @@ public final class PlayerMobGameTests {
             zombie.discard();
             secondChicken.discard();
             secondZombie.discard();
+            helper.succeed();
+        });
+    }
+
+    /** The Mob mind drives the original player body while player input drives the Mob. */
+    private static void verifyPlayerMobNativeMindProxy(GameTestHelper helper) {
+        var level=helper.getLevel();
+        for(int x=0;x<=20;x++)for(int z=0;z<=10;z++) {
+            level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,0,z)),
+                net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+            level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,8,z)),
+                net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+        }
+        ServerPlayer controller=helper.makeMockServerPlayerInLevel();
+        ServerPlayer otherPlayer=helper.makeMockServerPlayerInLevel();
+        BlockPos controllerPos=helper.absolutePos(new BlockPos(10,1,5));
+        BlockPos targetPos=helper.absolutePos(new BlockPos(4,1,5));
+        controller.setPos(controllerPos.getX()+0.5,controllerPos.getY(),controllerPos.getZ()+0.5);
+        otherPlayer.setPos(targetPos.getX()+0.5,targetPos.getY(),targetPos.getZ()+0.5);
+
+        Mob zombie=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
+        helper.assertTrue(zombie!=null,"Player/Mob proxy test needs a real Zombie");
+        BlockPos zombiePos=helper.absolutePos(new BlockPos(14,1,5));
+        zombie.setPos(zombiePos.getX()+0.5,zombiePos.getY(),zombiePos.getZ()+0.5);
+        zombie.setPersistenceRequired();
+        helper.assertTrue(level.addFreshEntity(zombie),
+            "Player-controlled Zombie body failed to register");
+
+        double playerStartX=controller.getX();
+        double zombieStartZ=zombie.getZ();
+        boolean originalNoAi=zombie.isNoAi();
+        String issue=PlayerMobPossession.beginReciprocal(controller,zombie);
+        helper.assertTrue(issue==null,
+            "Reciprocal Player↔Zombie native mind proxy was rejected: "+issue);
+        helper.assertTrue(PlayerMobPossession.hasSession(controller.getUUID())
+                &&zombie.isNoAi()==true&&controller.isAlive(),
+            "Reciprocal session did not assign separate controllers to both real bodies");
+
+        for(int pulse=0;pulse<7;pulse++) {
+            final long sequence=pulse+1L;
+            helper.runAfterDelay(pulse*4,()->PlayerMobPossession.input(controller,
+                new PlayerMobPossession.Input(1.0f,0.0f,false,0.0f,0.0f,sequence)));
+        }
+        helper.runAfterDelay(35,()->{
+            helper.assertTrue(controller.getX()<playerStartX-0.15,
+                "Zombie mind did not move the original Player body toward the other real Player; "
+                    +"startX="+playerStartX+" finalX="+controller.getX());
+            helper.assertTrue(zombie.getZ()>zombieStartZ+0.15,
+                "Player input did not independently move the occupied Zombie body; "
+                    +"startZ="+zombieStartZ+" finalZ="+zombie.getZ());
+            helper.assertTrue(PlayerMobPossession.end(controller),
+                "Player/Mob reciprocal controller did not return on cancel");
+            helper.assertTrue(zombie.isNoAi()==originalNoAi,
+                "Returning from the exchange did not restore the Mob's original AI flag");
+            System.out.println("FF-GAMEPLAY player_mob_native_mind_proxy PASS"
+                +" sameServerNativeAI=true playerBodyDrivenByMobMind=true"
+                +" mobBodyDrivenByPlayerInput=true noMirroredMovement=true restored=true");
+            zombie.discard();
             helper.succeed();
         });
     }
