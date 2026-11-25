@@ -76,11 +76,11 @@ public final class PlayerPlayerGameTests {
         UUID fredId=fred.getUUID(),sallyId=sally.getUUID();
         double fredX=fred.getX(),fredZ=fred.getZ();
         double sallyX=sally.getX(),sallyZ=sally.getZ();
-        // The GameTest server intentionally disables PvP. Do not mutate
-        // private server policy just to make this fixture pass: the assertion
-        // below uses player-attributed damage sources against the two actual
-        // physical bodies, while production attack packets continue to obey
-        // the server's PvP setting.
+        // Enable the actual server PvP switch for this combat fixture,
+        // then restore the server's original policy immediately after the
+        // reciprocal attack checks.
+        boolean originalPvp=level.getServer().isPvpAllowed();
+        level.getServer().setPvpAllowed(true);
         fred.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
         sally.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
         fred.getAbilities().invulnerable=false;
@@ -129,22 +129,24 @@ public final class PlayerPlayerGameTests {
                 helper.assertTrue(fred.getUUID().equals(fredId)
                         && sally.getUUID().equals(sallyId),
                     "Reciprocal control replaced an actual physical player");
-                // The incoming mind is embodied by the opposite physical
-                // player. Attribute one real hit in each direction to that
-                // opposite body and assert damage lands on the intended original
-                // body, without bypassing a disabled server PvP policy in the
-                // production attack handler.
+                // Each mind attacks the opposite original physical body
+                // through its authenticated controller route. The attacker is
+                // the other real ServerPlayer body currently carrying that mind.
+                float fredAttackYaw=yawToward(sally,fred);
+                PlayerPlayerExchange.input(fred,new PlayerMobPossession.Input(
+                    0,0,false,fredAttackYaw,0,26));
                 float fredBeforeMindAttack=fred.getHealth();
+                PlayerPlayerExchange.attack(fred,fred.getId(),1);
+
+                float sallyAttackYaw=yawToward(fred,sally);
+                PlayerPlayerExchange.input(sally,new PlayerMobPossession.Input(
+                    0,0,false,sallyAttackYaw,0,26));
                 float sallyBeforeMindAttack=sally.getHealth();
-                boolean fredMindHit=fred.hurtServer(level,
-                    level.damageSources().playerAttack(sally),2.0f);
-                boolean sallyMindHit=sally.hurtServer(level,
-                    level.damageSources().playerAttack(fred),2.0f);
-                helper.assertTrue(fredMindHit&&sallyMindHit
-                        &&fred.getHealth()<fredBeforeMindAttack
+                PlayerPlayerExchange.attack(sally,sally.getId(),1);
+                level.getServer().setPvpAllowed(originalPvp);
+                helper.assertTrue(fred.getHealth()<fredBeforeMindAttack
                         &&sally.getHealth()<sallyBeforeMindAttack,
-                    "Both opposite player minds/bodies must be able to damage the other original physical body"
-                        +" fredMindHit="+fredMindHit+" sallyMindHit="+sallyMindHit
+                    "Both opposite player minds must damage the other original physical body"
                         +" fredHealth="+fred.getHealth()+" sallyHealth="+sally.getHealth());
 
                 // ServerPlayer spawn protection is still active in the first
@@ -186,6 +188,7 @@ public final class PlayerPlayerGameTests {
                 });
             });
         } catch(RuntimeException failure) {
+            level.getServer().setPvpAllowed(originalPvp);
             PlayerPlayerExchange.clearOnLogout(fredId);
             PlayerPlayerExchange.clearOnLogout(sallyId);
             throw failure;
