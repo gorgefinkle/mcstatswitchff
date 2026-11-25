@@ -318,81 +318,95 @@ public final class PlayerMobGameTests {
      */
     private static void verifyNativeSpeedCollision(GameTestHelper helper) {
         var level=helper.getLevel();
-        ServerPlayer player=helper.makeMockServerPlayerInLevel();
-        player.setItemInHand(InteractionHand.MAIN_HAND,
+        ServerPlayer fastPlayer=helper.makeMockServerPlayerInLevel();
+        ServerPlayer slowPlayer=helper.makeMockServerPlayerInLevel();
+        fastPlayer.setItemInHand(InteractionHand.MAIN_HAND,
             new ItemStack(FreakyFriday.BOOK.get()));
-        Mob chicken=EntityTypes.CHICKEN.create(level,EntitySpawnReason.COMMAND);
-        helper.assertTrue(chicken!=null,"Chicken factory failed in native-speed regression");
+        slowPlayer.setItemInHand(InteractionHand.MAIN_HAND,
+            new ItemStack(FreakyFriday.BOOK.get()));
+        Mob fastChicken=EntityTypes.CHICKEN.create(level,EntitySpawnReason.COMMAND);
+        Mob slowChicken=EntityTypes.CHICKEN.create(level,EntitySpawnReason.COMMAND);
+        helper.assertTrue(fastChicken!=null&&slowChicken!=null,
+            "Chicken factory failed in native-speed regression");
         for(int x=1;x<=7;x++)for(int z=1;z<=12;z++)
             level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,0,z)),
                 net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
-        // Keep clear acceleration room before the physical wall. The test
-        // must measure the faster native speed before wall collision clamps it.
+        // Both physical bodies run at the same time in separate lanes. The
+        // high-speed body has room to accelerate before meeting a real wall.
         for(int x=1;x<=7;x++)for(int y=1;y<=3;y++)
             level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,y,9)),
                 net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
-        BlockPos start=helper.absolutePos(new BlockPos(3,1,4));
-        chicken.setPos(start.getX()+0.5,start.getY(),start.getZ()+0.5);
-        var speed=chicken.getAttribute(
+        BlockPos fastStartPos=helper.absolutePos(new BlockPos(3,1,4));
+        BlockPos slowStartPos=helper.absolutePos(new BlockPos(5,1,4));
+        fastChicken.setPos(fastStartPos.getX()+0.5,fastStartPos.getY(),fastStartPos.getZ()+0.5);
+        slowChicken.setPos(slowStartPos.getX()+0.5,slowStartPos.getY(),slowStartPos.getZ()+0.5);
+        var fastSpeed=fastChicken.getAttribute(
             net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED);
-        helper.assertTrue(speed!=null,"Chicken lacks native movement speed");
-        speed.setBaseValue(0.08);
-        helper.assertTrue(level.addFreshEntity(chicken),
-            "Real Chicken was not registered for speed/collision");
-        UUID bodyId=chicken.getUUID(),owner=player.getUUID();
-        float health=chicken.getHealth();
-        double startZ=chicken.getZ();
+        var slowSpeed=slowChicken.getAttribute(
+            net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED);
+        helper.assertTrue(fastSpeed!=null&&slowSpeed!=null,
+            "Chickens lack native movement speed attributes");
+        fastSpeed.setBaseValue(1.2);
+        slowSpeed.setBaseValue(0.08);
+        helper.assertTrue(level.addFreshEntity(fastChicken)&&level.addFreshEntity(slowChicken),
+            "Real Chicken bodies were not registered for speed/collision");
+        UUID fastBodyId=fastChicken.getUUID(),slowBodyId=slowChicken.getUUID();
+        UUID fastOwner=fastPlayer.getUUID(),slowOwner=slowPlayer.getUUID();
+        float fastHealth=fastChicken.getHealth(),slowHealth=slowChicken.getHealth();
+        double fastStartZ=fastChicken.getZ(),slowStartZ=slowChicken.getZ();
         try {
-            String error=PlayerMobPossession.begin(player,chicken);
-            helper.assertTrue(error==null,"Native-speed possession rejected: "+error);
-            // Keep input current throughout each physical tick window.
-            for(int tick=1;tick<=8;tick++) {
+            String fastError=PlayerMobPossession.begin(fastPlayer,fastChicken);
+            String slowError=PlayerMobPossession.begin(slowPlayer,slowChicken);
+            helper.assertTrue(fastError==null&&slowError==null,
+                "Native-speed possession rejected: fast="+fastError+" slow="+slowError);
+            // Authenticated control pulses remain fresh across the entire
+            // measurement window for both independent physical bodies.
+            for(int tick=1;tick<=23;tick++) {
                 final int sequence=tick;
-                helper.runAfterDelay(tick,()->PlayerMobPossession.input(player,
-                    new PlayerMobPossession.Input(1,0,false,0,0,sequence)));
-            }
-            final double[] slow={Double.NaN};
-            helper.runAfterDelay(10,()->{
-                slow[0]=chicken.getZ()-startZ;
-                helper.assertTrue(slow[0]>0.02 && slow[0]<0.4,
-                    "Slow native speed failed: distance="+slow[0]);
-                speed.setBaseValue(1.2);
-            });
-            for(int tick=11;tick<=23;tick++) {
-                final int sequence=tick;
-                helper.runAfterDelay(tick,()->PlayerMobPossession.input(player,
-                    new PlayerMobPossession.Input(1,0,false,0,0,sequence)));
+                helper.runAfterDelay(tick,()->{
+                    PlayerMobPossession.input(fastPlayer,
+                        new PlayerMobPossession.Input(1,0,false,0,0,sequence));
+                    PlayerMobPossession.input(slowPlayer,
+                        new PlayerMobPossession.Input(1,0,false,0,0,sequence));
+                });
             }
             helper.runAfterDelay(25,()->{
-                double total=chicken.getZ()-startZ;
-                double fastDistance=total-slow[0];
-                // The chicken's width must not enter the solid wall.
+                double fastDistance=fastChicken.getZ()-fastStartZ;
+                double slowDistance=slowChicken.getZ()-slowStartZ;
                 double wallFront=helper.absolutePos(new BlockPos(3,1,9)).getZ();
-                helper.assertTrue(Double.isFinite(slow[0])
-                        && fastDistance>slow[0]+0.10,
-                    "Native movement attribute did not increase travel: slow="
-                        +slow[0]+" fast="+fastDistance);
-                helper.assertTrue(chicken.getBoundingBox().maxZ<=wallFront+0.0001,
-                    "Chicken passed through a solid vanilla block wall: box="
-                        +chicken.getBoundingBox()+" wallZ="+wallFront);
-                helper.assertTrue(level.getEntity(bodyId)==chicken
-                        && Float.compare(health,chicken.getHealth())==0,
-                    "Native-speed test replaced/damaged physical chicken");
-                helper.assertTrue(PlayerMobPossession.end(player),
-                    "Native-speed test cannot cancel active possession");
-                helper.assertTrue(!chicken.isNoAi()
-                        && !PlayerMobPossession.hasSession(owner),
-                    "Native-speed cancel failed to restore AI and ownership");
+                helper.assertTrue(slowDistance>0.02&&slowDistance<0.4,
+                    "Slow native body speed outside expected travel range: "+slowDistance);
+                helper.assertTrue(fastDistance>slowDistance+0.10,
+                    "Higher native movement attribute did not increase travel: fast="
+                        +fastDistance+" slow="+slowDistance);
+                helper.assertTrue(fastChicken.getBoundingBox().maxZ<=wallFront+0.0001,
+                    "Fast Chicken passed through a solid vanilla block wall: box="
+                        +fastChicken.getBoundingBox()+" wallZ="+wallFront);
+                helper.assertTrue(level.getEntity(fastBodyId)==fastChicken
+                        &&level.getEntity(slowBodyId)==slowChicken
+                        &&Float.compare(fastHealth,fastChicken.getHealth())==0
+                        &&Float.compare(slowHealth,slowChicken.getHealth())==0,
+                    "Native-speed test replaced/damaged a physical Chicken body");
+                helper.assertTrue(PlayerMobPossession.end(fastPlayer)
+                        &&PlayerMobPossession.end(slowPlayer),
+                    "Native-speed tests could not cancel both active possessions");
+                helper.assertTrue(!fastChicken.isNoAi()&&!slowChicken.isNoAi()
+                        &&!PlayerMobPossession.hasSession(fastOwner)
+                        &&!PlayerMobPossession.hasSession(slowOwner),
+                    "Native-speed cancel failed to restore both bodies and owners");
                 System.out.println("FF-GAMEPLAY native_body_speed PASS"
-                    +" slow="+slow[0]+" accelerated="+fastDistance);
+                    +" fast="+fastDistance+" slow="+slowDistance);
                 System.out.println("FF-GAMEPLAY solid_wall_collision PASS"
-                    +" maxZ="+chicken.getBoundingBox().maxZ+" wallZ="+wallFront);
+                    +" maxZ="+fastChicken.getBoundingBox().maxZ+" wallZ="+wallFront);
                 helper.succeed();
-                chicken.discard();
+                fastChicken.discard();
+                slowChicken.discard();
             });
         } catch (RuntimeException failure) {
-            PlayerMobPossession.clearOnLogout(owner);
-            chicken.discard();
+            PlayerMobPossession.clearOnLogout(fastOwner);
+            PlayerMobPossession.clearOnLogout(slowOwner);
+            fastChicken.discard();
+            slowChicken.discard();
             throw failure;
         }
     }
