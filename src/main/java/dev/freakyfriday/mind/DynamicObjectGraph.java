@@ -247,52 +247,7 @@ public final class DynamicObjectGraph {
 
         private static int captureOrdinal(Field field) {
             String name=field.getName();
-            int marker=name.lastIndexOf('(Object array, int index, Object item, Class<?> component)
-                throws Uncapturable {
-            if (item != null && !boxed(component).isInstance(item))
-                throw new Uncapturable("AI array element cannot be rebound to "
-                    + component.getName() + ": " + item.getClass().getName());
-            try { Array.set(array, index, item); }
-            catch (IllegalArgumentException err) { throw new Uncapturable("Invalid AI array", err); }
-        }
-    }
-
-    private static boolean primitiveLike(Class<?> type) {
-        return type.isPrimitive() || type.isEnum() || type == String.class || type == Class.class
-            || type == Boolean.class || type == Byte.class || type == Short.class
-            || type == Integer.class || type == Long.class || type == Float.class
-            || type == Double.class || type == Character.class || type == java.util.UUID.class
-            || type == java.math.BigInteger.class || type == java.math.BigDecimal.class;
-    }
-
-    private static Class<?> boxed(Class<?> type) {
-        if (!type.isPrimitive()) return type;
-        if (type == int.class) return Integer.class;
-        if (type == long.class) return Long.class;
-        if (type == boolean.class) return Boolean.class;
-        if (type == float.class) return Float.class;
-        if (type == double.class) return Double.class;
-        if (type == byte.class) return Byte.class;
-        if (type == short.class) return Short.class;
-        if (type == char.class) return Character.class;
-        return type;
-    }
-
-    private static Object allocate(Class<?> type) throws Uncapturable {
-        try {
-            Class<?> unsafeType = Class.forName("sun.misc.Unsafe");
-            Field singleton = unsafeType.getDeclaredField("theUnsafe");
-            if (!singleton.trySetAccessible())
-                throw new Uncapturable("Unsafe allocation is inaccessible on this runtime");
-            Object unsafe = singleton.get(null);
-            Method method = unsafeType.getMethod("allocateInstance", Class.class);
-            return method.invoke(unsafe, type);
-        } catch (ReflectiveOperationException | RuntimeException failure) {
-            throw new Uncapturable("Cannot allocate whole AI instance of " + type.getName(), failure);
-        }
-    }
-}
-);
+            int marker=name.lastIndexOf('$');
             if(marker>=0&&marker+1<name.length()) {
                 try { return Integer.parseInt(name.substring(marker+1)); }
                 catch(NumberFormatException ignored) {}
