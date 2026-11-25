@@ -332,6 +332,11 @@ public final class PlayerMobGameTests {
         for(int x=1;x<=7;x++)for(int z=1;z<=22;z++)
             level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,0,z)),
                 net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+        // Remove any template boundary blocks from the test lanes so the
+        // measured speed difference is not accidentally clamped at z=5.
+        for(int x=1;x<=7;x++)for(int y=1;y<=3;y++)for(int z=1;z<20;z++)
+            level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,y,z)),
+                net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
         // Both physical bodies run at the same time in separate lanes. Give
         // the high-speed profile room to accelerate before the solid wall.
         for(int x=1;x<=7;x++)for(int y=1;y<=3;y++)
@@ -871,6 +876,7 @@ public final class PlayerMobGameTests {
         }
         ServerPlayer target=helper.makeMockServerPlayerInLevel();
         target.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+        target.getAbilities().invulnerable=false;
         target.setPos(helper.absolutePos(new BlockPos(6,1,4)).getX()+0.5,
             helper.absolutePos(new BlockPos(6,1,4)).getY(),
             helper.absolutePos(new BlockPos(6,1,4)).getZ()+0.5);
@@ -882,8 +888,10 @@ public final class PlayerMobGameTests {
         Mob secondZombie=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
         helper.assertTrue(chicken!=null&&zombie!=null&&secondChicken!=null&&secondZombie!=null,
             "Live cross-species exchange fixtures could not be created");
-        BlockPos chickenPos=helper.absolutePos(new BlockPos(3,1,4));
-        BlockPos zombiePos=helper.absolutePos(new BlockPos(9,1,4));
+        // Keep both physical bodies well outside the chicken's close-range
+        // TemptGoal stop radius so each incoming controller has room to move.
+        BlockPos chickenPos=helper.absolutePos(new BlockPos(1,1,4));
+        BlockPos zombiePos=helper.absolutePos(new BlockPos(11,1,4));
         BlockPos secondChickenPos=helper.absolutePos(new BlockPos(15,1,4));
         BlockPos secondZombiePos=helper.absolutePos(new BlockPos(19,1,4));
         chicken.setPos(chickenPos.getX()+0.5,chickenPos.getY(),chickenPos.getZ()+0.5);
@@ -904,6 +912,7 @@ public final class PlayerMobGameTests {
         List<GoalSnapshot> zombieTargets=snapshotGoals(zombie,true);
         boolean chickenNoAi=chicken.isNoAi(),zombieNoAi=zombie.isNoAi();
         UUID requester=java.util.UUID.randomUUID();
+        System.setProperty("freakyfriday.debugProxy","true");
         String firstError=GoalMindRuntime.begin(requester,chicken,zombie);
         helper.assertTrue(firstError==null,
             "Live Chicken↔Zombie native goal exchange failed: "+firstError);
@@ -927,6 +936,7 @@ public final class PlayerMobGameTests {
         double chickenStart=chicken.distanceToSqr(target);
         double zombieStart=zombie.distanceToSqr(target);
         helper.runAfterDelay(40,()->{
+            System.clearProperty("freakyfriday.debugProxy");
             helper.assertTrue(chicken.isAlive()&&zombie.isAlive()
                     &&secondChicken.isAlive()&&secondZombie.isAlive(),
                 "One of the original physical Mob bodies stopped ticking during the swap");
