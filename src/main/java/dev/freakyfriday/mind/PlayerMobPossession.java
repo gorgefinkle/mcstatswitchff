@@ -14,6 +14,8 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 
 /**
  * Server-authoritative, first PLAYABLE player->mob possession.
@@ -222,6 +224,16 @@ public final class PlayerMobPossession {
 
     public static synchronized void clearOnLogout(UUID playerId) {
         end(playerId,false);
+    }
+
+    @SubscribeEvent
+    public static synchronized void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        clearOnLogout(event.getEntity().getUUID());
+    }
+
+    @SubscribeEvent
+    public static synchronized void onServerStopped(ServerStoppedEvent event) {
+        clearOnServerStop();
     }
 
     public static synchronized void clearOnServerStop() {
