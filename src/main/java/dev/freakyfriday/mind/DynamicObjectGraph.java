@@ -8,13 +8,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.IdentityHashMap;
-import java.util.LinkedHashSet;
-import java.util.LinkedList;
 import java.util.EnumSet;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -123,52 +121,61 @@ public final class DynamicObjectGraph {
             }
 
             if (source instanceof List<?> list) {
-                List<Object> result;
                 String name = type.getName();
                 boolean immutable = name.startsWith("java.util.ImmutableCollections$List");
                 boolean unmodifiable = name.startsWith("java.util.Collections$Unmodifiable");
-                if (type == ArrayList.class) result = new ArrayList<>(list.size());
-                else if (type == LinkedList.class) result = new LinkedList<>();
-                else if (immutable || unmodifiable) result = new ArrayList<>(list.size());
+                List<Object> backing;
+                if (type == ArrayList.class) backing = new ArrayList<>(list.size());
+                else if (type == LinkedList.class) backing = new LinkedList<>();
+                else if (immutable || unmodifiable) backing = new ArrayList<>(list.size());
                 else throw new Uncapturable("Unsupported List implementation; refusing to change collection semantics: " + name);
+                Object result = unmodifiable ? Collections.unmodifiableList(backing) : backing;
                 copies.put(source, result);
-                for (Object value : list) result.add(copy(value, depth + 1));
-                if (immutable) return List.copyOf(result);
-                if (unmodifiable) return Collections.unmodifiableList(result);
+                for (Object value : list) backing.add(copy(value, depth + 1));
+                if (immutable) {
+                    result = List.copyOf(backing);
+                    copies.put(source, result);
+                }
                 return result;
             }
 
             if (source instanceof Set<?> set) {
-                Set<Object> result;
                 String name = type.getName();
                 boolean immutable = name.startsWith("java.util.ImmutableCollections$Set");
                 boolean unmodifiable = name.startsWith("java.util.Collections$Unmodifiable");
-                if (type == HashSet.class) result = new HashSet<>();
-                else if (type == LinkedHashSet.class) result = new LinkedHashSet<>();
-                else if (immutable || unmodifiable) result = new LinkedHashSet<>();
+                Set<Object> backing;
+                if (type == HashSet.class) backing = new HashSet<>();
+                else if (type == LinkedHashSet.class) backing = new LinkedHashSet<>();
+                else if (immutable || unmodifiable) backing = new LinkedHashSet<>();
                 else throw new Uncapturable("Unsupported Set implementation; refusing to change collection semantics: " + name);
+                Object result = unmodifiable ? Collections.unmodifiableSet(backing) : backing;
                 copies.put(source, result);
-                for (Object value : set) result.add(copy(value, depth + 1));
-                if (immutable) return Set.copyOf(result);
-                if (unmodifiable) return Collections.unmodifiableSet(result);
+                for (Object value : set) backing.add(copy(value, depth + 1));
+                if (immutable) {
+                    result = Set.copyOf(backing);
+                    copies.put(source, result);
+                }
                 return result;
             }
 
             if (source instanceof Map<?, ?> map) {
-                Map<Object, Object> result;
                 String name = type.getName();
                 boolean immutable = name.startsWith("java.util.ImmutableCollections$Map");
                 boolean unmodifiable = name.startsWith("java.util.Collections$Unmodifiable");
-                if (type == HashMap.class) result = new HashMap<>();
-                else if (type == LinkedHashMap.class) result = new LinkedHashMap<>();
-                else if (type == IdentityHashMap.class) result = new IdentityHashMap<>();
-                else if (immutable || unmodifiable) result = new LinkedHashMap<>();
+                Map<Object, Object> backing;
+                if (type == HashMap.class) backing = new HashMap<>();
+                else if (type == LinkedHashMap.class) backing = new LinkedHashMap<>();
+                else if (type == IdentityHashMap.class) backing = new IdentityHashMap<>();
+                else if (immutable || unmodifiable) backing = new LinkedHashMap<>();
                 else throw new Uncapturable("Unsupported Map implementation; refusing to change collection semantics: " + name);
+                Object result = unmodifiable ? Collections.unmodifiableMap(backing) : backing;
                 copies.put(source, result);
                 for (var e : map.entrySet())
-                    result.put(copy(e.getKey(), depth + 1), copy(e.getValue(), depth + 1));
-                if (immutable) return Map.copyOf(result);
-                if (unmodifiable) return Collections.unmodifiableMap(result);
+                    backing.put(copy(e.getKey(), depth + 1), copy(e.getValue(), depth + 1));
+                if (immutable) {
+                    result = Map.copyOf(backing);
+                    copies.put(source, result);
+                }
                 return result;
             }
 
