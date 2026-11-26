@@ -44,12 +44,13 @@ public final class NativeMindObservation {
                                            boolean nativeNavigationSeen) {
         if (!nativeNavigationSeen) return null;
         double dx=actualX-initialX;
+        double dy=actualY-initialY;
         double dz=actualZ-initialZ;
-        double distance=Math.hypot(dx,dz);
+        double distance=Math.sqrt(dx*dx+dy*dy+dz*dz);
         if (!Double.isFinite(distance) || distance<MIN_NATIVE_TRAVEL)
             return null;
         double scale=DESIRED_OFFSET/distance;
-        return new NativeNavigation(dx*scale,0,dz*scale,distance);
+        return new NativeNavigation(dx*scale,dy*scale,dz*scale,distance);
     }
 
     /** Never embed disposable worker coordinates in receiver-body movement. */
