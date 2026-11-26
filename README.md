@@ -31,9 +31,11 @@ Do not confuse:
 
 The active acceptance contract is `docs/P09_UNIVERSAL_NATIVE_AI_SWAP_ACCEPTANCE.md`. It requires simultaneous two-way behavior, not just successful selection or entity creation.
 
-The Zombie↔Chicken test now checks both directions using independent live stimuli: Zombie-native pursuit of an Iron Golem in the original Chicken body, and Chicken-native TemptGoal behavior toward a registered seed-holding player in the original Zombie body. It has been promoted from manual-only to a required GameTest and is now checked by CI. The newest run must pass before this gate is considered complete.
+The latest verified CI commit, `d74b5cc`, passed all 25 required NeoForge GameTests on both Minecraft 26.2 and 26.3. Coverage now includes simultaneous Zombie↔Chicken behavior, Villager Brain↔Zombie Goal behavior, reciprocal Mob↔Mob and Player↔Mob attacks, physical-body capability checks, and a recipient sensory snapshot/wire/mirror/cleanup test.
 
-The Player↔Mob reciprocal attack check is chained into the required Chicken-control GameTest so the full test sequence runs within the ordinary GameTest timeout. Connected graphical clients are still needed to verify actual camera, mouse input, item/GUI forwarding and multiplayer observation.
+The GameTest structures are now validated by `scripts/test-structure-templates.py` before the Minecraft matrix starts. This catches malformed GZIP/NBT templates, invalid structure list tags, missing structure references, out-of-bounds block entries, and undersized arenas.
+
+Those results validate the covered experimental cases only. Connected graphical clients are still needed to verify camera, mouse input, item/GUI forwarding and multiplayer observation. The native-worker backend is not yet wired into the book flow, and the current same-server proxy route remains unsafe for normal survival-world use.
 
 ## Build and verification
 
@@ -41,6 +43,7 @@ Both supported profiles use the same shared source and thin platform adapters:
 
 ```bash
 sh scripts/test-core.sh
+python3 scripts/test-structure-templates.py
 python3 scripts/self_audit.py
 ./gradlew clean build -PtargetMinecraft=26.2 --no-daemon
 ./gradlew clean build -PtargetMinecraft=26.3 --no-daemon
