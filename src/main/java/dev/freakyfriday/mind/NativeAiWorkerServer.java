@@ -135,8 +135,8 @@ public final class NativeAiWorkerServer {
         NativeMindSenseFrame previousSense;
         final Path sensesInbox;
         NativeMindWorkerHeartbeat heartbeat;
-        final double startX, startZ;
-        double lastReportedX, lastReportedZ;
+        final double startX, startY, startZ;
+        double lastReportedX, lastReportedY, lastReportedZ;
         long currentRecipientTick;
         int frameIndex, age, targetTicks, navigationTicks;
         boolean attackObservedEver;
