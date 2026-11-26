@@ -87,11 +87,17 @@ public final class DynamicObjectGraphSelfTest {
             keys.put(other, "other");
         }
     }
+    private static final class CycleChildGoal extends DynamicGoal {
+        List<?> parent;
+        CycleChildGoal(Body body) { super(body, 10.5); }
+    }
     private static final class ImmutableCycleGoal extends DynamicGoal {
         final List<Object> cycle;
         ImmutableCycleGoal(Body body) {
             super(body, 10.0);
-            cycle = List.of(this);
+            CycleChildGoal child = new CycleChildGoal(body);
+            cycle = List.of(child);
+            child.parent = cycle;
         }
     }
     private static final class ClosedGoal extends DynamicGoal {
