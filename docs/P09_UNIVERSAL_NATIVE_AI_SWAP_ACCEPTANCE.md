@@ -22,19 +22,39 @@ For example, a creeper mind in a cow may still pursue its target but cannot
 detonate if the cow has no native explosion mechanism. The action is unavailable;
 this does **not** invalidate or silently revert the entire mind transfer.
 
-## Why the current code fails
+## Current P09 implementation and why it is not yet safe
 
-- `NativeBrainSwap.eligibility` rejects different concrete mob types.
-- `GoalMindRuntime.captureFor` must clone owner-bound Java Goal objects and
-  can reject opaque subclass state; that cannot guarantee a complete exchange.
-- A modded goal may directly call damage/spawn/sound/world/item APIs. Running
-  it in an unspawned host *in the live JVM* is not isolated.
-- `MindHostEngine` and `CapturedIntentBridge` already define safe ownership
-  and authenticated, data-only dispatch contracts but are not wired to a
-  continuous universal native decision source.
-- `NativeAiWorkerServer` proves native target/navigation capture in a separate
-  disposable NeoForge world for one CI fixture. It does NOT stream arbitrary
-  modded native AI actions, attacks, Brain activities or full-world context.
+- `GoalMindRuntime` currently creates an unregistered proxy of each donor's
+  own EntityType, captures/rebinds its Goal and target-selector graph, copies
+  available Brain state, and advances its native AI hooks on the live server.
+  Each proxy's decisions are projected onto the opposite original physical
+  body. This avoids transplanting a Zombie GoalSelector directly into a
+  Chicken instance, but it is still an experimental same-server proxy runtime.
+- The proxy shares the live `ServerLevel`. It is not a sandbox. A native
+  Goal, Brain behavior, entity override, callback, or modded hook can still
+  mutate live blocks/entities, spawn effects, change inventories, or perform
+  other world actions directly. The bytecode effect survey is diagnostic,
+  not an interception boundary.
+- `DynamicObjectGraph` rebinds discovered owner/control references and rejects
+  some incompatible graphs. A successful graph copy is not proof that every
+  opaque callback, captured helper, static reference, or modded side effect is
+  safely isolated.
+- Movement intent is extracted from the native proxy and applied through the
+  physical body's own native travel path. A current regression showed that a
+  non-`Mob.getTarget()` goal such as Chicken `TemptGoal` can be running while
+  its MoveControl request is consumed before it is projected. The runtime is
+  being corrected to capture requested MoveControl intent before that tick.
+- `MindHostEngine` and `CapturedIntentBridge` define bounded ownership and
+  data-only action contracts, but they are not yet connected to a complete,
+  continuously executing, isolated native decision backend.
+- `NativeAiWorkerServer` runs in a separate disposable NeoForge JVM and can
+  capture a limited navigation/melee stream from a mirrored worker world.
+  That worker currently lacks the live book-session supervisor, full sensory
+  world, reciprocal per-mind scheduling, and complete side-effect capture.
+
+This experimental in-process path is for disposable test worlds only. It is
+not the selected final runtime and must not be represented as universal or
+safe for a normal survival world.
 
 ## Required replacement architecture, not a new fake species AI
 
@@ -88,15 +108,24 @@ this does **not** invalidate or silently revert the entire mind transfer.
 
 ## Release gate
 
-`zombie_chicken_behavior_acceptance` is currently a known failing manual
-GameTest. Do not reclassify it as a pass by removing its assertion or changing
-what it means. The true gameplay requirement is **universal swapability**,
-rather than "swaps for the mobs we patched". If arbitrary third-party code
-escapes the observation/isolation boundary, report that as an unimplemented
-engine capability and improve the generic runtime; never label the whole
-system complete. No software can honestly guarantee compatibility with every
-unknown future mod's arbitrary Java behavior without appropriate interception
-and isolation, so claims must be based on passing real-world tests.
+`zombie_chicken_behavior_acceptance` is now a required automated GameTest,
+not a manual-only probe. It checks two simultaneous directions: the Zombie
+mind must acquire and pursue an Iron Golem while hosted by the physical
+Chicken, and the Chicken mind must run its native TemptGoal toward a registered
+seed-holding player while hosted by the physical Zombie. The first automated
+run proved Zombie target acquisition and pursuit, but the Chicken body did
+not move even though the Chicken TemptGoal was running. The generic
+MoveControl-intent capture is being corrected; this gate is still failing
+until both bodies demonstrate movement and the full test passes on 26.2 and
+26.3.
+
+Do not reclassify this test as a pass by removing or weakening its assertions.
+The true gameplay requirement is **universal swapability**, not "swaps for
+the mobs we patched". If arbitrary third-party code escapes the
+observation/isolation boundary, report that as an unimplemented engine
+capability and improve the generic runtime. No software can honestly
+guarantee compatibility with every unknown future mod's arbitrary Java
+behavior without appropriate interception and isolation.
 
 
 ## Continuous sensory transport groundwork (not yet an integrated runtime)
@@ -122,13 +151,14 @@ entities and blocks is not yet a full Minecraft world replica: pathfinding,
 senses, memory modules, POIs, chunk state, mod capabilities and arbitrary
 world queries still need a generic, bounded mirror strategy.
 
-Do not remove the known-failing Zombie/Chicken behavior acceptance test,
-and do not promote the branch to a playable release until the live book flow
-uses continuous observations and passes the reciprocal physical behavior
-tests above. The first synthetic-stub CI attempt after adding the capture
-class failed because the legacy stub harness tried compiling a Minecraft API
-class without Minecraft stubs; the class has now been excluded from that
-legacy harness and remains subject to the real NeoForge 26.2/26.3 builds.
+Do not remove or weaken the required Zombie/Chicken behavior acceptance
+test. The current P09 book-selection route now invokes the experimental
+same-server proxy runtime described above; unlike earlier fail-closed
+checkpoints, it is not merely a diagnostic selection flow. Because those
+proxies execute against the live ServerLevel without complete side-effect
+interception, the current route must remain test-world-only and is not a
+playable release. The final runtime must use a persistent controller and a
+verified decision/effect boundary, not simply make the current proxy test pass.
 
 ## Current implementation evidence (P09 worker-stream increment)
 
@@ -180,7 +210,7 @@ Still unimplemented for the actual product:
   and dimension change.
 
 A second native movement frame is not proof of complete Brain/Goal or modded
-behavior transfer. The public book workflow must remain blocked until the
-actual reciprocal requirements at the top of this document pass in a normal
-playable world. The current two-JVM CI evidence is deliberately labelled
-completeNativeMindTransfer=false.
+behavior transfer. The current book route is an experimental same-server
+proxy path and remains unsafe for normal play. The two-JVM worker evidence is
+deliberately labelled `completeNativeMindTransfer=false`; it is not wired to
+the live book workflow.
