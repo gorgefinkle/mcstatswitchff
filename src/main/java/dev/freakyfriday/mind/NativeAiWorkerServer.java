@@ -589,7 +589,7 @@ public final class NativeAiWorkerServer {
         // through the very same native navigation seam. No entity-type
         // conditional or species recipe decides the action.
         var movement=NativeMindObservation.observe(
-            state.lastReportedX,donor.getY(),state.lastReportedZ,
+            state.lastReportedX,state.lastReportedY,state.lastReportedZ,
             donor.getX(),donor.getY(),donor.getZ(),
             state.navigationTicks>=2);
         if(movement!=null)state.observedMovement=movement;
