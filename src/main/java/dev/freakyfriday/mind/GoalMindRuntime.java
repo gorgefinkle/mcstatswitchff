@@ -507,6 +507,20 @@ public final class GoalMindRuntime {
             proxy.goalSelector.tick();
             proxy.getNavigation().tick();
             invokeNativeCustomServerAiStep(proxy);
+            // Preserve the controller's native MoveControl request BEFORE
+            // ticking the control. MOVE_TO controls commonly consume/clear
+            // their wanted state during tick(), especially on an unregistered
+            // proxy which cannot finish a full physical travel step. Keeping
+            // this vector lets every native movement goal (including
+            // TemptGoal, whose target is not Mob.getTarget()) project intent
+            // onto the real recipient body without a species-specific fallback.
+            Vec3 nativeMoveIntent=Vec3.ZERO;
+            if(proxy.getMoveControl().hasWanted()) {
+                nativeMoveIntent=new Vec3(
+                    proxy.getMoveControl().getWantedX()-proxy.getX(),
+                    proxy.getMoveControl().getWantedY()-proxy.getY(),
+                    proxy.getMoveControl().getWantedZ()-proxy.getZ());
+            }
             proxy.getMoveControl().tick();
             proxy.getLookControl().tick();
             proxy.getJumpControl().tick();
@@ -519,17 +533,6 @@ public final class GoalMindRuntime {
                 proxy.tick();
             } finally {
                 proxy.setNoAi(proxyNoAi);
-            }
-            // Some versions do not apply MoveControl displacement for an
-            // unregistered proxy. Preserve its native wanted direction as a
-            // fallback; the real recipient still resolves movement with its
-            // own native travel and collision.
-            Vec3 nativeMoveIntent=Vec3.ZERO;
-            if(proxy.getMoveControl().hasWanted()) {
-                nativeMoveIntent=new Vec3(
-                    proxy.getMoveControl().getWantedX()-proxy.getX(),
-                    proxy.getMoveControl().getWantedY()-proxy.getY(),
-                    proxy.getMoveControl().getWantedZ()-proxy.getZ());
             }
             syncProxyInventoryToBody(proxy,physicalBody);
             Vec3 moved=proxy.position().subtract(proxyOrigin);
