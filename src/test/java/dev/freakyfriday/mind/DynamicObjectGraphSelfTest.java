@@ -115,7 +115,7 @@ public final class DynamicObjectGraphSelfTest {
             public Object substitute(Object source) {
                 return replacements.getOrDefault(source, source);
             }
-            public boolean shared(Object source) { return false; }
+            public boolean shared(Object source) { return source == to; }
             public boolean cloneable(Class<?> type) {
                 return DynamicGoal.class.isAssignableFrom(type);
             }
