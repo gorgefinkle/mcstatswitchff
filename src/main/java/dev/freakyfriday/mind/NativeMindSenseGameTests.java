@@ -103,13 +103,19 @@ public final class NativeMindSenseGameTests {
         helper.assertTrue(level.addFreshEntity(verticalBody),
             "Native vertical recipient body failed to register");
         double verticalStart=verticalBody.getY();
+        float verticalOriginalSpeed=verticalBody.getSpeed();
         BodyActionGate.Result verticalResult=new MinecraftBodyPort(verticalBody).perform(
             new BodyActionGate.Intent(MinecraftBodyPort.MOVE_OFFSET,
                 java.util.Map.of("dx","0","dy","3.5","dz","0","speed","0.65")));
         helper.assertTrue(verticalResult.status()==BodyActionGate.Status.EXECUTED
-                && verticalBody.getY()>verticalStart+0.01,
-            "Physical recipient Mob did not execute vertical intent through native travel; "
-                +"result="+verticalResult+" y="+verticalStart+"->"+verticalBody.getY());
+                && verticalBody.getY()>verticalStart+0.01
+                && Float.compare(verticalBody.getSpeed(),verticalOriginalSpeed)==0
+                && verticalBody.isNoAi(),
+            "Physical recipient Mob did not execute vertical intent through native travel "
+                +"while retaining its native control speed/AI policy; result="+verticalResult
+                +" y="+verticalStart+"->"+verticalBody.getY()
+                +" speed="+verticalOriginalSpeed+"->"+verticalBody.getSpeed()
+                +" noAi="+verticalBody.isNoAi());
         verticalBody.discard();
         target.discard();
         level.setBlockAndUpdate(logPos,Blocks.AIR.defaultBlockState());
