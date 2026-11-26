@@ -711,6 +711,29 @@ public final class GoalMindRuntime {
             throw new DynamicObjectGraph.Uncapturable(
                 "The opposite AI could not register this physical-body identity");
         }
+        // EntityJoinLevelEvent and other spawn-time hooks run during
+        // addFreshEntity. Reassert the hidden identity AFTER those hooks so a
+        // listener cannot accidentally expose the target alias or enable its
+        // autonomous AI before the reciprocal controller captures it.
+        alias.setNoAi(true);
+        alias.setNoGravity(true);
+        alias.setSilent(true);
+        alias.setInvisible(true);
+        alias.noPhysics=true;
+        alias.setDeltaMovement(Vec3.ZERO);
+        alias.setPos(physicalBody.getX(),physicalBody.getY(),physicalBody.getZ());
+        alias.setYRot(physicalBody.getYRot());
+        alias.setXRot(physicalBody.getXRot());
+        if(!alias.isNoAi()||!alias.isNoGravity()||!alias.isSilent()
+                ||!alias.isInvisible()||!alias.noPhysics)
+            throw new DynamicObjectGraph.Uncapturable(
+                "The registered physical-body target identity could not retain its hidden/no-AI flags"
+                    +" type="+alias.getType()
+                    +" noAi="+alias.isNoAi()
+                    +" noGravity="+alias.isNoGravity()
+                    +" silent="+alias.isSilent()
+                    +" invisible="+alias.isInvisible()
+                    +" noPhysics="+alias.noPhysics);
         return alias;
     }
 
