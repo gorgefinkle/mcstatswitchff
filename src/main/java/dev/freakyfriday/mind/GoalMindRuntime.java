@@ -793,6 +793,13 @@ public final class GoalMindRuntime {
             DetachedController victim=DETACHED_BY_PROXY.get(damaged.getUUID());
             if(victim==null)victim=DETACHED_BY_ALIAS.get(damaged.getUUID());
             if(victim!=null) {
+                // Proxies and mind aliases are identities only; they never own
+                // an independent health or invulnerability pool. All actual
+                // damage is redirected to the assigned physical body, whose
+                // native hurt timer remains authoritative. Do not let a hidden
+                // alias/proxy reserve its own post-hit immunity window and
+                // silently absorb a later incoming hit before this redirect.
+                event.setInvulnerabilityTicks(0);
                 event.setCanceled(true);
                 Entity sourceEntity=event.getSource().getEntity();
                 if(sourceEntity instanceof Mob attackerMob) {
