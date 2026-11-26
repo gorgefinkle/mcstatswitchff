@@ -251,7 +251,12 @@ public final class NativeMindWorkerPairSessions implements AutoCloseable {
     }
 
     private UUID uniqueSessionId(UUID... excluded) {
-        Set<UUID> ids = Set.of(excluded);
+        Set<UUID> ids = new HashSet<>();
+        for (UUID id : excluded) ids.add(Objects.requireNonNull(id, "excluded session ID"));
+        for (ActivePair pair : pairs.values()) {
+            ids.add(pair.handle.first().sessionId());
+            ids.add(pair.handle.second().sessionId());
+        }
         UUID generated;
         do { generated = UUID.randomUUID(); }
         while (ids.contains(generated));
