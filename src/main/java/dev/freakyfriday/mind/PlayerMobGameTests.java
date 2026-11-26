@@ -1382,7 +1382,16 @@ public final class PlayerMobGameTests {
                 helper.assertTrue(zombieMindTarget==stimulusVillager,
                     "Zombie mind on the Villager body did not acquire the independent physical Villager stimulus; "
                         +"target="+(zombieMindTarget==null?"null":zombieMindTarget.getType())
-                        +" expected="+stimulusVillager.getType());
+                        +" expected="+stimulusVillager.getType()
+                        +" probe={"+targetProbe(level,zombieMindProxy,stimulusVillager)+"}"
+                        +" targetGoals={"+targetGoalOwners(zombieMindProxy)+"}"
+                        +" running="+zombieMindProxy.targetSelector.getAvailableGoals().stream()
+                            .map(w->w.getGoal().getClass().getSimpleName()+"[running="+w.isRunning()+"]")
+                            .toList()
+                        +" proxyPos="+zombieMindProxy.position()
+                        +" stimulusPos="+stimulusVillager.position()
+                        +" stimulusAlive="+stimulusVillager.isAlive()
+                        +" stimulusNoAi="+stimulusVillager.isNoAi());
                 helper.assertTrue(zombieMindTarget!=villagerMindAlias
                         &&zombieMindTarget!=physicalZombie,
                     "Zombie mind incorrectly treated its swapped Zombie partner as a Villager target");
@@ -1685,10 +1694,21 @@ public final class PlayerMobGameTests {
                 secondZombieB.setYRot(90.0f);
                 secondZombieA.setYHeadRot(-90.0f);
                 secondZombieB.setYHeadRot(90.0f);
+                Mob secondZombieAliasA=GoalMindRuntime.mindAliasForPhysicalBody(
+                    secondZombieA.getUUID());
+                Mob secondZombieAliasB=GoalMindRuntime.mindAliasForPhysicalBody(
+                    secondZombieB.getUUID());
+                helper.assertTrue(secondZombieAliasA!=null&&secondZombieAliasB!=null,
+                    "Both second-pair physical-body mind aliases are required for native attack routing");
+                // Native AI attacks the identity of the opposite physical
+                // body, not the original host object. The damage event then
+                // resolves that alias hit to the real host. Hitting the host
+                // object directly would reserve its hurt timer on 26.3 before
+                // the host-owned attack can execute.
                 secondZombieMindA.goalSelector.addGoal(0,
-                    new OneShotNativeAttackGoal(secondZombieMindA,secondZombieB));
+                    new OneShotNativeAttackGoal(secondZombieMindA,secondZombieAliasB));
                 secondZombieMindB.goalSelector.addGoal(0,
-                    new OneShotNativeAttackGoal(secondZombieMindB,secondZombieA));
+                    new OneShotNativeAttackGoal(secondZombieMindB,secondZombieAliasA));
                 System.setProperty("freakyfriday.debugProxy","true");
                 helper.runAfterDelay(20,()->{
                     try {
