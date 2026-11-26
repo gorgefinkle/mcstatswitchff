@@ -51,6 +51,15 @@ on observed runtime object graph compatibility, not mob IDs.
 - A full cross-species exchange may still be rejected because arbitrary
   Minecraft goals and mods are not required to be portable.
 
+## Independent implementation audit — collection and scheduler state
+
+A source-level audit identified two correctness boundaries that must remain explicit:
+
+- Java collection interfaces do not guarantee interchangeable implementations. Replacing every List, Set, or Map with an ArrayList, LinkedHashSet, or LinkedHashMap can silently change immutability, ordering, comparator, or identity-key semantics. The graph copier now accepts only known standard implementations whose semantics it can retain; unknown collection implementations reject the complete capture. It preserves immutable JDK collections and unmodifiable wrappers, retains IdentityHashMap identity-key behavior, and rejects rebinding collisions that would collapse distinct set/map entries. Cyclic immutable collection graphs are rejected rather than leaking a mutable backing collection.
+- GoalSelector does not store only Goal instances and priorities. Each entry is a WrappedGoal carrying scheduler state such as whether it is currently running. The current runtime snapshots the underlying goal and priority, then rebuilds entries through addGoal; it does not yet preserve the source wrapper's running state, disabled controls, selector lock state, or exact navigation progress. A transferred goal may therefore restart from a fresh scheduler state. This is a known incomplete-mind boundary, not a complete scheduler-state transfer.
+
+The second boundary is a release blocker for claiming an exact whole-mind exchange. Before treating a goal transfer as complete, implement recipient-safe preservation/reconstruction of scheduler state (or explicitly define and validate a safe stop/restart contract), then prove it in a real 26.2 dedicated server with goals observed both running and idle before exchange and after reversal. Do not infer this from the pure-Java graph harness.
+
 ## What is not yet proven or implemented
 
 - **Arbitrary species behavior** does not automatically become portable.
