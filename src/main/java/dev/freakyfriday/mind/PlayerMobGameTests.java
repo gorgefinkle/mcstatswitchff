@@ -1376,11 +1376,19 @@ public final class PlayerMobGameTests {
 
         double villagerBodyStartX=physicalVillager.getX();
         double zombieBodyStartX=physicalZombie.getX();
+        double villagerToStimulusStart=physicalVillager.position()
+            .subtract(stimulusVillager.position()).horizontalDistanceSqr();
+        double zombieToThreatStart=physicalZombie.position()
+            .subtract(stimulusZombie.position()).horizontalDistanceSqr();
         helper.runAfterDelay(95,()->{
             try {
                 Entity zombieMindTarget=zombieMindProxy.getTarget();
                 double villagerBodyDeltaX=physicalVillager.getX()-villagerBodyStartX;
                 double zombieBodyDeltaX=physicalZombie.getX()-zombieBodyStartX;
+                double villagerToStimulusEnd=physicalVillager.position()
+                    .subtract(stimulusVillager.position()).horizontalDistanceSqr();
+                double zombieToThreatEnd=physicalZombie.position()
+                    .subtract(stimulusZombie.position()).horizontalDistanceSqr();
                 helper.assertTrue(zombieMindTarget==stimulusVillager,
                     "Zombie mind on the Villager body did not acquire the independent physical Villager stimulus; "
                         +"target="+(zombieMindTarget==null?"null":zombieMindTarget.getType())
@@ -1397,12 +1405,26 @@ public final class PlayerMobGameTests {
                 helper.assertTrue(zombieMindTarget!=villagerMindAlias
                         &&zombieMindTarget!=physicalZombie,
                     "Zombie mind incorrectly treated its swapped Zombie partner as a Villager target");
-                helper.assertTrue(villagerBodyDeltaX<-0.20,
+                helper.assertTrue(villagerToStimulusEnd<villagerToStimulusStart-0.5,
                     "Zombie mind did not make the original Villager body approach the real Villager target; "
-                        +"start="+villagerBodyStartX+" final="+physicalVillager.getX());
-                helper.assertTrue(zombieBodyDeltaX<-0.20,
-                    "Villager mind did not make the original Zombie body flee from the independent Zombie threat; "
-                        +"start="+zombieBodyStartX+" final="+physicalZombie.getX());
+                        +"distanceSq="+villagerToStimulusStart+"->"+villagerToStimulusEnd
+                        +" xDelta="+villagerBodyDeltaX);
+                helper.assertTrue(zombieToThreatEnd>zombieToThreatStart+0.5,
+                    "Villager mind did not increase distance from the independent Zombie threat; "
+                        +"distanceSq="+zombieToThreatStart+"->"+zombieToThreatEnd
+                        +" xDelta="+zombieBodyDeltaX
+                        +" nearestHostile="+villagerMindProxy.getBrain().getMemory(
+                            net.minecraft.world.entity.ai.memory.MemoryModuleType.NEAREST_HOSTILE)
+                        +" walkTarget="+villagerMindProxy.getBrain().getMemory(
+                            net.minecraft.world.entity.ai.memory.MemoryModuleType.WALK_TARGET)
+                        +" panicking="+villagerMindProxy.getBrain().getMemory(
+                            net.minecraft.world.entity.ai.memory.MemoryModuleType.IS_PANICKING)
+                        +" activity="+villagerMindProxy.getBrain().getActiveNonCoreActivity()
+                        +" runningBehaviors="+villagerMindProxy.getBrain().getRunningBehaviors().stream()
+                            .map(b->b.getClass().getSimpleName()).toList()
+                        +" proxyPos="+villagerMindProxy.position()
+                        +" physicalBodyPos="+physicalZombie.position()
+                        +" threatPos="+stimulusZombie.position());
 
                 // The swapped pair itself is not a valid threat/target by its
                 // physical species: Zombie mind sees a Zombie, and Villager
