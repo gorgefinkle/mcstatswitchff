@@ -78,6 +78,39 @@ public final class PlayerMobGameTests {
                 +" class="+player.getClass().getName());
     }
 
+    /** Clear NeoForge FakePlayer's constructor invulnerability across target profiles. */
+    private static void makeDamageableFakePlayer(ServerPlayer player) {
+        player.getAbilities().invulnerable=false;
+        player.getAbilities().instabuild=false;
+        player.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+        player.gameMode.changeGameModeForPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        int cleared=0;
+        for(Class<?> type=player.getClass();type!=null;type=type.getSuperclass()) {
+            for(java.lang.reflect.Field field:type.getDeclaredFields()) {
+                String name=field.getName().toLowerCase(java.util.Locale.ROOT);
+                if(field.getType()!=boolean.class||!name.contains("invulnerable"))continue;
+                try {
+                    if(!field.trySetAccessible())continue;
+                    field.setBoolean(player,false);
+                    cleared++;
+                } catch(ReflectiveOperationException|RuntimeException ignored) {
+                    // Continue searching mapped superclass fields.
+                }
+            }
+        }
+        if(cleared==0||player.isInvulnerable()||player.getAbilities().invulnerable
+                ||player.getAbilities().instabuild||player.isCreative()||player.isSpectator())
+            throw new IllegalStateException(
+                "Could not configure registered FakePlayer as a damageable Survival stimulus"
+                +" reflectiveFlagsCleared="+cleared
+                +" invulnerable="+player.isInvulnerable()
+                +" abilitiesInvulnerable="+player.getAbilities().invulnerable
+                +" instabuild="+player.getAbilities().instabuild
+                +" creative="+player.isCreative()
+                +" spectator="+player.isSpectator()
+                +" class="+player.getClass().getName());
+    }
+
     /** Clear the vanilla damage immunity timer across mapped server versions. */
     private static void clearHurtCooldown(LivingEntity body) {
         int cleared=0;
@@ -1015,11 +1048,7 @@ public final class PlayerMobGameTests {
         stimulus.setNoGravity(true);
         // FakePlayerFactory defaults fake players to invulnerable. This is a
         // normal survival-style stimulus for TemptGoal and pathfinding.
-        stimulus.setInvulnerable(false);
-        stimulus.getAbilities().invulnerable=false;
-        stimulus.getAbilities().instabuild=false;
-        stimulus.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
-        stimulus.gameMode.changeGameModeForPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+        makeDamageableFakePlayer(stimulus);
         stimulus.setItemInHand(InteractionHand.MAIN_HAND,new ItemStack(Items.WHEAT_SEEDS));
         stimulus.setItemInHand(InteractionHand.OFF_HAND,new ItemStack(Items.WHEAT_SEEDS));
         level.addNewPlayer(stimulus);
