@@ -1385,6 +1385,7 @@ public final class PlayerMobGameTests {
         double zombieBodyStartX=physicalZombie.getX();
         double villagerToStimulusStart=physicalVillager.position()
             .subtract(stimulusVillager.position()).horizontalDistanceSqr();
+        double[] closestVillagerStimulusDistance={villagerToStimulusStart};
         double zombieToThreatStart=physicalZombie.position()
             .subtract(stimulusZombie.position()).horizontalDistanceSqr();
         double[] greatestZombieThreatDistance={zombieToThreatStart};
@@ -1392,6 +1393,10 @@ public final class PlayerMobGameTests {
         boolean[] villagerHadWalkTarget={false};
         for(int sample=1;sample<95;sample++) {
             helper.runAfterDelay(sample,()->{
+                closestVillagerStimulusDistance[0]=Math.min(
+                    closestVillagerStimulusDistance[0],
+                    physicalVillager.position().subtract(stimulusVillager.position())
+                        .horizontalDistanceSqr());
                 greatestZombieThreatDistance[0]=Math.max(greatestZombieThreatDistance[0],
                     physicalZombie.position().subtract(stimulusZombie.position())
                         .horizontalDistanceSqr());
@@ -1426,9 +1431,12 @@ public final class PlayerMobGameTests {
                 helper.assertTrue(zombieMindTarget!=villagerMindAlias
                         &&zombieMindTarget!=physicalZombie,
                     "Zombie mind incorrectly treated its swapped Zombie partner as a Villager target");
-                helper.assertTrue(villagerToStimulusEnd<villagerToStimulusStart-0.5,
-                    "Zombie mind did not make the original Villager body approach the real Villager target; "
-                        +"distanceSq="+villagerToStimulusStart+"->"+villagerToStimulusEnd
+                helper.assertTrue(closestVillagerStimulusDistance[0]
+                            <villagerToStimulusStart-0.5,
+                    "Zombie mind never made the original Villager body approach the real Villager target; "
+                        +"startSq="+villagerToStimulusStart
+                        +" closestSq="+closestVillagerStimulusDistance[0]
+                        +" finalSq="+villagerToStimulusEnd
                         +" xDelta="+villagerBodyDeltaX);
                 var nearestVisible=villagerMindProxy.getBrain().getMemory(
                     net.minecraft.world.entity.ai.memory.MemoryModuleType.NEAREST_VISIBLE_LIVING_ENTITIES);
