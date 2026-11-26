@@ -38,6 +38,8 @@ jobs:
         run: python3 scripts/test-detached-probe-lifecycle.py
       - name: Version isolation and metadata
         run: python3 scripts/test-version-profiles.py
+      - name: Validate compressed GameTest structure NBT and arena bounds
+        run: python3 scripts/test-structure-templates.py
       - name: R0.11 extended source and synthetic Minecraft audit
         run: python3 scripts/self_audit.py
 
