@@ -88,6 +88,7 @@ public final class PossessionMotion {
         // including zero-input frames; this is not a second travel step.
         // The native recipient travel implementation remains authoritative
         // for gravity, collision, fluids, climbing, flying and modded movement.
+        float originalSpeed=body.getSpeed();
         body.setSpeed(MOB_TRAVEL_BASE_SPEED);
         boolean originallyNoAi=body.isNoAi();
         if(originallyNoAi)body.setNoAi(false);
@@ -95,6 +96,10 @@ public final class PossessionMotion {
             if(jump)body.getJumpControl().jump();
             body.travel(new Vec3(strafe,vertical,forward));
         } finally {
+            // The travel step may temporarily use the generic control speed,
+            // but the physical body's native controller value is not mind
+            // state and must be restored after this single dispatch.
+            body.setSpeed(originalSpeed);
             if(originallyNoAi)body.setNoAi(true);
         }
     }
