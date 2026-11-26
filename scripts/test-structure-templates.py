@@ -185,6 +185,7 @@ MINIMUM_SIZES: dict[str, tuple[int, int, int]] = {
     "detached_dragon_chicken": (6, 8, 8),
     "detached_cross_species": (7, 8, 6),
     "physical_world_mirror": (7, 8, 8),
+    "recipient_sensory_snapshot": (11, 8, 8),
 }
 
 
