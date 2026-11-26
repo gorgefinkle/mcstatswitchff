@@ -661,7 +661,12 @@ public final class NativeAiWorkerServer {
                         +" nativeNavigationTicks="+state.navigationTicks
                         +" observedNativeTravel="+state.observedMovement.observedDistance()
                         +" nativeOffsetX="+state.observedMovement.dx()
+                        +" nativeOffsetY="+state.observedMovement.dy()
                         +" nativeOffsetZ="+state.observedMovement.dz()
+                        +" normalizedOffsetMagnitude="+Math.sqrt(
+                            state.observedMovement.dx()*state.observedMovement.dx()
+                            +state.observedMovement.dy()*state.observedMovement.dy()
+                            +state.observedMovement.dz()*state.observedMovement.dz())
                         +" originalWorldIsWorker=true");
                 else
                     System.out.println("FF-NATIVE-WORKER NATIVE_IDLE_FRAME"
