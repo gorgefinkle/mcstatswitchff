@@ -42,6 +42,18 @@ public final class PossessionMotion {
      */
     public static void applyNativeIntent(Mob body,Vec3 donorDisplacement,
                                          float yaw,float pitch) {
+        applyNativeIntent(body,donorDisplacement,yaw,pitch,1.0);
+    }
+
+    /**
+     * Apply the worker's bounded 3D direction through the physical Mob's own
+     * travel override. The multiplier scales native input, never a copied
+     * donor-world displacement or a direct Entity.move translation.
+     */
+    public static void applyNativeIntent(Mob body,Vec3 donorDisplacement,
+                                         float yaw,float pitch,double speedMultiplier) {
+        if(!Double.isFinite(speedMultiplier)||speedMultiplier<=0.0||speedMultiplier>2.0)
+            throw new IllegalArgumentException("Invalid native movement multiplier");
         body.setYRot(yaw);
         body.setYHeadRot(yaw);
         body.setXRot(pitch);
@@ -59,13 +71,14 @@ public final class PossessionMotion {
             forward=0.0;
             strafe=0.0;
         }
-        double nativeScale=nativeInputScale(body);
+        double nativeScale=Math.min(4.0,nativeInputScale(body)*speedMultiplier);
         forward*=nativeScale;
         strafe*=nativeScale;
 
-        boolean mediumVertical=body.isInWater()||body.isInLava()||body.isNoGravity();
-        double vertical=mediumVertical
-            ?Math.max(-1.0,Math.min(1.0,donorDisplacement.y))*nativeScale:0.0;
+        // Pass vertical intent to the body's native travel override as
+        // well. Ordinary ground travel may ignore it; fluid/flying/modded
+        // travel implementations can consume it without species branching.
+        double vertical=Math.max(-1.0,Math.min(1.0,donorDisplacement.y))*nativeScale;
         boolean jump=body.onGround()&&donorDisplacement.y>0.12;
         // The original Mob's NoAI flag suppresses LivingEntity.aiStep's
         // ordinary travel() call as well as its decision loop. Its physical
