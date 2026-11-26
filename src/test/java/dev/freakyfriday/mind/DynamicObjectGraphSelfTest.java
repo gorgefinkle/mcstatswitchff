@@ -79,6 +79,21 @@ public final class DynamicObjectGraphSelfTest {
             custom.add(body);
         }
     }
+    private static final class CollisionGoal extends DynamicGoal {
+        final IdentityHashMap<Object, String> keys = new IdentityHashMap<>();
+        CollisionGoal(Body owner, Body other) {
+            super(owner, 9.0);
+            keys.put(owner, "owner");
+            keys.put(other, "other");
+        }
+    }
+    private static final class ImmutableCycleGoal extends DynamicGoal {
+        final List<Object> cycle;
+        ImmutableCycleGoal(Body body) {
+            super(body, 10.0);
+            cycle = List.of(this);
+        }
+    }
     private static final class ClosedGoal extends DynamicGoal {
         final Predicate<Body> predicate;
         ClosedGoal(Body body) {
@@ -152,6 +167,24 @@ public final class DynamicObjectGraphSelfTest {
         } catch (DynamicObjectGraph.Uncapturable expected) {
             check(expected.getMessage().contains("Unsupported List implementation"),
                 "unknown collection implementations fail closed with a precise reason");
+        }
+
+        try {
+            DynamicObjectGraph.capture(new CollisionGoal(cow, pig),
+                CollisionGoal.class, binding(cow, pig));
+            throw new AssertionError("identity-key collision must reject the whole capture");
+        } catch (DynamicObjectGraph.Uncapturable expected) {
+            check(expected.getMessage().contains("collapsed distinct Map keys"),
+                "key collisions caused by owner rebinding reject instead of losing map entries");
+        }
+
+        try {
+            DynamicObjectGraph.capture(new ImmutableCycleGoal(cow),
+                ImmutableCycleGoal.class, binding(cow, pig));
+            throw new AssertionError("cyclic immutable collection cannot be safely rebound");
+        } catch (DynamicObjectGraph.Uncapturable expected) {
+            check(expected.getMessage().contains("Cyclic immutable collection"),
+                "cyclic immutable aliases reject instead of leaking mutable backing collections");
         }
         // Two native GoalSelector roots may share a helper object. One graph
         // traversal must retain that alias, not duplicate it per goal.
