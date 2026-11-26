@@ -126,18 +126,18 @@ public final class NativeMindWorkerPairSessionsSelfTest {
 
         // Physical bodies cannot be simultaneously reserved by two pairs.
         UUID pair4=UUID.randomUUID();
-        UUID bodyG=UUID.randomUUID(),mindG=UUID.randomUUID();
-        UUID mindH=UUID.randomUUID(),mindI=UUID.randomUUID();
+        UUID bodyG=UUID.randomUUID(),bodyH=UUID.randomUUID();
+        UUID mindG=UUID.randomUUID(),mindH=UUID.randomUUID(),mindI=UUID.randomUUID();
         byte[] keyG=CapturedIntentWireCodec.generateKey();
         byte[] keyH=CapturedIntentWireCodec.generateKey();
         byte[] keyI=CapturedIntentWireCodec.generateKey();
-        registry.openPair(pair4,bodyG,mindG,keyG,bodyA,mindH,keyH,1,5);
+        registry.openPair(pair4,bodyG,mindG,keyG,bodyH,mindH,keyH,1,5);
         rejects(()->registry.openPair(UUID.randomUUID(),bodyA,mindA,keyA,
             UUID.randomUUID(),mindI,keyI,1,5),
             "a physical body already reserved by another pair cannot be reused");
         check(registry.closePair(pair4)&&!registry.closePair(pair4),
             "pair cancellation is idempotent and reports one successful close");
-        check(!registry.isBodyReserved(bodyG)&&!registry.isBodyReserved(bodyA),
+        check(!registry.isBodyReserved(bodyG)&&!registry.isBodyReserved(bodyH),
             "pair cancellation releases both body reservations");
 
         registry.closePair(pairId);
