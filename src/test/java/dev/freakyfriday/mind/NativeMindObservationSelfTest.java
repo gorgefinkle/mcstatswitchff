@@ -12,10 +12,16 @@ public final class NativeMindObservationSelfTest {
         int checks=0;
         assert NativeMindObservation.observe(0,0,0,2,0,0,false)==null; checks++;
         assert NativeMindObservation.observe(0,0,0,0.30,0,0,true)==null; checks++;
-        assert NativeMindObservation.observe(0,0,0,0,15,0,true)==null; checks++;
+        var vertical=NativeMindObservation.observe(0,0,0,0,15,0,true);
+        assert vertical!=null && Math.abs(vertical.dy()-3.5)<1e-10
+            && vertical.dx()==0 && vertical.dz()==0; checks++;
         var n=NativeMindObservation.observe(19,60,-2,20,60,-2,true);
         assert n!=null; checks++;
         assert Math.abs(n.dx()-3.5)<1e-10 && n.dy()==0 && n.dz()==0; checks++;
+        var verticalFrame=NativeMindObservation.frame(target,mind,100,vertical);
+        assert verticalFrame.actions().size()==2
+            && "3.5".equals(verticalFrame.actions().get(1).arguments().get("dy"))
+            && "0.0".equals(verticalFrame.actions().get(1).arguments().get("dx")); checks++;
         var reverse=NativeMindObservation.observe(0,60,0,0,60,-2,true);
         assert reverse!=null && Math.abs(reverse.dz()+3.5)<1e-10; checks++;
         var diagonal=NativeMindObservation.observe(0,0,0,1,0,1,true);
