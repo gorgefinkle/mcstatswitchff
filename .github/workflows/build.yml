@@ -97,6 +97,7 @@ jobs:
           grep -Fq 'FF-GAMEPLAY mob_mob_reciprocal_attack PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY native_fall_profiles PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY native_goal_mind_exchange PASS' gametest.log
+          grep -Fq 'FF-GAMEPLAY zombie_chicken_behavior_acceptance PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY occupied_mob_death_returns_player PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY player_death_ejects_both PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY occupied_ocelot_attack_health PASS' gametest.log
