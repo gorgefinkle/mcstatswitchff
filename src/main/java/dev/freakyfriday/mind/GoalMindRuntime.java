@@ -599,7 +599,14 @@ public final class GoalMindRuntime {
         }
 
         private synchronized void recordAttack(Entity target) {
-            if(!closed&&target!=null&&!excluded.contains(target.getUUID()))
+            // 'excluded' is a perception filter: the mind must not select its
+            // own body, old donor object, or private aliases as ordinary
+            // sensory targets. Once an authenticated proxy/alias hit has been
+            // mapped to the opposing participant's physical body, that body
+            // is a valid action target even though its UUID was excluded from
+            // perception. Keep only the controller's own body/proxy/alias out.
+            if(!closed&&target!=null&&!target.isRemoved()&&target.isAlive()
+                    &&target!=physicalBody&&target!=proxy&&target!=mindAlias)
                 pendingAttack=target;
         }
 
