@@ -27,6 +27,7 @@ sourceSets.main.java.srcDir("src/platform/minecraft-${selectedMinecraft}/java")
 
 neoForge {
     version = profile.getProperty('neo_version')
+    validateAccessTransformers = true
     runs {
         client { client() }
         server { server(); programArgument '--nogui' }
