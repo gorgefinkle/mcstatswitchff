@@ -1,6 +1,6 @@
 {
   "environment": "minecraft:default",
-  "structure": "freakyfriday:empty_arena",
+  "structure": "freakyfriday:external_native_worker_arena",
   "max_ticks": 120,
   "setup_ticks": 0,
   "required": true,
