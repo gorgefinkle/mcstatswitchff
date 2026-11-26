@@ -17,7 +17,7 @@ if (profile.getProperty('minecraft_version') != selectedMinecraft) {
 }
 
 group = 'dev.freakyfriday'
-version = '0.15.11-alpha'
+version = '0.15.12-alpha'
 base { archivesName = "freakyfriday-mc${selectedMinecraft}-neoforge" }
 java.toolchain.languageVersion = JavaLanguageVersion.of(25)
 
@@ -30,16 +30,27 @@ neoForge {
     runs {
         client { client() }
         server { server(); programArgument '--nogui' }
-        aiWorker {
-            type = 'server'
-            gameDirectory = project.file('run-ai-worker')
-            systemProperty 'freakyfriday.aiWorker', 'true'
-            programArgument '--nogui'
-        }
         gameTestServer {
             type = 'gameTestServer'
             systemProperty 'neoforge.enabledGameTestNamespaces', 'freakyfriday'
             systemProperty 'freakyfriday.thirdPartyFixture', 'true'
+        }
+        // Test-only isolated native mind producers. Each worker receives
+        // its own disposable game directory, authenticated request files and
+        // no live-world references. These are separate Gradle run profiles so
+        // CI can exercise the child-server producer exactly as production
+        // would launch it, without sharing the parent server's save directory.
+        aiWorker {
+            server()
+            gameDirectory = project.file('run-ai-worker')
+            programArgument '--nogui'
+            systemProperty 'freakyfriday.aiWorker', 'true'
+        }
+        aiWorkerReverse {
+            server()
+            gameDirectory = project.file('run-ai-worker-reverse')
+            programArgument '--nogui'
+            systemProperty 'freakyfriday.aiWorker', 'true'
         }
     }
     mods { freakyfriday { sourceSet(sourceSets.main) } }
@@ -175,3 +186,72 @@ tasks.register("runCapturedIntentWireCodecSelfTest", JavaExec) {
     enableAssertions = true
 }
 tasks.named('check') { dependsOn tasks.named('runCapturedIntentWireCodecSelfTest') }
+
+tasks.register("runNativeMindSessionChannelSelfTest", JavaExec) {
+    group = 'verification'
+    description = 'Verify sequential authenticated per-tick worker sessions, deadlines and fail-closed retirement'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.freakyfriday.mind.NativeMindSessionChannelSelfTest'
+    enableAssertions = true
+}
+tasks.named('check') { dependsOn tasks.named('runNativeMindSessionChannelSelfTest') }
+
+
+tasks.register("runNativeMindMirrorDeltaSelfTest", JavaExec) {
+    group = 'verification'
+    description = 'Verify deterministic incremental recipient-world mirror updates and removals'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.freakyfriday.mind.NativeMindMirrorDeltaSelfTest'
+    enableAssertions = true
+}
+tasks.named('check') { dependsOn tasks.named('runNativeMindMirrorDeltaSelfTest') }
+
+tasks.register("runNativeMindMirrorStateSelfTest", JavaExec) {
+    group = 'verification'
+    description = 'Verify atomic worker mirror state reconciliation and replay rejection'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.freakyfriday.mind.NativeMindMirrorStateSelfTest'
+    enableAssertions = true
+}
+tasks.named('check') { dependsOn tasks.named('runNativeMindMirrorStateSelfTest') }
+
+tasks.register("writeNativeMindSenseFixture", JavaExec) {
+    group = 'verification'
+    description = 'Write one bounded HMAC-authenticated sensory fixture for worker integration tests'
+    dependsOn tasks.named('classes')
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'dev.freakyfriday.mind.NativeMindSenseFixtureWriter'
+    doFirst {
+        ['Body','Mind','StimulusId','Tick','Recipient','Stimulus','Output'].each { suffix ->
+            def value = providers.gradleProperty("ffFixture"+suffix).orNull
+            if (value == null || value.isBlank())
+                throw new GradleException("Missing required -PffFixture"+suffix+" property")
+            systemProperty("ff.fixture."+suffix.substring(0,1).toLowerCase()+suffix.substring(1), value)
+        }
+        def targetDx = providers.gradleProperty("ffFixtureTargetDx").orNull
+        if(targetDx != null) systemProperty("ff.fixture.targetDx", targetDx)
+    }
+}
+
+tasks.register("runNativeMindWorkerHeartbeatSelfTest", JavaExec) {
+    group = 'verification'
+    description = 'Prove persistent worker streams retire on stale, missing or reordered recipient senses'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.freakyfriday.mind.NativeMindWorkerHeartbeatSelfTest'
+    enableAssertions = true
+}
+tasks.named('check') { dependsOn tasks.named('runNativeMindWorkerHeartbeatSelfTest') }
+
+tasks.register("runNativeMindWorkerLaunchCommandSelfTest", JavaExec) {
+    group = 'verification'
+    description = 'Verify the worker JVM reuses NeoForge server launch arguments in an isolated world'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.freakyfriday.mind.NativeMindWorkerLaunchCommandSelfTest'
+    enableAssertions = true
+}
+tasks.named('check') { dependsOn tasks.named('runNativeMindWorkerLaunchCommandSelfTest') }

@@ -1,0 +1,10 @@
+{
+  "environment": "minecraft:default",
+  "structure": "freakyfriday:recipient_sensory_arena",
+  "max_ticks": 100,
+  "setup_ticks": 0,
+  "required": true,
+  "manual_only": false,
+  "type": "minecraft:function",
+  "function": "freakyfriday:recipient_sensory_snapshot"
+}

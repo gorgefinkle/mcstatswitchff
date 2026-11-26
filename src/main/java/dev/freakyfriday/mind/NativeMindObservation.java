@@ -1,0 +1,85 @@
+package dev.freakyfriday.mind;
+
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+/**
+ * Species-independent observation of an ACTUAL native AI decision.
+ *
+ * A separate NeoForge host runs the donor's own Goal, Brain and mob-class
+ * logic in its disposable world. When native navigation has demonstrably
+ * moved the donor, this projects its observed direction into coordinates
+ * RELATIVE to a different physical body. It does not synthesize any donor
+ * goal, target class or species-specific decision recipe.
+ *
+ * This is a bounded navigation/look plus optional direct-melee observation.
+ * Other damage, projectiles, blocks, inventory, effects and arbitrary modded
+ * side effects still require generic interception.
+ */
+public final class NativeMindObservation {
+    private NativeMindObservation() {}
+
+    public static final double MIN_NATIVE_TRAVEL=0.35;
+    public static final double DESIRED_OFFSET=3.5;
+
+    public record NativeNavigation(double dx, double dy, double dz,
+                                   double observedDistance) {
+        public NativeNavigation {
+            if (!Double.isFinite(dx) || !Double.isFinite(dy) || !Double.isFinite(dz)
+                    || !Double.isFinite(observedDistance) || observedDistance<0)
+                throw new IllegalArgumentException("Invalid native navigation observation");
+            if (dx*dx+dy*dy+dz*dz>144)
+                throw new IllegalArgumentException("Native movement offset outside bound");
+        }
+    }
+
+    /**
+     * Returns null until the DONOR actually moved under native AI.
+     * A navigation goal existing in metadata, but never moving, is NOT a
+     * demonstrated decision and must not produce a fake success frame.
+     */
+    public static NativeNavigation observe(double initialX,double initialY,double initialZ,
+                                           double actualX,double actualY,double actualZ,
+                                           boolean nativeNavigationSeen) {
+        if (!nativeNavigationSeen) return null;
+        double dx=actualX-initialX;
+        double dy=actualY-initialY;
+        double dz=actualZ-initialZ;
+        double distance=Math.sqrt(dx*dx+dy*dy+dz*dz);
+        if (!Double.isFinite(distance) || distance<MIN_NATIVE_TRAVEL)
+            return null;
+        double scale=DESIRED_OFFSET/distance;
+        return new NativeNavigation(dx*scale,dy*scale,dz*scale,distance);
+    }
+
+    /** Never embed disposable worker coordinates in receiver-body movement. */
+    public static CapturedIntentBridge.Frame frame(UUID recipientBody,UUID donorMind,
+                                                     long serverTick,NativeNavigation movement) {
+        return frame(recipientBody,donorMind,serverTick,movement,null);
+    }
+
+    /**
+     * Append an observed native attack only when the donor actually reached
+     * Minecraft's damage pipeline. The target UUID must come from an
+     * authenticated cross-world identity mapping, never a guessed nearby
+     * entity or a species-specific target rule. The CI fixture assigns the
+     * same UUID to its worker target and receiver-world copy.
+     */
+    public static CapturedIntentBridge.Frame frame(UUID recipientBody,UUID donorMind,
+            long serverTick,NativeNavigation movement,UUID attackedTarget) {
+        var offset=Map.of(
+            "dx",Double.toString(movement.dx()),
+            "dy",Double.toString(movement.dy()),
+            "dz",Double.toString(movement.dz()));
+        var actions=new java.util.ArrayList<BodyActionGate.Intent>();
+        actions.add(new BodyActionGate.Intent(BodyActionGate.LOOK_OFFSET,offset));
+        actions.add(new BodyActionGate.Intent(BodyActionGate.MOVE_OFFSET,
+            Map.of("dx",offset.get("dx"),"dy",offset.get("dy"),
+                   "dz",offset.get("dz"),"speed","0.65")));
+        if(attackedTarget!=null)
+            actions.add(new BodyActionGate.Intent(BodyActionGate.ATTACK_ENTITY,
+                Map.of("targetId",attackedTarget.toString())));
+        return new CapturedIntentBridge.Frame(recipientBody,donorMind,serverTick,actions);
+    }
+}

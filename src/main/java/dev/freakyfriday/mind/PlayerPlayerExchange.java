@@ -29,6 +29,13 @@ public final class PlayerPlayerExchange {
 
     private static final double MAX_START_DISTANCE_SQUARED = 32.0 * 32.0;
 
+    /** Headless test JVMs have no negotiated client connection for mock players. */
+    private static boolean headlessFixture() {
+        return Boolean.getBoolean("freakyfriday.thirdPartyFixture")
+            || Boolean.getBoolean("freakyfriday.supervisorSmoke")
+            || Boolean.getBoolean("freakyfriday.aiWorker");
+    }
+
     private static final class Controller {
         final ServerPlayer account;
         final ServerPlayer occupiedBody;
@@ -167,10 +174,19 @@ public final class PlayerPlayerExchange {
             ||!(body.level() instanceof net.minecraft.server.level.ServerLevel level))return;
         long now=level.getGameTime();
         if(now-controller.lastAttackTick<10)return;
-        body.setYRot(controller.input.yaw());
-        body.setXRot(controller.input.pitch());
+        float attackYaw=controller.input.yaw();
+        float attackPitch=controller.input.pitch();
+        body.setYRot(attackYaw);
+        body.yRotO=attackYaw;
+        body.setYHeadRot(attackYaw);
+        body.setXRot(attackPitch);
+        body.xRotO=attackPitch;
+        // The authenticated account's original physical body is a valid
+        // target even in headless/mock-player environments where it is not
+        // present in the ordinary entity lookup. This is exactly the body
+        // currently hosting the opposite player's mind.
         net.minecraft.world.entity.Entity target=
-            PossessionCombat.findValidMeleeTarget(level,body,candidateId);
+            PossessionCombat.findValidMeleeTarget(level,body,candidateId,sender);
         if(target==null)return;
         controller.lastAttackTick=now;
         body.attack(target);
@@ -197,14 +213,14 @@ public final class PlayerPlayerExchange {
 
     private static void sendCamera(ServerPlayer account, ServerPlayer body, Vec3 ownAnchor) {
         // Headless mock player objects have no negotiated client channel.
-        if (Boolean.getBoolean("freakyfriday.thirdPartyFixture")) return;
+        if (headlessFixture()) return;
         net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(
             account,new PossessionViewPayload(body.getId(),true,
                 ownAnchor.x,ownAnchor.y,ownAnchor.z));
     }
 
     private static void restoreCamera(ServerPlayer account) {
-        if (Boolean.getBoolean("freakyfriday.thirdPartyFixture") || account.isRemoved()) return;
+        if (headlessFixture() || account.isRemoved()) return;
         net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(
             account,new PossessionViewPayload(-1,false,0,0,0));
     }
@@ -252,7 +268,7 @@ public final class PlayerPlayerExchange {
             if ((now&1L)==0) {
                 sendCamera(a,b,s.firstBody.expected);
                 sendCamera(b,a,s.secondBody.expected);
-                if(!Boolean.getBoolean("freakyfriday.thirdPartyFixture")) {
+                if(!headlessFixture()) {
                     net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(
                         a,new PossessionStatePayload(b.getId(),s.first.input.sequence(),
                             b.getX(),b.getY(),b.getZ(),b.getYRot(),b.getXRot(),

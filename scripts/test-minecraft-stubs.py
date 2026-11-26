@@ -400,6 +400,20 @@ public static void main(String[] args){
 }
 }
 ''')
+# This server-side coordinator owns live subprocesses and real NeoForge
+# entity ports. The first synthetic bridge harness only verifies the book/session
+# wiring, so provide a no-op compile stub; the actual implementation is compiled
+# and run by the real versioned NeoForge build/GameTests.
+(STUB/'dev/freakyfriday/mind/NativeMindWorkerSupervisor.java').write_text('''package dev.freakyfriday.mind;
+public final class NativeMindWorkerSupervisor {
+ public static String startPlayerMob(net.minecraft.server.level.ServerPlayer p,
+   net.minecraft.world.entity.Mob m){return "stub";}
+ public static String startMobPair(net.minecraft.server.level.ServerPlayer p,
+   net.minecraft.world.entity.Mob a,net.minecraft.world.entity.Mob b){return "stub";}
+ public static boolean cancelByAccount(java.util.UUID id){return false;}
+ public static void clearOnServerStop(){}
+}
+''')
 prod=[ROOT/'src/main/java/dev/freakyfriday/core/CategoryExchange.java',ROOT/'src/main/java/dev/freakyfriday/core/PermanentModifier.java',ROOT/'src/main/java/dev/freakyfriday/core/CategoryBundle.java',ROOT/'src/main/java/dev/freakyfriday/core/CategoryDefinitions.java',ROOT/'src/main/java/dev/freakyfriday/core/CategorySchema.java',ROOT/'src/main/java/dev/freakyfriday/core/CategoryOffers.java',ROOT/'src/main/java/dev/freakyfriday/AttributeModifierTransfer.java',ROOT/'src/main/java/dev/freakyfriday/AttributeCategorySwapper.java',ROOT/'src/main/java/dev/freakyfriday/SwapSessions.java',ROOT/'src/main/java/dev/freakyfriday/FreakyFridayBookItem.java',ROOT/'src/main/java/dev/freakyfriday/mind/MindSwapSessions.java']
 cmd=['javac','-d',str(OUT)]+list(map(str,STUB.rglob('*.java')))+list(map(str,prod))
 subprocess.run(cmd,check=True)
@@ -421,6 +435,46 @@ public final class PlayerPlayerGameTests {
    net.neoforged.neoforge.registries.DeferredRegister.createItems("stub-player-player-tests");
 }
 ''',
+'dev/freakyfriday/mind/GoalMindRuntime.java':'''package dev.freakyfriday.mind;
+public final class GoalMindRuntime {}
+''',
+'dev/freakyfriday/mind/NativeGoalMindGameTests.java':'''package dev.freakyfriday.mind;
+public final class NativeGoalMindGameTests {
+ public static final net.neoforged.neoforge.registries.DeferredRegister.Items FUNCTIONS =
+   net.neoforged.neoforge.registries.DeferredRegister.createItems("stub-native-goal-tests");
+}
+''',
+'dev/freakyfriday/mind/NativeMindWorkerSupervisor.java':'''package dev.freakyfriday.mind;
+public final class NativeMindWorkerSupervisor {
+ public static String startPlayerMob(net.minecraft.server.level.ServerPlayer p,
+   net.minecraft.world.entity.Mob m){return "stub";}
+ public static String startMobPair(net.minecraft.server.level.ServerPlayer p,
+   net.minecraft.world.entity.Mob a,net.minecraft.world.entity.Mob b){return "stub";}
+ public static boolean cancelByAccount(java.util.UUID id){return false;}
+ public static void clearOnServerStop(){}
+}
+''',
+'dev/freakyfriday/mind/NativeMindWorkerSupervisorSmoke.java':'''package dev.freakyfriday.mind;
+public final class NativeMindWorkerSupervisorSmoke {}
+''',
+'dev/freakyfriday/mind/NativeMindSenseGameTests.java':'''package dev.freakyfriday.mind;
+public final class NativeMindSenseGameTests {
+ public static final net.neoforged.neoforge.registries.DeferredRegister.Items FUNCTIONS =
+   net.neoforged.neoforge.registries.DeferredRegister.createItems("stub-sensory-tests");
+}
+''',
+'dev/freakyfriday/mind/ReciprocalMobWorkerGameTests.java':'''package dev.freakyfriday.mind;
+public final class ReciprocalMobWorkerGameTests {
+ public static final net.neoforged.neoforge.registries.DeferredRegister.Items FUNCTIONS =
+   net.neoforged.neoforge.registries.DeferredRegister.createItems("stub-reciprocal-mob-tests");
+}
+''',
+'dev/freakyfriday/mind/MinecraftMindSenseCapture.java':'''package dev.freakyfriday.mind;
+public final class MinecraftMindSenseCapture {
+ public static NativeMindSenseFrame capture(
+   net.minecraft.world.entity.LivingEntity body,java.util.UUID mind,long tick){return null;}
+}
+''',
 # These components exercise real Brigadier/NeoForge command events and
 # two-player GameTest APIs, rather than the old synthetic Minecraft stubs.
 'dev/freakyfriday/mind/PlayerCommandBodyRouting.java':'''package dev.freakyfriday.mind;
@@ -437,8 +491,17 @@ public final class UnseenAddonCommandFixture {}
 ''',
 # The native AI worker executes actual NeoForge world/goal APIs. Only the
 # real NeoForge build/worker integration may compile/test this implementation.
+'net/neoforged/neoforge/common/world/chunk/RegisterTicketControllersEvent.java':'''package net.neoforged.neoforge.common.world.chunk;
+public final class RegisterTicketControllersEvent {}
+''',
 'dev/freakyfriday/mind/NativeAiWorkerServer.java':'''package dev.freakyfriday.mind;
-public final class NativeAiWorkerServer {}
+public final class NativeAiWorkerServer {
+ public static void registerChunkTickets(
+  net.neoforged.neoforge.common.world.chunk.RegisterTicketControllersEvent event){}
+ public static void setEntityTickingChunk(
+  net.minecraft.server.level.ServerLevel level,java.util.UUID owner,
+  int chunkX,int chunkZ,boolean forced){}
+}
 ''',
 # Real GameTest APIs belong to the actual Minecraft server build and are not
 # implemented by this legacy synthetic API harness.
@@ -634,8 +697,8 @@ public static void main(String[] args){
 # The real NeoForge CI build compiles network codecs and native Screen classes.
 # They must not be passed to the legacy headless harness whose fake APIs do not
 # implement actual packet serialization, GUI rendering or client registration.
-real_api_only = {'NativeBrainSwap.java', 'GoalMindRuntime.java', 'MinecraftBodyPort.java', 'MinecraftHostProbe.java', 'LiveBodyProbe.java', 'DetachedMindHostProbe.java', 'ProbeBodySnapshot.java', 'ProbeTelemetry.java', 'DetachedHostMirrorProbe.java', 'DetachedProbeGameTests.java', 'NativeAiSurfaceAudit.java', 'CategoryPickerPayload.java','CategoryPickerNetworking.java',
-                 'CategoryPickerScreen.java','ClientCategoryPickerNetworking.java', 'FFDiagnosticAutoTest.java', 'FFServerSmoke.java', 'NativeAiWorkerServer.java', 'PlayerCommandBodyRouting.java', 'PlayerCommandRouteGameTests.java', 'UnseenAddonCommandFixture.java', 'PlayerMobGameTests.java', 'PlayerPlayerGameTests.java', 'PlayerPlayerExchange.java', 'PlayerMobPossession.java', 'PossessionNetwork.java', 'PossessionInputPayload.java', 'PossessionViewPayload.java', 'PossessionStatePayload.java', 'PossessionAttackPayload.java', 'PossessionMotion.java', 'PossessionCombat.java', 'ClientPossession.java', 'ClientOccupiedBodyUI.java', 'ClientSelectionHud.java', 'SelectionHudPayload.java', 'SelectionHudSync.java'}
+real_api_only = {'NativeBrainSwap.java', 'GoalMindRuntime.java', 'NativeGoalMindGameTests.java', 'MinecraftBodyPort.java', 'MinecraftPlayerBodyPort.java', 'MinecraftBodyPortFactory.java', 'MinecraftHostProbe.java', 'LiveBodyProbe.java', 'DetachedMindHostProbe.java', 'ProbeBodySnapshot.java', 'ProbeTelemetry.java', 'DetachedHostMirrorProbe.java', 'DetachedProbeGameTests.java', 'NativeAiSurfaceAudit.java', 'CategoryPickerPayload.java','CategoryPickerNetworking.java',
+                 'CategoryPickerScreen.java','ClientCategoryPickerNetworking.java', 'FFDiagnosticAutoTest.java', 'FFServerSmoke.java', 'NativeAiWorkerServer.java', 'NativeMindWorkerSupervisor.java', 'MinecraftMindSenseCapture.java', 'NativeMindMirrorWorld.java', 'NativeMindSenseGameTests.java', 'NativeMindWorkerSupervisorSmoke.java', 'ReciprocalMobWorkerGameTests.java', 'PlayerCommandBodyRouting.java', 'PlayerCommandRouteGameTests.java', 'UnseenAddonCommandFixture.java', 'PlayerMobGameTests.java', 'PlayerPlayerGameTests.java', 'PlayerPlayerExchange.java', 'PlayerMobPossession.java', 'PossessionNetwork.java', 'PossessionInputPayload.java', 'PossessionViewPayload.java', 'PossessionStatePayload.java', 'PossessionAttackPayload.java', 'PossessionMotion.java', 'PossessionCombat.java', 'ClientPossession.java', 'ClientBodyInventoryUI.java', 'ClientOccupiedBodyUI.java', 'ClientSelectionHud.java', 'SelectionHudPayload.java', 'SelectionHudSync.java'}
 all_prod=[p for p in (ROOT/'src/main/java').rglob('*.java') if p.name not in real_api_only] + list((ROOT/'src/platform/minecraft-26.2/java').rglob('*.java'))
 full_cmd=['javac','-d',str(OUT)]+list(map(str,STUB.rglob('*.java')))+list(map(str,all_prod))
 subprocess.run(full_cmd,check=True)
@@ -673,8 +736,8 @@ public final class BookInteractionHarness {
   ok(received(p,"First body: Player"),
     "Ctrl+S self must become a selectable gameplay body, not be rejected");
   MindSwapSessions.select(p,chicken);
-  ok(received(p,"Cannot control that body: synthetic harness"),
-    "Book pair reaches actual possession backend rather than locking fake probe");
+  ok(received(p,"Player/mob reciprocal exchange REJECTED: stub"),
+    "Synthetic supervisor stub is reached through the player-first book workflow");
   MindSwapSessions.cancel(p);
 
   var one=new PlayerInteractEvent.EntityInteract(p,chicken);
@@ -683,14 +746,14 @@ public final class BookInteractionHarness {
     "Book consumes actual mob interaction instead of feeding/trading");
   ok(received(p,"First body: Chicken"),"Mob selected in gameplay mode");
   MindSwapSessions.select(p,p);
-  ok(received(p,"Cannot control that body: synthetic harness"),
-    "Chicken then self enters physical player-mob binding code");
+  ok(received(p,"Player/mob reciprocal exchange REJECTED: stub"),
+    "Synthetic supervisor stub is reached through the reversed mob-first/player-second workflow");
   MindSwapSessions.cancel(p);
 
   MindSwapSessions.select(p,chicken);
   MindSwapSessions.select(p,zombie);
-  ok(received(p,"Native mind exchange REJECTED"),
-    "Mob/Mob invokes true AI exchange entrypoint and never reports fake success: "+p.messages);
+  ok(received(p,"Mob/mob reciprocal exchange REJECTED: stub"),
+    "Mob/Mob book workflow reaches the reciprocal supervisor entrypoint without faking a success: "+p.messages);
   MindSwapSessions.cancel(p);
 
   p.setMainHand(new Object());

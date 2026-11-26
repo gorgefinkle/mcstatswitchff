@@ -111,4 +111,23 @@ public final class MindLedger {
         if (byBody.values().stream().map(Mind::identity).distinct().count() != byBody.size())
             throw new IllegalStateException("Duplicate controller identity after mind exchange");
     }
+
+    /** Restore the two original identities without rolling back other active pairs. */
+    public synchronized void restorePair(UUID firstBody, Mind firstMind,
+                                         UUID secondBody, Mind secondMind) {
+        Objects.requireNonNull(firstBody,"first body");
+        Objects.requireNonNull(secondBody,"second body");
+        Objects.requireNonNull(firstMind,"first mind");
+        Objects.requireNonNull(secondMind,"second mind");
+        if(firstBody.equals(secondBody)||firstMind.identity().equals(secondMind.identity()))
+            throw new IllegalArgumentException("A restored pair needs two distinct bodies and minds");
+        for(var entry:byBody.entrySet()) {
+            if(entry.getKey().equals(firstBody)||entry.getKey().equals(secondBody)) continue;
+            if(entry.getValue().identity().equals(firstMind.identity())
+                    ||entry.getValue().identity().equals(secondMind.identity()))
+                throw new IllegalStateException("A mind identity is still assigned to another body");
+        }
+        byBody.put(firstBody,firstMind);
+        byBody.put(secondBody,secondMind);
+    }
 }

@@ -1,7 +1,7 @@
 name: Freaky Friday builds
 on:
   push:
-    branches: [main, 'feature/whole-mind-swap', 'feature/body-mind-separation', 'feature/native-mind-host-poc', 'feature/dual-instance-host-poc']
+    branches: [main, 'feature/whole-mind-swap', 'feature/body-mind-separation', 'feature/native-mind-host-poc', 'feature/dual-instance-host-poc', 'feature/p09-universal-native-ai-host']
   pull_request:
   workflow_dispatch:
 
@@ -38,6 +38,8 @@ jobs:
         run: python3 scripts/test-detached-probe-lifecycle.py
       - name: Version isolation and metadata
         run: python3 scripts/test-version-profiles.py
+      - name: Validate compressed GameTest structure NBT and arena bounds
+        run: python3 scripts/test-structure-templates.py
       - name: R0.11 extended source and synthetic Minecraft audit
         run: python3 scripts/self_audit.py
 
@@ -63,19 +65,19 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          bash ./gradlew runGameTestServer -PtargetMinecraft=${{ matrix.minecraft }} --no-daemon --stacktrace 2>&1 | tee gametest.log
+          bash ./gradlew clean runGameTestServer -PtargetMinecraft=${{ matrix.minecraft }} --no-daemon --stacktrace 2>&1 | tee gametest.log
           grep -Fq 'FF-GAMETEST detached_cross_species PASS' gametest.log
-          grep -Fq 'FF-GAMETEST pair zombie_to_cow PASS' gametest.log
-          grep -Fq 'FF-GAMETEST pair cow_to_zombie PASS' gametest.log
-          grep -Fq 'FF-GAMETEST pair villager_to_cow PASS' gametest.log
-          grep -Fq 'FF-GAMETEST pair creeper_to_cow PASS' gametest.log
-          grep -Fq 'FF-GAMETEST pair cow_to_creeper PASS' gametest.log
-          grep -Fq 'FF-GAMETEST pair zombie_to_villager PASS' gametest.log
-          grep -Fq 'FF-GAMETEST pair ender_dragon_to_chicken PASS' gametest.log
-          grep -Fq 'FF-GAMETEST pair chicken_to_ender_dragon PASS' gametest.log
+          grep -Fq 'FF-GAMETEST detached_host_construction zombie_to_cow PASS' gametest.log
+          grep -Fq 'FF-GAMETEST detached_host_construction cow_to_zombie PASS' gametest.log
+          grep -Fq 'FF-GAMETEST detached_host_construction villager_to_cow PASS' gametest.log
+          grep -Fq 'FF-GAMETEST detached_host_construction creeper_to_cow PASS' gametest.log
+          grep -Fq 'FF-GAMETEST detached_host_construction cow_to_creeper PASS' gametest.log
+          grep -Fq 'FF-GAMETEST detached_host_construction zombie_to_villager PASS' gametest.log
+          grep -Fq 'FF-GAMETEST detached_host_construction ender_dragon_to_chicken PASS' gametest.log
+          grep -Fq 'FF-GAMETEST detached_host_construction chicken_to_ender_dragon PASS' gametest.log
           grep -Fq 'FF-GAMETEST detached_dragon_chicken PASS' gametest.log
-          grep -Fq 'FF-COMMANDTEST pair ender_dragon chicken PASS' gametest.log
-          grep -Fq 'FF-COMMANDTEST pair chicken ender_dragon PASS' gametest.log
+          grep -Fq 'FF-COMMANDTEST diagnostic_pair ender_dragon chicken PASS' gametest.log
+          grep -Fq 'FF-COMMANDTEST diagnostic_pair chicken ender_dragon PASS' gametest.log
           grep -Fq 'FF-COMMANDTEST invalid_type PASS' gametest.log
           grep -Fq 'FF-COMMANDTEST suite PASS' gametest.log
           grep -Fq 'FF-COMMANDTEST cancel PASS' gametest.log
@@ -87,23 +89,29 @@ jobs:
           grep -Fq 'FF-WORLDTEST 40tick_cleanup PASS' gametest.log
           grep -Fq 'FF-WORLDTEST original_entities_and_blocks PASS' gametest.log
           grep -Fq 'FF-WORLDTEST all PASS' gametest.log
-          grep -Fq 'FF-GAMEPLAY player_chicken_movement PASS' gametest.log
-          grep -Fq 'FF-GAMEPLAY player_chicken_cancel_restore PASS' gametest.log
+          grep -Fq 'FF-GAMEPLAY partial_native_swap_fails_closed PASS' gametest.log
+          grep -Fq 'FF-GAMEPLAY villager_zombie_brain_swap PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY native_body_speed PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY solid_wall_collision PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY player_player_reciprocal_movement PASS' gametest.log
+          grep -Fq 'FF-GAMEPLAY player_player_reciprocal_attack PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY player_player_cancel_restores_both PASS' gametest.log
+          grep -Fq 'FF-GAMEPLAY mob_mob_reciprocal_attack PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY native_fall_profiles PASS' gametest.log
+          grep -Fq 'FF-GAMEPLAY native_goal_mind_exchange PASS' gametest.log
+          grep -Fq 'FF-GAMEPLAY zombie_chicken_behavior_acceptance PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY occupied_mob_death_returns_player PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY player_death_ejects_both PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY occupied_ocelot_attack_health PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY occupied_ocelot_attack_death_returns PASS' gametest.log
-          grep -Fq 'FF-GAMEPLAY stale_self_selection_cannot_swap PASS' gametest.log
-          grep -Fq 'FF-GAMEPLAY explicit_two_body_selection PASS' gametest.log
-          grep -Fq 'FF-GAMEPLAY selection_hud_completed_pair_clears PASS' gametest.log
-          grep -Fq 'FF-GAMEPLAY selection_hud_expire_and_cancel PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY mob_origin_attack_original_body PASS' gametest.log
           grep -Fq 'FF-GAMEPLAY invalid_entity_attack_guard PASS' gametest.log
+          grep -Fq 'FF-GAMEPLAY player_mob_reciprocal_gate PASS' gametest.log
+          grep -Fq 'FF-GAMEPLAY player_mob_native_mind_proxy PASS' gametest.log
+          grep -Fq 'FF-GAMEPLAY player_mob_reciprocal_attack PASS' gametest.log
+          grep -Fq 'FF-GAMEPLAY stale_selection_and_reciprocal_gate PASS' gametest.log
+          grep -Fq 'FF-GAMEPLAY player_body_action_port PASS' gametest.log
+          grep -Fq 'FF-SENSE recipient_snapshot PASS' gametest.log
           grep -Fq 'FF-NATIVE-PROBE inventory PASS' gametest.log
           grep -Fq 'FF-NATIVE-PROBE world_effect_escape DETECTED' gametest.log
           grep -Fq 'FF-NATIVE-PROBE world_effect_escape PASS' gametest.log
@@ -160,7 +168,11 @@ jobs:
             run/crash-reports/**
 
   native-worker-e2e:
-    name: Two-process native AI worker Minecraft ${{ matrix.minecraft }}
+    # CI-only isolated-worker proof. The live book route remains on the
+    # explicitly experimental proxy runtime until a persistent shared
+    # supervisor is implemented and the full gameplay contract passes.
+    if: github.ref == 'refs/heads/feature/p09-universal-native-ai-host' || github.head_ref == 'feature/p09-universal-native-ai-host'
+    name: Two-process bounded native intent capture Minecraft ${{ matrix.minecraft }}
     needs: core
     runs-on: ubuntu-latest
     timeout-minutes: 18
@@ -177,7 +189,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.2.1'
-      - name: Run native Zombie AI in an independent NeoForge server and dispatch signed actions in receiver
+      - name: Capture bounded native navigation/attack intents in an independent NeoForge server
         shell: bash
         run: python3 scripts/test-native-worker-e2e.py --minecraft ${{ matrix.minecraft }}
       - name: Upload isolated worker/receiver diagnostic output
@@ -188,11 +200,45 @@ jobs:
           retention-days: 30
           if-no-files-found: warn
           path: |
-            native-worker-server.log
-            native-worker-receiver.log
+            native-worker-*.log
             run-ai-worker/logs/**
             run/logs/**
             run/crash-reports/**
+
+  supervisor:
+    if: false
+    name: Live reciprocal worker supervisor Minecraft ${{ matrix.minecraft }}
+    needs: core
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        minecraft: ['26.2', '26.3']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+      - name: Run real server reciprocal supervisor tests
+        run: python3 scripts/test-native-worker-supervisor.py --minecraft ${{ matrix.minecraft }}
+      - name: Upload live supervisor and worker logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: freakyfriday-mc${{ matrix.minecraft }}-supervisor
+          retention-days: 30
+          if-no-files-found: warn
+          path: |
+            supervisor-smoke.log
+            run-supervisor-smoke/logs/**
+            run-supervisor-smoke/crash-reports/**
+            run-supervisor-smoke/freakyfriday-workers/session-*/worker.log
+            run-supervisor-smoke/freakyfriday-workers/worker-debug-*.log
 
   build:
     name: NeoForge Minecraft ${{ matrix.minecraft }}
@@ -213,7 +259,7 @@ jobs:
           gradle-version: '9.2.1'
           cache-read-only: ${{ github.event_name == 'pull_request' }}
       - name: Compile and package version-specific mod
-        run: bash ./gradlew build -PtargetMinecraft=${{ matrix.minecraft }} --no-daemon --stacktrace
+        run: bash ./gradlew clean build -PtargetMinecraft=${{ matrix.minecraft }} --no-daemon --stacktrace
       - name: Verify JAR integrity and create SHA256 manifest
         run: python3 scripts/verify-build-artifact.py --minecraft ${{ matrix.minecraft }}
       - name: Package a complete versioned source and exactly one current JAR

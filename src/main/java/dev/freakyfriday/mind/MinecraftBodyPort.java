@@ -3,7 +3,12 @@ package dev.freakyfriday.mind;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.MoverType;
+import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.monster.Creeper;
 
@@ -18,8 +23,12 @@ import net.minecraft.world.entity.monster.Creeper;
  */
 public final class MinecraftBodyPort implements BodyActionGate.BodyPort {
     public static final String MOVE_TO = "freakyfriday:move_to";
+    /** Worker-world-independent native movement relative to THIS body. */
+    public static final String MOVE_OFFSET = BodyActionGate.MOVE_OFFSET;
+    public static final String LOOK_OFFSET = BodyActionGate.LOOK_OFFSET;
     public static final String LOOK_AT = "freakyfriday:look_at";
     public static final String JUMP = "freakyfriday:jump";
+    public static final String ATTACK_ENTITY = BodyActionGate.ATTACK_ENTITY;
     public static final String DETONATE = "freakyfriday:detonate";
 
     private static final BodyCapabilityRegistry<LivingEntity> CAPABILITIES =
@@ -42,10 +51,94 @@ public final class MinecraftBodyPort implements BodyActionGate.BodyPort {
             body.getLookControl().setLookAt(destination[0], destination[1], destination[2]);
             return BodyActionGate.Result.executed();
         }));
+        // Generic native-UI actions. An isolated donor AI can navigate in
+        // its OWN world, then transmit a relative direction without exposing
+        // disposable-worker coordinates to the live recipient world.
+        // The recipient uses its actual navigation and physical attributes.
+        CAPABILITIES.register(MOVE_OFFSET, capability(Mob.class, (body, intent) -> {
+            double dx=parse(intent.arguments(),"dx",Double.NaN);
+            double dy=parse(intent.arguments(),"dy",Double.NaN);
+            double dz=parse(intent.arguments(),"dz",Double.NaN);
+            double speed=parse(intent.arguments(),"speed",1.0);
+            if(speed<=0 || speed>2 || dx*dx+dy*dy+dz*dz>144)
+                return BodyActionGate.Result.blocked("Invalid relative movement request");
+            if(Math.sqrt(dx*dx+dy*dy+dz*dz)<0.05)
+                return BodyActionGate.Result.executed();
+            double nativeSpeed=body.getAttributeValue(Attributes.MOVEMENT_SPEED);
+            if(!Double.isFinite(nativeSpeed) || nativeSpeed<=0)
+                return BodyActionGate.Result.blocked("Recipient body has no usable native movement speed");
+            // The worker reports only a bounded direction. The original
+            // physical Mob performs one movement step through its own native
+            // travel override, with its own movement attribute, fluids,
+            // gravity and collision. Never teleport it by the worker vector.
+            PossessionMotion.applyNativeIntent(body,new Vec3(dx,dy,dz),
+                body.getYRot(),body.getXRot(),speed);
+            return BodyActionGate.Result.executed();
+        }));
+        CAPABILITIES.register(LOOK_OFFSET, capability(Mob.class, (body, intent) -> {
+            double dx=parse(intent.arguments(),"dx",Double.NaN);
+            double dy=parse(intent.arguments(),"dy",Double.NaN);
+            double dz=parse(intent.arguments(),"dz",Double.NaN);
+            if(dx*dx+dy*dy+dz*dz>144)
+                return BodyActionGate.Result.blocked("Invalid relative look request");
+            double horizontal=Math.hypot(dx,dz);
+            if(horizontal+Math.abs(dy)<1.0e-6)
+                return BodyActionGate.Result.blocked("Look vector cannot be zero");
+            float yaw=(float)Math.toDegrees(Math.atan2(-dx,dz));
+            float pitch=(float)-Math.toDegrees(Math.atan2(dy,horizontal));
+            body.setYRot(yaw);
+            body.setYHeadRot(yaw);
+            body.setXRot(Math.max(-90.0f,Math.min(90.0f,pitch)));
+            return BodyActionGate.Result.executed();
+        }));
         CAPABILITIES.register(JUMP, capability(Mob.class, (body, intent) -> {
             body.getJumpControl().jump();
             return BodyActionGate.Result.executed();
         }));
+        // A native donor attack is an intent against a mapped world entity.
+        // The ORIGINAL recipient Mob performs it, so its real reach, damage,
+        // cooldowns, equipment and physical attack capabilities remain in
+        // charge. No donor attack is replayed against the wrong world UUID.
+        CAPABILITIES.register(ATTACK_ENTITY, new BodyCapabilityRegistry.Executor<>() {
+            @Override public boolean supports(LivingEntity candidate) {
+                if (!(candidate instanceof Mob)) return false;
+                var damage = candidate.getAttribute(Attributes.ATTACK_DAMAGE);
+                return damage != null && damage.getValue() > 0.0;
+            }
+            @Override public BodyActionGate.Result perform(LivingEntity candidate,
+                    BodyActionGate.Intent intent) {
+                Mob body = (Mob) candidate;
+                String raw=intent.arguments().get("targetId");
+            if(raw==null)
+                return BodyActionGate.Result.blocked("Missing mapped attack target");
+            final UUID targetId;
+            try { targetId=UUID.fromString(raw); }
+            catch(IllegalArgumentException invalid) {
+                return BodyActionGate.Result.blocked("Invalid mapped attack target UUID");
+            }
+            if(!(body.level() instanceof ServerLevel level))
+                return BodyActionGate.Result.blocked("Attack requires a live server body");
+            Entity target=level.getEntity(targetId);
+            if(target==null || target==body || !target.isAlive())
+                return BodyActionGate.Result.blocked("Mapped attack target is not alive in this world");
+            if(body.distanceToSqr(target)>16.0)
+                return BodyActionGate.Result.blocked("Mapped target is outside physical melee reach");
+            boolean originalNoAi=body.isNoAi();
+            boolean hit;
+            // Reciprocal swaps suspend autonomous AI on the original physical
+            // body, not its physical combat capabilities. An incoming mind's
+            // attack intent temporarily enables the native attack action only.
+            if(originalNoAi)body.setNoAi(false);
+            try {
+                hit=body.doHurtTarget(level,target);
+            } finally {
+                if(originalNoAi)body.setNoAi(true);
+            }
+            return new BodyActionGate.Result(BodyActionGate.Status.EXECUTED,
+                hit ? "Physical body attack accepted" :
+                    "Physical body executed attack intent; damage was not confirmed");
+            }
+        });
         // This is a physical mechanism on a CREEPER BODY, not a creeper-mind
         // donor-recipient pair. Modded explosion-capable bodies can register
         // additional implementation(s) for this same action ID.
@@ -66,6 +159,7 @@ public final class MinecraftBodyPort implements BodyActionGate.BodyPort {
             BodyCapabilityRegistry.Executor<LivingEntity> executor) {
         CAPABILITIES.register(actionId, executor);
     }
+
 
     private interface TypedAction<T extends LivingEntity> {
         BodyActionGate.Result perform(T body, BodyActionGate.Intent intent);

@@ -6,6 +6,9 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.EntityTypes;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.level.block.Blocks;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -16,7 +19,8 @@ import net.neoforged.neoforge.registries.DeferredRegister;
  * Minecraft's collision resolver and can independently end both sessions.
  *
  * Mock GameTest players have no graphical camera or real connected clients:
- * this test does not claim a visual camera, inventory, or combat transfer.
+ * this test does not claim a visual camera or inventory transfer. It does
+ * verify reciprocal native melee damage when the world's PvP rule is enabled.
  */
 public final class PlayerPlayerGameTests {
     private PlayerPlayerGameTests() {}
@@ -31,11 +35,41 @@ public final class PlayerPlayerGameTests {
         BODY_DEATH_EJECTS_BOTH=FUNCTIONS.register(
             "player_death_ejects_both",()->PlayerPlayerGameTests::verifyDeathEjectsBoth);
 
+    /** Read the actual world PvP game rule used by ServerPlayer damage. */
+    private static boolean serverPvpAllowed(net.minecraft.server.level.ServerLevel level) {
+        return level.getGameRules().get(net.minecraft.world.level.gamerules.GameRules.PVP);
+    }
+
+    /** Find a physical facing that passes the exact server-side melee validator. */
+    private static float yawToward(ServerPlayer actor,ServerPlayer target) {
+        var level=(net.minecraft.server.level.ServerLevel)actor.level();
+        float bestYaw=0.0f;
+        double bestDot=-Double.MAX_VALUE;
+        for(int degree=-180;degree<=180;degree++) {
+            float yaw=degree;
+            actor.setXRot(0.0f);
+            actor.xRotO=0.0f;
+            actor.setYRot(yaw);
+            actor.yRotO=yaw;
+            actor.setYHeadRot(yaw);
+            double dx=target.getBoundingBox().getCenter().x-actor.getEyePosition().x;
+            double dy=target.getBoundingBox().getCenter().y-actor.getEyePosition().y;
+            double dz=target.getBoundingBox().getCenter().z-actor.getEyePosition().z;
+            double dot=actor.getViewVector(1.0f).dot(
+                new net.minecraft.world.phys.Vec3(dx,dy,dz).normalize());
+            if(dot>bestDot) { bestDot=dot; bestYaw=yaw; }
+            if(PossessionCombat.findValidMeleeTarget(level,actor,target.getId(),target)==target)
+                return yaw;
+        }
+        throw new IllegalStateException("No valid facing for reciprocal attack; bestDot="
+            +bestDot+" bestYaw="+bestYaw);
+    }
+
     private static void verify(GameTestHelper helper) {
         var level=helper.getLevel();
         ServerPlayer fred=helper.makeMockServerPlayerInLevel();
         ServerPlayer sally=helper.makeMockServerPlayerInLevel();
-        helper.assertTrue(fred!=null && sally!=null && fred!=sally
+        helper.assertTrue(fred!=null && sally!=null &&fred!=sally
                 && !fred.getUUID().equals(sally.getUUID()),
             "Two unique real ServerPlayer entities required for reciprocal control");
         for(int x=1;x<=11;x++) for(int z=1;z<=11;z++)
@@ -48,6 +82,17 @@ public final class PlayerPlayerGameTests {
         UUID fredId=fred.getUUID(),sallyId=sally.getUUID();
         double fredX=fred.getX(),fredZ=fred.getZ();
         double sallyX=sally.getX(),sallyZ=sally.getZ();
+        fred.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+        sally.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+        fred.getAbilities().invulnerable=false;
+        sally.getAbilities().invulnerable=false;
+        Mob opponent=EntityTypes.SKELETON.create(level,EntitySpawnReason.COMMAND);
+        helper.assertTrue(opponent!=null,"Player-pair damage test needs an opposing Skeleton");
+        opponent.setNoAi(true);
+        BlockPos opponentPos=helper.absolutePos(new BlockPos(9,1,7));
+        opponent.setPos(opponentPos.getX()+0.5,opponentPos.getY(),opponentPos.getZ()+0.5);
+        helper.assertTrue(level.addFreshEntity(opponent),
+            "Opposing Skeleton failed to register in Player↔Player test");
         float fredHealth=fred.getHealth(),sallyHealth=sally.getHealth();
         try {
             String failed=PlayerPlayerExchange.begin(fred,sally);
@@ -72,7 +117,9 @@ public final class PlayerPlayerGameTests {
                         1,0,false,-90,0,seq));      // Sally moves Fred +X
                 });
             }
-            helper.runAfterDelay(29,()->{
+            // Wait beyond the mock ServerPlayers' initial spawn
+            // invulnerability window before testing native PvP melee.
+            helper.runAfterDelay(70,()->{
                 helper.assertTrue(fred.getX()>fredX+0.40,
                     "Sally's input did not actually move Fred body: before="
                         +fredX+" after="+fred.getX());
@@ -83,24 +130,83 @@ public final class PlayerPlayerGameTests {
                         && Math.abs(sally.getX()-sallyX)<1.0,
                     "Opposite controllers' movement was routed to incorrect axes");
                 helper.assertTrue(fred.getUUID().equals(fredId)
-                        && sally.getUUID().equals(sallyId)
-                        && Float.compare(fred.getHealth(),fredHealth)==0
-                        && Float.compare(sally.getHealth(),sallyHealth)==0,
-                    "Reciprocal control replaced an actual player or mutated body health");
-                helper.assertTrue(PlayerPlayerExchange.cancel(sally),
-                    "The other swapped player cannot end the exchange");
-                helper.assertTrue(!PlayerPlayerExchange.active(fredId)
-                        && !PlayerPlayerExchange.active(sallyId)
-                        && !PlayerCommandBodyRouting.hasRoute(fredId)
-                        && !PlayerCommandBodyRouting.hasRoute(sallyId),
-                    "Cancel left body control or command routing swapped");
-                System.out.println("FF-GAMEPLAY player_player_reciprocal_movement PASS"
-                    +" fredBodyFromSally="+(fred.getX()-fredX)
-                    +" sallyBodyFromFred="+(sally.getZ()-sallyZ)
-                    +" intactPhysicalPlayers=true");
-                System.out.println("FF-GAMEPLAY player_player_cancel_restores_both PASS"
-                    +" immediateExchange=true noConsentRequired=true");
-                helper.succeed();
+                        && sally.getUUID().equals(sallyId),
+                    "Reciprocal control replaced an actual physical player");
+                // Each mind attempts to attack the opposite original
+                // physical body through its authenticated controller route.
+                // PvP is a world game rule in current Minecraft versions.
+                // Enable it only for this disposable GameTest and restore it
+                // after both real ServerPlayer.attack paths have been checked.
+                boolean originalPvpAllowed=serverPvpAllowed(level);
+                level.getGameRules().set(
+                    net.minecraft.world.level.gamerules.GameRules.PVP,true,level.getServer());
+                boolean pvpAllowed=serverPvpAllowed(level);
+                helper.assertTrue(pvpAllowed,
+                    "The test server still reports PvP disabled after enabling it");
+                // Movement acceptance deliberately sends the two
+                // physical players apart. Re-stage them within native melee
+                // reach for the separate reciprocal-combat assertion.
+                double combatMidX=(fred.getX()+sally.getX())*0.5;
+                double combatMidZ=(fred.getZ()+sally.getZ())*0.5;
+                fred.setPos(combatMidX-0.75,fred.getY(),combatMidZ);
+                sally.setPos(combatMidX+0.75,sally.getY(),combatMidZ);
+                float fredBeforeMindAttack=fred.getHealth();
+                float sallyBeforeMindAttack=sally.getHealth();
+                float fredAttackYaw=yawToward(sally,fred);
+                PlayerPlayerExchange.input(fred,new PlayerMobPossession.Input(
+                    0,0,false,fredAttackYaw,0,26));
+                PlayerPlayerExchange.attack(fred,fred.getId(),1);
+                float sallyAttackYaw=yawToward(fred,sally);
+                PlayerPlayerExchange.input(sally,new PlayerMobPossession.Input(
+                    0,0,false,sallyAttackYaw,0,26));
+                PlayerPlayerExchange.attack(sally,sally.getId(),1);
+                helper.assertTrue(fred.getHealth()<fredBeforeMindAttack
+                        &&sally.getHealth()<sallyBeforeMindAttack,
+                    "Both opposite player minds must damage the other original physical body when PvP is enabled");
+
+                // The spawn-protection window has elapsed. Wait out the
+                // ordinary melee hurt cooldown, then test a third-party
+                // attacker against both physical bodies.
+                helper.runAfterDelay(11,()->{
+                    var opponentDamage=level.damageSources().mobAttack(opponent);
+                    float fredBeforeExternal=fred.getHealth();
+                    float sallyBeforeExternal=sally.getHealth();
+                    boolean fredHit=fred.hurtServer(level,opponentDamage,2.0f);
+                    boolean sallyHit=sally.hurtServer(level,opponentDamage,2.0f);
+                    helper.assertTrue(fredHit&&sallyHit
+                            &&fred.getHealth()<fredBeforeExternal
+                            &&sally.getHealth()<sallyBeforeExternal,
+                        "The opposing Skeleton could not independently damage both original player bodies"
+                            +" fredHit="+fredHit+" sallyHit="+sallyHit
+                            +" fredHealth="+fred.getHealth()+" sallyHealth="+sally.getHealth());
+                    helper.assertTrue(PlayerPlayerExchange.active(fredId)
+                            &&PlayerPlayerExchange.active(sallyId),
+                        "Nonfatal opponent damage incorrectly ended reciprocal Player↔Player control");
+                    helper.assertTrue(PlayerPlayerExchange.cancel(sally),
+                        "The other swapped player cannot end the exchange");
+                    helper.assertTrue(!PlayerPlayerExchange.active(fredId)
+                            && !PlayerPlayerExchange.active(sallyId)
+                            && !PlayerCommandBodyRouting.hasRoute(fredId)
+                            && !PlayerCommandBodyRouting.hasRoute(sallyId),
+                        "Cancel left body control or command routing swapped");
+                    System.out.println("FF-GAMEPLAY player_player_reciprocal_attack PASS"
+                        +" oppositePlayerMeleeAllowedByServer="+pvpAllowed
+                        +" originalPvpPolicyRestored="+(serverPvpAllowed(level)==originalPvpAllowed)
+                        +" externalAttackerDamagesBoth=true independentHealthPools=true");
+                    System.out.println("FF-GAMEPLAY player_player_reciprocal_movement PASS"
+                        +" fredBodyFromSally="+(fred.getX()-fredX)
+                        +" sallyBodyFromFred="+(sally.getZ()-sallyZ)
+                        +" intactPhysicalPlayers=true opponentDamagesBothBodies=true independentHealthPools=true");
+                    System.out.println("FF-GAMEPLAY player_player_cancel_restores_both PASS"
+                        +" immediateExchange=true noConsentRequired=true");
+                    level.getGameRules().set(
+                        net.minecraft.world.level.gamerules.GameRules.PVP,
+                        originalPvpAllowed,level.getServer());
+                    helper.assertTrue(serverPvpAllowed(level)==originalPvpAllowed,
+                        "Player↔Player test did not restore the original world PvP game rule");
+                    opponent.discard();
+                    helper.succeed();
+                });
             });
         } catch(RuntimeException failure) {
             PlayerPlayerExchange.clearOnLogout(fredId);

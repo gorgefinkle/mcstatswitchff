@@ -12,7 +12,7 @@ for file in sorted(resources.rglob('*.json')):
 mods=tomllib.loads((resources/'META-INF/neoforge.mods.toml').read_text())
 assert mods['mods'][0]['modId']=='freakyfriday'
 assert mods['mods'][0]['version']=='${ff_mod_version}'
-assert "version = '0.15.11-alpha'" in (root/'build.gradle').read_text()
+assert "version = '0.15.12-alpha'" in (root/'build.gradle').read_text()
 assert (root/'src/platform/minecraft-26.2/java/dev/freakyfriday/compat/PlatformHooks.java').exists()
 assert (root/'src/platform/minecraft-26.3/java/dev/freakyfriday/compat/PlatformHooks.java').exists()
 assert 'PlatformHooks::addBookToCreativeTab' in (root/'src/main/java/dev/freakyfriday/FreakyFriday.java').read_text()
@@ -42,9 +42,26 @@ assert 'mirror_body_mutation' in (root/'src/main/java/dev/freakyfriday/mind/Deta
 assert 'constructor_body_mutation' in (root/'src/main/java/dev/freakyfriday/mind/DetachedMindHostProbe.java').read_text()
 assert 'physical_probe_watchdog_timeout' in (root/'src/main/java/dev/freakyfriday/mind/LiveBodyProbe.java').read_text()
 assert 'LAST_INTERACTION.remove(p.getUUID())' in (root/'src/main/java/dev/freakyfriday/mind/MindSwapSessions.java').read_text()
-# The public book now enters actual possession, not the old diagnostic branch.
+# Mob↔Mob swaps now run in-process on the two real native Mob bodies.
+# Player↔Mob stays fail-closed until its reciprocal player-body AI adapter
+# can run without freezing either physical body.
 actual_book = (root/'src/main/java/dev/freakyfriday/mind/MindSwapSessions.java').read_text()
-assert 'PlayerMobPossession.begin(p,mob)' in actual_book
+assert 'NativeMindWorkerSupervisor.startPlayerMob(p,mob)' in actual_book
+assert 'NativeMindWorkerSupervisor.startMobPair(p,mobA,mobB)' in actual_book
+assert 'NativeMindWorkerSupervisor.cancelByAccount' in actual_book
+assert 'PlayerMobPossession.begin(p,mob)' not in actual_book
+assert 'PlayerPlayerExchange.begin(p,other)' in actual_book
+worker_supervisor = (root/'src/main/java/dev/freakyfriday/mind/NativeMindWorkerSupervisor.java').read_text()
+assert 'GoalMindRuntime.begin(requester.getUUID(),first,second)' in worker_supervisor
+assert 'GoalMindRuntime.cancelByAccount(account)' in worker_supervisor
+assert 'ProcessBuilder' not in worker_supervisor
+assert 'Runtime.getRuntime().exec' not in worker_supervisor
+assert 'NativeMindWorkerSupervisor.class' in (root/'src/main/java/dev/freakyfriday/FreakyFriday.java').read_text()
+assert 'NativeMindWorkerSupervisorSmoke.class' not in (root/'src/main/java/dev/freakyfriday/FreakyFriday.java').read_text()
+native_swap = (root/'src/main/java/dev/freakyfriday/mind/NativeBrainSwap.java').read_text()
+assert 'freakyfriday.allowExperimentalPartialMindTransfer' not in native_swap
+assert 'GoalMindRuntime.exchange(firstMob,secondMob)' in native_swap
+assert 'GoalMindRuntime.begin(requester.getUUID(),first,second)' in worker_supervisor
 assert 'SELECTION_TIMEOUT_TICKS = 160L' in actual_book
 assert 'SelectionHudSync.show(p,target.getDisplayName().getString()' in actual_book
 assert 'SelectionHudSync.clear(p)' in actual_book
@@ -62,7 +79,7 @@ assert 'PossessionMotion.step(living' in client
 assert 'PossessionStatePayload.TYPE' in (root/'src/main/java/dev/freakyfriday/PossessionNetwork.java').read_text()
 assert 'PossessionCombat.findValidMeleeTarget' in (root/'src/main/java/dev/freakyfriday/mind/PlayerMobPossession.java').read_text()
 
-assert 'NativeBrainSwap.exchange(mobA,mobB)' in actual_book
+assert 'NativeBrainSwap.exchange(mobA,mobB)' not in actual_book
 assert 'modBus.addListener(PortableAttributes::addToEntityTypes)' not in (root/'src/main/java/dev/freakyfriday/FreakyFriday.java').read_text()
 
 assert (root/'src/main/java/dev/freakyfriday/mind/ProbeTelemetry.java').exists()

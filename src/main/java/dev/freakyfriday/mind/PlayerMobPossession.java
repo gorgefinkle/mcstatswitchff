@@ -14,6 +14,8 @@ import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 
 /**
  * Server-authoritative, first PLAYABLE player->mob possession.
@@ -36,13 +38,18 @@ public final class PlayerMobPossession {
         final float originalYaw,originalPitch;
         final boolean originalNoAi;
         final boolean originalNoGravity;
+        final boolean reciprocal;
+        final GoalMindRuntime.DetachedController mindProxy;
         Input input = new Input(0,0,false,0,0,0);
         long lastInputTick;
         long lastAttackTick=Long.MIN_VALUE/4;
         long lastAttackSequence;
-        Session(ServerPlayer player, Mob body) {
+        Session(ServerPlayer player, Mob body, boolean reciprocal,
+                GoalMindRuntime.DetachedController mindProxy) {
             this.player = player;
             this.body = body;
+            this.reciprocal = reciprocal;
+            this.mindProxy = mindProxy;
             this.anchor = player.position();
             this.originalYaw=player.getYRot();
             this.originalPitch=player.getXRot();
@@ -69,7 +76,8 @@ public final class PlayerMobPossession {
      * servers ALWAYS deliver the camera packet to the real modded client.
      */
     private static void sendCamera(ServerPlayer player,PossessionViewPayload payload) {
-        if (Boolean.getBoolean("freakyfriday.thirdPartyFixture")) return;
+        if (Boolean.getBoolean("freakyfriday.thirdPartyFixture")
+                || Boolean.getBoolean("freakyfriday.supervisorSmoke")) return;
         net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(player,payload);
     }
 
@@ -99,7 +107,44 @@ public final class PlayerMobPossession {
         if (!body.getPassengers().isEmpty() || body.isPassenger())
             return "Cannot possess a mounted mob yet.";
 
-        Session session = new Session(player,body);
+        return begin(player,body,false);
+    }
+
+    /**
+     * Atomic same-server reciprocal exchange. The player's authenticated
+     * input controls the real Mob body while its detached native Goal graph
+     * independently drives the original ServerPlayer body.
+     */
+    public static synchronized String beginReciprocal(ServerPlayer player,Mob body) {
+        return begin(player,body,true);
+    }
+
+    private static synchronized String begin(ServerPlayer player,Mob body,boolean reciprocal) {
+        if (player == null || body == null || !player.isAlive() || !body.isAlive())
+            return "Both bodies must be alive.";
+        if (player.level()!=body.level())
+            return "Both bodies must be in the same loaded dimension.";
+        if (player.isRemoved() || body.isRemoved())
+            return "Both bodies must be active.";
+        if (ACTIVE.containsKey(player.getUUID()))
+            return "Already controlling a mob. Use /freakyfriday cancel to return.";
+        if (BODY_OWNERS.containsKey(body.getUUID()))
+            return "That mob is already controlled by a player.";
+        if (!body.getPassengers().isEmpty() || body.isPassenger())
+            return "Cannot possess a mounted mob yet.";
+
+        GoalMindRuntime.DetachedController mindProxy=null;
+        if(reciprocal) {
+            try {
+                // Capture before changing NoAI or touching either physical body.
+                mindProxy=GoalMindRuntime.createDetachedController(body,player);
+            } catch(DynamicObjectGraph.Uncapturable failure) {
+                return "The incoming Mob mind cannot pilot this Player body: "
+                    +failure.getMessage();
+            }
+        }
+
+        Session session = new Session(player,body,reciprocal,mindProxy);
         ACTIVE.put(player.getUUID(),session);
         BODY_OWNERS.put(body.getUUID(),player.getUUID());
         body.getNavigation().stop();
@@ -139,13 +184,42 @@ public final class PlayerMobPossession {
             ||!(body.level() instanceof net.minecraft.server.level.ServerLevel level))return;
         long now=level.getGameTime();
         if(now-session.lastAttackTick<10)return;
-        body.setYRot(session.input.yaw());
-        body.setXRot(session.input.pitch());
+        float attackYaw=session.input.yaw();
+        float attackPitch=session.input.pitch();
+        body.setYRot(attackYaw);
+        body.yRotO=attackYaw;
+        body.setYHeadRot(attackYaw);
+        body.setXRot(attackPitch);
+        body.xRotO=attackPitch;
         net.minecraft.world.entity.Entity victim=
             PossessionCombat.findValidMeleeTarget(level,body,candidateId,sender);
         if(victim==null)return;
         session.lastAttackTick=now;
-        body.doHurtTarget(level,victim);
+        float healthBefore=victim instanceof net.minecraft.world.entity.LivingEntity living
+            ?living.getHealth():Float.NaN;
+        boolean originalNoAi=body.isNoAi();
+        boolean accepted;
+        // Possession pauses the body's autonomous selectors with NoAI, but
+        // an authenticated player attack must still execute the body's real
+        // native attack method. Temporarily lift NoAI for this one action and
+        // restore the original state immediately afterward.
+        if(originalNoAi)body.setNoAi(false);
+        try {
+            accepted=body.doHurtTarget(level,victim);
+        } finally {
+            if(originalNoAi)body.setNoAi(true);
+        }
+        if(Boolean.getBoolean("freakyfriday.thirdPartyFixture"))
+            System.out.println("[FF-POSSESSION-ATTACK] body="+body.getType()
+                +" noAI="+body.isNoAi()
+                +" target="+victim.getType()
+                +" distanceSq="+body.distanceToSqr(victim)
+                +" yaw="+body.getYRot()
+                +" accepted="+accepted
+                +" healthBefore="+healthBefore
+                +" healthAfter="+(victim instanceof net.minecraft.world.entity.LivingEntity living
+                    ?living.getHealth():Float.NaN)
+                +" targetInvulnerable="+victim.isInvulnerable());
     }
 
     public static synchronized boolean end(ServerPlayer player) {
@@ -181,6 +255,16 @@ public final class PlayerMobPossession {
         end(playerId,false);
     }
 
+    @SubscribeEvent
+    public static synchronized void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        clearOnLogout(event.getEntity().getUUID());
+    }
+
+    @SubscribeEvent
+    public static synchronized void onServerStopped(ServerStoppedEvent event) {
+        clearOnServerStop();
+    }
+
     public static synchronized void clearOnServerStop() {
         for (UUID owner : java.util.List.copyOf(ACTIVE.keySet())) end(owner,false);
     }
@@ -189,6 +273,7 @@ public final class PlayerMobPossession {
         Session session=ACTIVE.remove(account);
         if (session==null) return false;
         BODY_OWNERS.remove(session.body.getUUID(),account);
+        if(session.mindProxy!=null) session.mindProxy.close();
         MindSwapSessions.clearSelectionAfterReturn(account);
         if (!session.body.isRemoved()) {
             session.body.getNavigation().stop();
@@ -199,6 +284,43 @@ public final class PlayerMobPossession {
         if (notifyClient && !session.player.isRemoved())
             sendCamera(session.player,new PossessionViewPayload(-1,false,0,0,0));
         return true;
+    }
+
+    /** Package-private GameTest seam for verifying proxy-origin attacks. */
+    static synchronized Mob mindProxyForGameTest(UUID account) {
+        Session session=ACTIVE.get(account);
+        return session==null||session.mindProxy==null
+            ?null:session.mindProxy.proxyForGameTest();
+    }
+
+    /** Apply the donor Mob's native AI decisions to the actual Player body. */
+    private static void applyIncomingMindStep(ServerPlayer body,
+            GoalMindRuntime.DetachedController.Step step) {
+        MinecraftPlayerBodyPort port=new MinecraftPlayerBodyPort(body);
+        Vec3 moved=step.displacement();
+        if(moved.lengthSqr()>1.0e-8) {
+            BodyActionGate.dispatch(port,new BodyActionGate.Intent(
+                BodyActionGate.MOVE_OFFSET,Map.of(
+                    "dx",Double.toString(moved.x),
+                    "dy",Double.toString(moved.y),
+                    "dz",Double.toString(moved.z))));
+        }
+
+        double yaw=Math.toRadians(step.yaw());
+        double pitch=Math.toRadians(step.pitch());
+        double horizontal=Math.cos(pitch);
+        BodyActionGate.dispatch(port,new BodyActionGate.Intent(
+            BodyActionGate.LOOK_OFFSET,Map.of(
+                "dx",Double.toString(-Math.sin(yaw)*horizontal),
+                "dy",Double.toString(-Math.sin(pitch)),
+                "dz",Double.toString(Math.cos(yaw)*horizontal))));
+
+        net.minecraft.world.entity.Entity target=step.attackTarget();
+        if(target!=null&&!target.isRemoved()&&target.isAlive()) {
+            BodyActionGate.dispatch(port,new BodyActionGate.Intent(
+                BodyActionGate.ATTACK_ENTITY,
+                Map.of("targetId",target.getUUID().toString())));
+        }
     }
 
     /**
@@ -220,6 +342,7 @@ public final class PlayerMobPossession {
                 // another mod suppresses the ordinary LivingDeathEvent.
                 it.remove();
                 BODY_OWNERS.remove(body.getUUID());
+                if(s.mindProxy!=null) s.mindProxy.close();
                 MindSwapSessions.clearSelectionAfterReturn(player.getUUID());
                 if (!body.isRemoved()) {
                     body.setNoAi(s.originalNoAi);
@@ -233,22 +356,32 @@ public final class PlayerMobPossession {
                 }
                 continue;
             }
-            // Original player's actual body remains in place; do not transfer
-            // account authority or inventory to the mob. Packet movement of
-            // original LocalPlayer is countered by server-owned anchor.
-            player.setDeltaMovement(Vec3.ZERO);
-            if (player.position().distanceToSqr(s.anchor)>0.0001)
-                player.setPos(s.anchor.x,s.anchor.y,s.anchor.z);
+            // In one-way possession the account's original player body stays
+            // anchored. In reciprocal mode it is the mob mind's physical body,
+            // so do not freeze or teleport it while player input drives the Mob.
+            if(!s.reciprocal) {
+                player.setDeltaMovement(Vec3.ZERO);
+                if (player.position().distanceToSqr(s.anchor)>0.0001)
+                    player.setPos(s.anchor.x,s.anchor.y,s.anchor.z);
+            }
 
             Input in=(player.level().getGameTime()-s.lastInputTick <= 8)
                 ? s.input:new Input(0,0,false,s.input.yaw(),s.input.pitch(),s.input.sequence());
-            player.setYRot(s.originalYaw);
-            player.setXRot(s.originalPitch);
-            player.setYHeadRot(s.originalYaw);
+            if(!s.reciprocal) {
+                player.setYRot(s.originalYaw);
+                player.setXRot(s.originalPitch);
+                player.setYHeadRot(s.originalYaw);
+            }
             PossessionMotion.step(body,in.forward(),in.strafe(),in.jump(),
                 in.yaw(),in.pitch());
+            if(s.mindProxy!=null) applyIncomingMindStep(player,s.mindProxy.tick(player));
             if ((player.level().getGameTime()&1L)==0
-                    && !Boolean.getBoolean("freakyfriday.thirdPartyFixture")) {
+                    && !Boolean.getBoolean("freakyfriday.thirdPartyFixture")
+                    && !Boolean.getBoolean("freakyfriday.supervisorSmoke")) {
+                if(s.reciprocal) {
+                    sendCamera(player,new PossessionViewPayload(body.getId(),true,
+                        player.getX(),player.getY(),player.getZ()));
+                }
                 net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(
                     player,new PossessionStatePayload(body.getId(),in.sequence(),
                         body.getX(),body.getY(),body.getZ(),
