@@ -1013,6 +1013,13 @@ public final class PlayerMobGameTests {
             level,new com.mojang.authlib.GameProfile(UUID.randomUUID(),fakeName));
         stimulus.setPos(zombie.getX()+5.0,zombie.getY(),zombie.getZ());
         stimulus.setNoGravity(true);
+        // FakePlayerFactory defaults fake players to invulnerable. This is a
+        // normal survival-style stimulus for TemptGoal and pathfinding.
+        stimulus.setInvulnerable(false);
+        stimulus.getAbilities().invulnerable=false;
+        stimulus.getAbilities().instabuild=false;
+        stimulus.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
+        stimulus.gameMode.changeGameModeForPlayer(net.minecraft.world.level.GameType.SURVIVAL);
         stimulus.setItemInHand(InteractionHand.MAIN_HAND,new ItemStack(Items.WHEAT_SEEDS));
         stimulus.setItemInHand(InteractionHand.OFF_HAND,new ItemStack(Items.WHEAT_SEEDS));
         level.addNewPlayer(stimulus);
@@ -1078,6 +1085,10 @@ public final class PlayerMobGameTests {
                 +" proxyPosition="+chickenMind.position()
                 +" physicalZombie="+zombie.position()
                 +" playerPosition="+stimulus.position()
+                +" proxyOnGround="+chickenMind.onGround()
+                +" bodyOnGround="+zombie.onGround()
+                +" proxyInWater="+chickenMind.isInWater()
+                +" directPathToPlayer="+(chickenMind.getNavigation().createPath(stimulus,1)!=null)
                 +" moveDelta="+chickenMind.getDeltaMovement());
             System.clearProperty("freakyfriday.debugProxy");
             helper.assertTrue(chickenEnd<chickenStart-0.5,
