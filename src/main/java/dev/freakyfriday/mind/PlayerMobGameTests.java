@@ -122,7 +122,7 @@ public final class PlayerMobGameTests {
                 +" health="+before+"->"+target.getHealth()
                 +" distanceSq="+attacker.distanceToSqr(target)
                 +" attackerNoAi="+attacker.isNoAi()
-                +" targetNoAi="+target.isNoAi());
+                +" targetNoAi="+(target instanceof Mob targetMob&&targetMob.isNoAi()));
         }
     }
 
