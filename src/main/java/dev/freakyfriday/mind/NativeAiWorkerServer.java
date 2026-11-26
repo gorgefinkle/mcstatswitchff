@@ -702,8 +702,10 @@ public final class NativeAiWorkerServer {
                 +" noAi="+donor.isNoAi()
                 +" onGround="+donor.onGround()
                 +" nativeGoals="+donor.goalSelector.getAvailableGoals().size()
-                +" displacement="+Math.hypot(donor.getX()-state.startX,
-                    donor.getZ()-state.startZ)
+                +" displacement="+Math.sqrt(
+                    Math.pow(donor.getX()-state.startX,2)
+                    +Math.pow(donor.getY()-state.startY,2)
+                    +Math.pow(donor.getZ()-state.startZ,2))
                 +" hasPath="+(donor.getNavigation().getPath()!=null)
                 +" workerChunkLoaded="+state.level.hasChunkAt(donor.blockPosition())
                 +" chunkX="+(donor.blockPosition().getX()>>4)
