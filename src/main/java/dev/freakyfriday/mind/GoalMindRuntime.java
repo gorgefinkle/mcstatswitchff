@@ -816,6 +816,14 @@ public final class GoalMindRuntime {
         if(!(event.getSource().getEntity() instanceof Mob proxy))return;
         DetachedController controller=DETACHED_BY_PROXY.get(proxy.getUUID());
         if(controller==null)return;
+        // This is a decision-proxy hit, not a physical attack. The hit is
+        // cancelled and replayed through the assigned original body's native
+        // attack method later in the same server tick. Do not let the
+        // cancelled proxy attempt reserve the recipient's post-attack
+        // invulnerability window ahead of that real body-owned hit.
+        // The subsequent physical attack event keeps NeoForge's normal
+        // post-hit cooldown; this only clears the abandoned proxy attempt.
+        event.setInvulnerabilityTicks(0);
         event.setCanceled(true);
         controller.recordAttack(event.getEntity());
     }
