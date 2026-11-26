@@ -1,6 +1,6 @@
 {
   "environment": "minecraft:default",
-  "structure": "freakyfriday:empty_arena",
+  "structure": "freakyfriday:mob_origin_attack_arena",
   "max_ticks": 125,
   "setup_ticks": 0,
   "required": true,

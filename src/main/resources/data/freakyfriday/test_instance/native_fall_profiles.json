@@ -1,6 +1,6 @@
 {
   "environment": "minecraft:default",
-  "structure": "freakyfriday:empty_arena",
+  "structure": "freakyfriday:native_fall_arena",
   "max_ticks": 160,
   "setup_ticks": 0,
   "required": true,
