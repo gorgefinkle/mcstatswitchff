@@ -106,22 +106,33 @@ safe for a normal survival world.
   attributes, moves once or watches a donor in a separate world **cannot
   pass** a full native AI acceptance test.
 
-## Release gate
+## Current acceptance evidence and release gate
 
-`zombie_chicken_behavior_acceptance` is now a required automated GameTest,
-not a manual-only probe. It checks two simultaneous directions: the Zombie
-mind must acquire and pursue an Iron Golem while hosted by the physical
-Chicken, and the Chicken mind must run its native TemptGoal toward a registered
-seed-holding player while hosted by the physical Zombie. The first automated
-run proved Zombie target acquisition and pursuit, but the Chicken body did
-not move even though the Chicken TemptGoal was running. The generic
-MoveControl-intent capture is being corrected; this gate is still failing
-until both bodies demonstrate movement and the full test passes on 26.2 and
-26.3.
+The required GameTest suite now includes `zombie_chicken_behavior_acceptance`,
+`villager_zombie_brain_swap`, `partial_native_swap_fails_closed`, and the
+recipient sensory snapshot/mirror test. The latest fully verified commit
+(`d74b5cc`) passed all 25 required tests on both Minecraft 26.2 and 26.3.
+The cross-species fixtures now use individually sized GameTest structures so
+their live stimuli are not outside the test runner's reserved bounds.
 
-Do not reclassify this test as a pass by removing or weakening its assertions.
-The true gameplay requirement is **universal swapability**, not "swaps for
-the mobs we patched". If arbitrary third-party code escapes the
+The passing Zombie↔Chicken test proves two simultaneous, specific behaviors:
+the Zombie mind acquires and pursues an Iron Golem while hosted by the original
+Chicken, and the Chicken mind's native TemptGoal moves the original Zombie
+toward a registered seed-holding player. It also confirms that the Chicken
+body does not gain a melee capability it does not physically possess. The
+Villager↔Zombie test exercises a Brain-driven mind against a Goal-driven mind,
+with independent stimuli, original body identities, and restored controller
+state. The reciprocal combat tests confirm that mapped attacks reach the
+opposite real physical health pools.
+
+These tests validate the current experimental same-server implementation for
+the covered cases. They do **not** establish arbitrary vanilla/modded mob
+compatibility, live-client camera/input/UI correctness, or native side-effect
+isolation. The active book route still uses proxies that share the live
+`ServerLevel`; it is not safe for a normal survival world or a release.
+
+Do not reclassify this acceptance as universal by weakening assertions or
+adding species-specific workarounds. If arbitrary third-party code escapes the
 observation/isolation boundary, report that as an unimplemented engine
 capability and improve the generic runtime. No software can honestly
 guarantee compatibility with every unknown future mod's arbitrary Java
