@@ -112,6 +112,12 @@ public final class PlayerMobGameTests {
         @Override public void tick() {
             if(fired||!target.isAlive())return;
             fired=true;
+            // This is a one-shot acceptance stimulus, not an attack-cooldown
+            // test. Other native controllers can legitimately touch the same
+            // target between fixture setup and this scheduled goal tick, so
+            // clear the target's vanilla damage-immunity window at the exact
+            // hit tick. Production combat never clears or bypasses cooldowns.
+            clearHurtCooldown(target);
             float before=target.getHealth();
             boolean accepted=attacker.doHurtTarget((ServerLevel)attacker.level(),target);
             System.out.println("[FF-ONESHOT-ATTACK] attacker="+attacker.getType()
