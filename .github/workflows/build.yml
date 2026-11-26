@@ -171,7 +171,7 @@ jobs:
     # CI-only isolated-worker proof. The live book route remains on the
     # explicitly experimental proxy runtime until a persistent shared
     # supervisor is implemented and the full gameplay contract passes.
-    if: github.ref == 'refs/heads/feature/p09-universal-native-ai-host'
+    if: github.ref == 'refs/heads/feature/p09-universal-native-ai-host' || github.head_ref == 'feature/p09-universal-native-ai-host'
     name: Two-process bounded native intent capture Minecraft ${{ matrix.minecraft }}
     needs: core
     runs-on: ubuntu-latest
