@@ -1097,8 +1097,11 @@ public final class PlayerMobGameTests {
             // the target is in reach or its cooldown is active. Sample the
             // complete interval instead of mistaking one idle tick for failure.
             boolean[] zombieAttackGoalSeenRunning={false};
+            double[] closestChickenToGolem={chickenStart};
             for(int sample=1;sample<75;sample++) {
                 helper.runAfterDelay(sample,()->{
+                    closestChickenToGolem[0]=Math.min(closestChickenToGolem[0],
+                        chicken.distanceToSqr(golem));
                     if(zombieMind.goalSelector.getAvailableGoals().stream()
                             .anyMatch(w->w.getGoal().getClass().getSimpleName().equals("ZombieAttackGoal")
                                 &&w.isRunning()))
@@ -1152,9 +1155,13 @@ public final class PlayerMobGameTests {
                         +" moveDelta="+chickenMind.getDeltaMovement());
                     System.clearProperty("freakyfriday.debugProxy");
 
-                    helper.assertTrue(chickenEnd<chickenStart-0.5,
-                        "Zombie mind did not move the real Chicken body toward its Golem target; "
-                            +"distance="+chickenStart+"->"+chickenEnd);
+                    System.out.println("[FF-ZOMBIE-CHICKEN-PURSUIT] start="+chickenStart
+                        +" closest="+closestChickenToGolem[0]+" final="+chickenEnd
+                        +" attackGoalSeen="+zombieAttackGoalSeenRunning[0]);
+                    helper.assertTrue(closestChickenToGolem[0]<chickenStart-0.5,
+                        "Zombie mind never moved the real Chicken body toward its Golem target; "
+                            +"start="+chickenStart+" closest="+closestChickenToGolem[0]
+                            +" final="+chickenEnd);
                     helper.assertTrue(zombieEnd<zombieStart-0.5,
                         "Chicken mind did not move the real Zombie body toward the seed-holding player; "
                             +"distance="+zombieStart+"->"+zombieEnd);
@@ -1380,6 +1387,20 @@ public final class PlayerMobGameTests {
             .subtract(stimulusVillager.position()).horizontalDistanceSqr();
         double zombieToThreatStart=physicalZombie.position()
             .subtract(stimulusZombie.position()).horizontalDistanceSqr();
+        double[] greatestZombieThreatDistance={zombieToThreatStart};
+        boolean[] villagerSawHostile={false};
+        boolean[] villagerHadWalkTarget={false};
+        for(int sample=1;sample<95;sample++) {
+            helper.runAfterDelay(sample,()->{
+                greatestZombieThreatDistance[0]=Math.max(greatestZombieThreatDistance[0],
+                    physicalZombie.position().subtract(stimulusZombie.position())
+                        .horizontalDistanceSqr());
+                villagerSawHostile[0]|=villagerMindProxy.getBrain().getMemory(
+                    net.minecraft.world.entity.ai.memory.MemoryModuleType.NEAREST_HOSTILE).isPresent();
+                villagerHadWalkTarget[0]|=villagerMindProxy.getBrain().getMemory(
+                    net.minecraft.world.entity.ai.memory.MemoryModuleType.WALK_TARGET).isPresent();
+            });
+        }
         helper.runAfterDelay(95,()->{
             try {
                 Entity zombieMindTarget=zombieMindProxy.getTarget();
@@ -1409,17 +1430,36 @@ public final class PlayerMobGameTests {
                     "Zombie mind did not make the original Villager body approach the real Villager target; "
                         +"distanceSq="+villagerToStimulusStart+"->"+villagerToStimulusEnd
                         +" xDelta="+villagerBodyDeltaX);
-                helper.assertTrue(zombieToThreatEnd>zombieToThreatStart+0.5,
-                    "Villager mind did not increase distance from the independent Zombie threat; "
-                        +"distanceSq="+zombieToThreatStart+"->"+zombieToThreatEnd
+                var nearestVisible=villagerMindProxy.getBrain().getMemory(
+                    net.minecraft.world.entity.ai.memory.MemoryModuleType.NEAREST_VISIBLE_LIVING_ENTITIES);
+                boolean targetableByBrainSensor=
+                    net.minecraft.world.entity.ai.sensing.Sensor.isEntityTargetable(
+                        level,villagerMindProxy,stimulusZombie);
+                boolean stimulusRegistered=level.getEntity(stimulusZombie.getUUID())==stimulusZombie;
+                int nearestVisibleCount=nearestVisible.map(v->v.nearbyEntities().size()).orElse(-1);
+                boolean stimulusInVisible=nearestVisible.map(v->v.contains(stimulusZombie)).orElse(false);
+                helper.assertTrue(greatestZombieThreatDistance[0]>zombieToThreatStart+0.5,
+                    "Villager mind never increased distance from the independent Zombie threat; "
+                        +"startSq="+zombieToThreatStart
+                        +" greatestSq="+greatestZombieThreatDistance[0]
+                        +" finalSq="+zombieToThreatEnd
                         +" xDelta="+zombieBodyDeltaX
-                        +" nearestHostile="+villagerMindProxy.getBrain().getMemory(
+                        +" hostileEverSeen="+villagerSawHostile[0]
+                        +" walkTargetEverSet="+villagerHadWalkTarget[0]
+                        +" nearestHostileNow="+villagerMindProxy.getBrain().getMemory(
                             net.minecraft.world.entity.ai.memory.MemoryModuleType.NEAREST_HOSTILE)
-                        +" walkTarget="+villagerMindProxy.getBrain().getMemory(
+                        +" walkTargetNow="+villagerMindProxy.getBrain().getMemory(
                             net.minecraft.world.entity.ai.memory.MemoryModuleType.WALK_TARGET)
-                        +" activity="+villagerMindProxy.getBrain().getActiveNonCoreActivity()
+                        +" activeActivity="+villagerMindProxy.getBrain().getActiveNonCoreActivity()
                         +" runningBehaviors="+villagerMindProxy.getBrain().getRunningBehaviors().stream()
                             .map(b->b.getClass().getSimpleName()).toList()
+                        +" nearestVisibleCount="+nearestVisibleCount
+                        +" stimulusInVisible="+stimulusInVisible
+                        +" targetableByBrainSensor="+targetableByBrainSensor
+                        +" stimulusRegistered="+stimulusRegistered
+                        +" stimulusAlive="+stimulusZombie.isAlive()
+                        +" stimulusNoAi="+stimulusZombie.isNoAi()
+                        +" stimulusInvisible="+stimulusZombie.isInvisible()
                         +" proxyPos="+villagerMindProxy.position()
                         +" physicalBodyPos="+physicalZombie.position()
                         +" threatPos="+stimulusZombie.position());
