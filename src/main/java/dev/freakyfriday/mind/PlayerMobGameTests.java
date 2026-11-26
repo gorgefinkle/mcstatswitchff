@@ -1413,6 +1413,8 @@ public final class PlayerMobGameTests {
                 double zombieBodyDeltaX=physicalZombie.getX()-zombieBodyStartX;
                 double villagerToStimulusEnd=physicalVillager.position()
                     .subtract(stimulusVillager.position()).horizontalDistanceSqr();
+                closestVillagerStimulusDistance[0]=Math.min(
+                    closestVillagerStimulusDistance[0],villagerToStimulusEnd);
                 double zombieToThreatEnd=physicalZombie.position()
                     .subtract(stimulusZombie.position()).horizontalDistanceSqr();
                 helper.assertTrue(zombieMindTarget==stimulusVillager,
