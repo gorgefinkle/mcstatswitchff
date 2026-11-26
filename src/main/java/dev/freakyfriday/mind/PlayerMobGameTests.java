@@ -994,7 +994,9 @@ public final class PlayerMobGameTests {
             "Real Zombie, Chicken and Iron Golem required");
         BlockPos chickenBodyPos=helper.absolutePos(new BlockPos(4,1,4));
         BlockPos zombieBodyPos=helper.absolutePos(new BlockPos(42,1,4));
-        BlockPos golemPos=helper.absolutePos(new BlockPos(10,1,4));
+        // Keep the target close enough for a genuine native Zombie melee
+        // attempt inside the same 75-tick acceptance window.
+        BlockPos golemPos=helper.absolutePos(new BlockPos(8,1,4));
         zombie.setPos(zombieBodyPos.getX()+0.5,zombieBodyPos.getY(),zombieBodyPos.getZ()+0.5);
         chicken.setPos(chickenBodyPos.getX()+0.5,chickenBodyPos.getY(),chickenBodyPos.getZ()+0.5);
         golem.setPos(golemPos.getX()+0.5,golemPos.getY(),golemPos.getZ()+0.5);
@@ -1025,6 +1027,7 @@ public final class PlayerMobGameTests {
         UUID zombieId=zombie.getUUID(),chickenId=chicken.getUUID();
         double chickenStart=chicken.distanceToSqr(golem);
         double zombieStart=zombie.distanceToSqr(stimulus);
+        float golemHealthBefore=golem.getHealth();
         UUID requester=UUID.randomUUID();
         String failure=GoalMindRuntime.begin(requester,zombie,chicken);
         helper.assertTrue(failure==null,
@@ -1054,6 +1057,9 @@ public final class PlayerMobGameTests {
             helper.assertTrue(chickenEnd<chickenStart-0.5,
                 "Zombie mind did not move the real Chicken body toward its Golem target; "
                     +"distance="+chickenStart+"->"+chickenEnd);
+            helper.assertTrue(golem.getHealth()<golemHealthBefore,
+                "Zombie mind did not carry its native melee attack through the physical Chicken body; "
+                    +"Golem health="+golemHealthBefore+"->"+golem.getHealth());
             helper.assertTrue(zombieEnd<zombieStart-0.5,
                 "Chicken mind did not move the real Zombie body toward the seed-holding player; "
                     +"distance="+zombieStart+"->"+zombieEnd);
