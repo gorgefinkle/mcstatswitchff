@@ -62,16 +62,17 @@ public final class MinecraftBodyPort implements BodyActionGate.BodyPort {
             double speed=parse(intent.arguments(),"speed",1.0);
             if(speed<=0 || speed>2 || dx*dx+dy*dy+dz*dz>144)
                 return BodyActionGate.Result.blocked("Invalid relative movement request");
-            double distance=Math.hypot(dx,dz);
-            if(distance<0.05) return BodyActionGate.Result.executed();
+            if(Math.sqrt(dx*dx+dy*dy+dz*dz)<0.05)
+                return BodyActionGate.Result.executed();
             double nativeSpeed=body.getAttributeValue(Attributes.MOVEMENT_SPEED);
             if(!Double.isFinite(nativeSpeed) || nativeSpeed<=0)
                 return BodyActionGate.Result.blocked("Recipient body has no usable native movement speed");
-            // Each worker observation represents multiple donor-world ticks.
-            // Project a bounded segment using the recipient's own speed and
-            // collision resolver; the Mob's native AI remains disabled.
-            double step=Math.min(distance,nativeSpeed*20.0*speed);
-            body.move(MoverType.SELF,new Vec3(dx/distance*step,0,dz/distance*step));
+            // The worker reports only a bounded direction. The original
+            // physical Mob performs one movement step through its own native
+            // travel override, with its own movement attribute, fluids,
+            // gravity and collision. Never teleport it by the worker vector.
+            PossessionMotion.applyNativeIntent(body,new Vec3(dx,dy,dz),
+                body.getYRot(),body.getXRot(),speed);
             return BodyActionGate.Result.executed();
         }));
         CAPABILITIES.register(LOOK_OFFSET, capability(Mob.class, (body, intent) -> {
