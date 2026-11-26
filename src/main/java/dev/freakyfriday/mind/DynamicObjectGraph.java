@@ -81,6 +81,7 @@ public final class DynamicObjectGraph {
         private static final int MAX_DEPTH = 40;
         private final Rebinding policy;
         private final IdentityHashMap<Object, Object> copies = new IdentityHashMap<>();
+        private final IdentityHashMap<Object, Boolean> inProgressImmutable = new IdentityHashMap<>();
         Copier(Rebinding policy) { this.policy = policy; }
 
         private Object copy(Object source, int depth) throws Uncapturable {
@@ -91,6 +92,8 @@ public final class DynamicObjectGraph {
             Class<?> type = source.getClass();
             if (primitiveLike(type)) return source;
             if (policy.shared(source)) return source;
+            if (inProgressImmutable.containsKey(source))
+                throw new Uncapturable("Cyclic immutable collection cannot be safely rebound: " + type.getName());
             if (copies.containsKey(source)) return copies.get(source);
             if (depth > MAX_DEPTH || copies.size() >= MAX_OBJECTS)
                 throw new Uncapturable("AI capture object graph is too large or too deep: " + type.getName());
@@ -131,10 +134,12 @@ public final class DynamicObjectGraph {
                 else throw new Uncapturable("Unsupported List implementation; refusing to change collection semantics: " + name);
                 Object result = unmodifiable ? Collections.unmodifiableList(backing) : backing;
                 copies.put(source, result);
+                if (immutable) inProgressImmutable.put(source, Boolean.TRUE);
                 for (Object value : list) backing.add(copy(value, depth + 1));
                 if (immutable) {
                     result = List.copyOf(backing);
                     copies.put(source, result);
+                    inProgressImmutable.remove(source);
                 }
                 return result;
             }
@@ -150,10 +155,14 @@ public final class DynamicObjectGraph {
                 else throw new Uncapturable("Unsupported Set implementation; refusing to change collection semantics: " + name);
                 Object result = unmodifiable ? Collections.unmodifiableSet(backing) : backing;
                 copies.put(source, result);
+                if (immutable) inProgressImmutable.put(source, Boolean.TRUE);
                 for (Object value : set) backing.add(copy(value, depth + 1));
+                if (backing.size() != set.size())
+                    throw new Uncapturable("Rebinding collapsed distinct Set entries: " + name);
                 if (immutable) {
                     result = Set.copyOf(backing);
                     copies.put(source, result);
+                    inProgressImmutable.remove(source);
                 }
                 return result;
             }
@@ -170,11 +179,15 @@ public final class DynamicObjectGraph {
                 else throw new Uncapturable("Unsupported Map implementation; refusing to change collection semantics: " + name);
                 Object result = unmodifiable ? Collections.unmodifiableMap(backing) : backing;
                 copies.put(source, result);
+                if (immutable) inProgressImmutable.put(source, Boolean.TRUE);
                 for (var e : map.entrySet())
                     backing.put(copy(e.getKey(), depth + 1), copy(e.getValue(), depth + 1));
+                if (backing.size() != map.size())
+                    throw new Uncapturable("Rebinding collapsed distinct Map keys: " + name);
                 if (immutable) {
                     result = Map.copyOf(backing);
                     copies.put(source, result);
+                    inProgressImmutable.remove(source);
                 }
                 return result;
             }
