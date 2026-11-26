@@ -1805,6 +1805,10 @@ public final class PlayerMobGameTests {
                 controller.setYRot(-90.0f);
                 controller.setXRot(0.0f);
                 makeDamageableSurvivalPlayer(controller);
+                // The mock Zombie may have an outstanding native hurt window
+                // from earlier setup/fixture ticks; clear it before asking the
+                // incoming Zombie mind to execute its reciprocal melee action.
+                clearHurtCooldown(zombie);
                 mindProxy.goalSelector.addGoal(0,new OneShotNativeAttackGoal(mindProxy,zombie));
                 float mobBeforeMindAttack=zombie.getHealth();
                 float proxyHealthBeforeAttack=mindProxy.getHealth();
