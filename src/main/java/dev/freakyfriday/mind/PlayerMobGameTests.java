@@ -84,8 +84,11 @@ public final class PlayerMobGameTests {
         for(Class<?> type=body.getClass();type!=null;type=type.getSuperclass()) {
             for(java.lang.reflect.Field field:type.getDeclaredFields()) {
                 String name=field.getName().toLowerCase(java.util.Locale.ROOT);
+                // 26.3 profiles can expose the same damage timer using
+                // "invulnerability" rather than "invulnerable" terminology.
+                // Match their shared prefix so both mappings are reset.
                 if(field.getType()!=int.class
-                        ||(!name.contains("invulnerable")&&!name.contains("hurt")))continue;
+                        ||(!name.contains("invulnerab")&&!name.contains("hurt")))continue;
                 try {
                     if(!field.trySetAccessible())continue;
                     field.setInt(body,0);
@@ -1074,6 +1077,17 @@ public final class PlayerMobGameTests {
             Mob chickenMind=GoalMindRuntime.proxyForGameTest(zombieId);
             helper.assertTrue(zombieMind!=null&&chickenMind!=null,
                 "Both detached native minds must be running on opposite physical bodies");
+            // The GameTest runner places compact structures close together.
+            // A nearby Villager in the neighboring Brain test can otherwise
+            // satisfy the Zombie's higher-priority Villager target goal before
+            // its intended Iron Golem goal. Keep this test's native target
+            // search bounded around its own Golem; the goal classes/rules stay
+            // unmodified and the Golem remains comfortably inside the range.
+            var zombieFollowRange=zombieMind.getAttribute(
+                net.minecraft.world.entity.ai.attributes.Attributes.FOLLOW_RANGE);
+            helper.assertTrue(zombieFollowRange!=null,
+                "Zombie mind proxy must retain its native Follow Range attribute");
+            zombieFollowRange.setBaseValue(8.0);
             // Native ZombieAttackGoal has a real attack/navigation cadence. It
             // can be running during the window and idle on its final tick once
             // the target is in reach or its cooldown is active. Sample the
@@ -1401,9 +1415,11 @@ public final class PlayerMobGameTests {
                 float zombieAliasHealth=zombieMindAlias.getHealth();
                 float villagerAliasHealth=villagerMindAlias.getHealth();
                 clearHurtCooldown(physicalVillager);
+                clearHurtCooldown(zombieMindAlias);
                 boolean zombieMindHit=zombieMindAlias.hurtServer(
                     level,zombieAttack,2.0f);
                 clearHurtCooldown(physicalZombie);
+                clearHurtCooldown(villagerMindAlias);
                 boolean villagerMindHit=villagerMindAlias.hurtServer(
                     level,villagerAttack,2.0f);
                 helper.assertTrue(physicalVillager.getHealth()<zombieMindHostHealth
