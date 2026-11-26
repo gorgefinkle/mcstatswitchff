@@ -37,13 +37,7 @@ public final class GoalMindRuntime {
 
     private static final MindLedger OWNERS = new MindLedger();
 
-    private record Slot(int priority, Goal goal) {}
-    private record Snapshot(List<Slot> goals, List<Slot> targets) {
-        Snapshot {
-            goals = List.copyOf(goals);
-            targets = List.copyOf(targets);
-        }
-    }
+    private record Snapshot(GoalSelectorState.Snapshot goals, GoalSelectorState.Snapshot targets) {}
 
     /**
      * A mob with a native inert Brain has its behavior in goal/target selectors.
@@ -54,36 +48,13 @@ public final class GoalMindRuntime {
         return first.getBrain().isBrainDead() && second.getBrain().isBrainDead();
     }
 
-    private static List<Slot> read(GoalSelector selector) {
-        List<Slot> entries = new ArrayList<>();
-        for (WrappedGoal wrapped : selector.getAvailableGoals())
-            entries.add(new Slot(wrapped.getPriority(), wrapped.getGoal()));
-        return List.copyOf(entries);
-    }
-
     private static Snapshot snapshot(Mob body) {
-        return new Snapshot(read(body.goalSelector), read(body.targetSelector));
+        return new Snapshot(GoalSelectorState.capture(body.goalSelector),
+            GoalSelectorState.capture(body.targetSelector));
     }
 
-    /** Strict identity/priority readback; same classes alone are insufficient. */
-    private static boolean identical(GoalSelector selector, List<Slot> expected) {
-        var actual = selector.getAvailableGoals();
-        if (actual.size() != expected.size()) return false;
-        List<Slot> remaining = new ArrayList<>(expected);
-        for (WrappedGoal wrapped : actual) {
-            boolean found = false;
-            for (int i = 0; i < remaining.size(); i++) {
-                Slot expectedSlot = remaining.get(i);
-                if (expectedSlot.priority() == wrapped.getPriority()
-                        && expectedSlot.goal() == wrapped.getGoal()) {
-                    remaining.remove(i);
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) return false;
-        }
-        return remaining.isEmpty();
+    private static boolean identical(GoalSelector selector, GoalSelectorState.Snapshot expected) {
+        return GoalSelectorState.matches(selector, expected);
     }
 
     private static Snapshot captureFor(Mob original, Mob recipient, Snapshot donor)
@@ -130,32 +101,34 @@ public final class GoalMindRuntime {
         // Capture the entire TWO-selector graph in one traversal, not one
         // goal at a time. Nested references and shared helper instances must
         // retain their original alias relationships across all goals.
-        int goalCount = donor.goals().size();
-        Goal[] roots = new Goal[goalCount + donor.targets().size()];
+        GoalSelectorState.Snapshot[] sources = { donor.goals(), donor.targets() };
+        int goalCount = sources[0].entries().size();
+        Goal[] roots = new Goal[goalCount + sources[1].entries().size()];
         int index = 0;
-        for (Slot entry : donor.goals()) roots[index++] = entry.goal();
-        for (Slot entry : donor.targets()) roots[index++] = entry.goal();
+        for (GoalSelectorState.Snapshot source : sources)
+            for (GoalSelectorState.Entry entry : source.entries()) roots[index++] = entry.goal();
         Goal[] rebound = DynamicObjectGraph.capture(roots, Goal[].class, rebinder);
 
-        List<Slot> goals = new ArrayList<>(goalCount);
-        for (int i = 0; i < goalCount; i++)
-            goals.add(new Slot(donor.goals().get(i).priority(), rebound[i]));
-        List<Slot> targets = new ArrayList<>(donor.targets().size());
-        for (int i = 0; i < donor.targets().size(); i++)
-            targets.add(new Slot(donor.targets().get(i).priority(), rebound[goalCount + i]));
-        return new Snapshot(goals, targets);
-    }
-
-    private static void install(GoalSelector selector, List<Slot> entries) {
-        selector.removeAllGoals(goal -> true);
-        for (Slot slot : entries) selector.addGoal(slot.priority(), slot.goal());
-        if (!identical(selector, entries))
-            throw new IllegalStateException("Complete AI goal set did not install exactly");
+        IdentityHashMap<Goal, Goal> remapped = new IdentityHashMap<>();
+        for (int i = 0; i < roots.length; i++) remapped.put(roots[i], rebound[i]);
+        GoalSelectorState.Snapshot[] results = new GoalSelectorState.Snapshot[2];
+        int offset = 0;
+        for (int selectorIndex = 0; selectorIndex < sources.length; selectorIndex++) {
+            GoalSelectorState.Snapshot source = sources[selectorIndex];
+            List<GoalSelectorState.Entry> entries = new ArrayList<>(source.entries().size());
+            for (GoalSelectorState.Entry entry : source.entries())
+                entries.add(new GoalSelectorState.Entry(entry.priority(), rebound[offset++], entry.running()));
+            java.util.EnumMap<Goal.Flag, Goal> locks = new java.util.EnumMap<>(Goal.Flag.class);
+            for (Map.Entry<Goal.Flag, Goal> lock : source.lockedGoals().entrySet())
+                locks.put(lock.getKey(), remapped.get(lock.getValue()));
+            results[selectorIndex] = new GoalSelectorState.Snapshot(entries, source.disabledFlags(), locks);
+        }
+        return new Snapshot(results[0], results[1]);
     }
 
     private static void apply(Mob body, Snapshot incoming) {
-        install(body.goalSelector, incoming.goals());
-        install(body.targetSelector, incoming.targets());
+        GoalSelectorState.install(body.goalSelector, incoming.goals());
+        GoalSelectorState.install(body.targetSelector, incoming.targets());
     }
 
     /**
@@ -172,15 +145,19 @@ public final class GoalMindRuntime {
 
         Snapshot originalFirst = snapshot(first);
         Snapshot originalSecond = snapshot(second);
-        if (originalFirst.goals().isEmpty() && originalFirst.targets().isEmpty())
+        if (originalFirst.goals().entries().isEmpty() && originalFirst.targets().entries().isEmpty())
             return "The first mob has no goal AI to capture.";
-        if (originalSecond.goals().isEmpty() && originalSecond.targets().isEmpty())
+        if (originalSecond.goals().entries().isEmpty() && originalSecond.targets().entries().isEmpty())
             return "The second mob has no goal AI to capture.";
 
-        final Snapshot firstReceiving, secondReceiving;
+        final Snapshot firstReceiving, secondReceiving, firstRollback, secondRollback;
         try {
             firstReceiving = captureFor(second, first, originalSecond);
             secondReceiving = captureFor(first, second, originalFirst);
+            // removeAllGoals calls stop() on active source goals. Keep independent
+            // same-body copies so rollback restores the pre-exchange live state.
+            firstRollback = captureFor(first, first, originalFirst);
+            secondRollback = captureFor(second, second, originalSecond);
         } catch (DynamicObjectGraph.Uncapturable failure) {
             return "Dynamic AI capture rejected the COMPLETE exchange: " + failure.getMessage();
         }
@@ -215,9 +192,9 @@ public final class GoalMindRuntime {
             // Goal selectors and the mind ledger have separate ownership.
             // The ledger rolls its own transaction back; restore BOTH native
             // selectors if either installation or the ledger fails.
-            try { apply(first, originalFirst); }
+            try { apply(first, firstRollback); }
             catch (Exception rollback) { failure.addSuppressed(rollback); }
-            try { apply(second, originalSecond); }
+            try { apply(second, secondRollback); }
             catch (Exception rollback) { failure.addSuppressed(rollback); }
             if (failure.getSuppressed().length != 0)
                 return "Dynamic AI exchange FAILED; rollback could not be verified: "
