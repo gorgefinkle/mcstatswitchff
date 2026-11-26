@@ -650,6 +650,7 @@ public final class NativeAiWorkerServer {
                 }
                 long completedFrame=state.frameIndex++;
                 state.lastReportedX=donor.getX();
+                state.lastReportedY=donor.getY();
                 state.lastReportedZ=donor.getZ();
                 UUID completedAttackTarget=state.attackedTarget;
                 String completedAttackType=state.attackedTargetType;
