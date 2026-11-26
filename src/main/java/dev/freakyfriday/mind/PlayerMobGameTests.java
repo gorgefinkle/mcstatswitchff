@@ -1373,11 +1373,33 @@ public final class PlayerMobGameTests {
         // The hidden target identities deliberately use the PHYSICAL host
         // types: Villager for the Zombie mind's opposite body, Zombie for the
         // Villager mind's opposite body. Mind type must not rewrite anatomy.
-        helper.assertTrue(zombieMindAlias!=null&&villagerMindAlias!=null
-                &&zombieMindAlias.getType().equals(physicalVillager.getType())
-                &&villagerMindAlias.getType().equals(physicalZombie.getType())
-                &&zombieMindAlias.isInvisible()&&villagerMindAlias.isInvisible(),
-            "Mind target identities were not typed from their original physical bodies");
+        boolean zombieAliasMatchesVillager=zombieMindAlias!=null
+            &&zombieMindAlias.getType().equals(physicalVillager.getType());
+        boolean villagerAliasMatchesZombie=villagerMindAlias!=null
+            &&villagerMindAlias.getType().equals(physicalZombie.getType());
+        boolean aliasesInvisible=zombieMindAlias!=null&&villagerMindAlias!=null
+            &&zombieMindAlias.isInvisible()&&villagerMindAlias.isInvisible();
+        System.out.println("[FF-BRAIN-MIND-ALIAS] expectedVillager="+physicalVillager.getType()
+            +" expectedZombie="+physicalZombie.getType()
+            +" zombieMindAlias="+(zombieMindAlias==null?"null":
+                zombieMindAlias.getType()+"/"+zombieMindAlias.getClass().getName()
+                    +"/uuid="+zombieMindAlias.getUUID()+"/invisible="+zombieMindAlias.isInvisible())
+            +" villagerMindAlias="+(villagerMindAlias==null?"null":
+                villagerMindAlias.getType()+"/"+villagerMindAlias.getClass().getName()
+                    +"/uuid="+villagerMindAlias.getUUID()+"/invisible="+villagerMindAlias.isInvisible())
+            +" zombieAliasMatchesVillager="+zombieAliasMatchesVillager
+            +" villagerAliasMatchesZombie="+villagerAliasMatchesZombie
+            +" aliasesInvisible="+aliasesInvisible
+            +" physicalVillagerId="+physicalVillager.getUUID()
+            +" physicalZombieId="+physicalZombie.getUUID());
+        helper.assertTrue(zombieAliasMatchesVillager&&villagerAliasMatchesZombie&&aliasesInvisible,
+            "Mind target identities were not typed from their original physical bodies"
+                +" expectedVillager="+physicalVillager.getType()
+                +" expectedZombie="+physicalZombie.getType()
+                +" zombieAlias="+(zombieMindAlias==null?"null":zombieMindAlias.getType()
+                    +"/invisible="+zombieMindAlias.isInvisible())
+                +" villagerAlias="+(villagerMindAlias==null?"null":villagerMindAlias.getType()
+                    +"/invisible="+villagerMindAlias.isInvisible()));
         helper.assertTrue(physicalVillager.isNoAi()&&physicalZombie.isNoAi(),
             "Original autonomous Brain/Goal controllers were not paused during the exchange");
 
