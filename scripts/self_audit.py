@@ -23,6 +23,10 @@ assert 'ClientKeyFactory.create()' in (root/'src/main/java/dev/freakyfriday/Clie
 assert 'CategoryExchange.exchange(first,second,port)' in (root/'src/main/java/dev/freakyfriday/AttributeCategorySwapper.java').read_text()
 assert not (root/'src/main/java/dev/freakyfriday/core/ExchangeEngine.java').exists()
 assert (root/'src/main/java/dev/freakyfriday/mind/DynamicObjectGraph.java').exists()
+assert (root/'src/main/java/dev/freakyfriday/mind/GoalSelectorState.java').exists()
+scheduler_at=(resources/'META-INF/accesstransformer.cfg').read_text()
+for scheduler_field in ('GoalSelector lockedFlags','GoalSelector disabledFlags','WrappedGoal isRunning'):
+    assert scheduler_field in scheduler_at, f'missing scheduler access transformer: {scheduler_field}'
 dynamic_runtime=(root/'src/main/java/dev/freakyfriday/mind/GoalMindRuntime.java').read_text()
 assert 'DynamicObjectGraph.capture(roots, Goal[].class' in dynamic_runtime
 assert 'body.targetSelector' in dynamic_runtime
