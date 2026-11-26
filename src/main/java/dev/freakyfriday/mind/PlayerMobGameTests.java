@@ -332,10 +332,10 @@ public final class PlayerMobGameTests {
             MindSwapSessions.clearOnLogout(ownerId);
             player.discard();
             verifyPlayerBodyActionPort(helper);
-            // Player↔Mob native mind acceptance is separately registered as
-            // PLAYER_MOB_NATIVE_PROXY; keep this book/input/cancel test within
-            // its own ordinary GameTest timeout.
-            helper.succeed();
+            // The native reciprocal Player↔Mob attack gate is chained here
+            // so CI executes it deterministically; its own sequence is kept
+            // below the normal GameTest timeout.
+            verifyPlayerMobNativeMindProxy(helper);
         });
     }
 
@@ -1691,36 +1691,38 @@ public final class PlayerMobGameTests {
                     helper.assertTrue(mindProxy.getHealth()==proxyHealthBeforeAttack,
                         "The detached mind proxy was damaged instead of the original Player/Mob physical body");
 
-                    // Let the first body damage cooldown expire before an
-                    // independent third-party hit checks both health pools.
-                    helper.runAfterDelay(11,()->{
-                        float playerBeforeExternal=controller.getHealth();
-                        float mobBeforeExternal=zombie.getHealth();
-                        var opponentDamage=level.damageSources().mobAttack(opponent);
-                        helper.assertTrue(controller.hurtServer(level,opponentDamage,2.0f)
-                                &&zombie.hurtServer(level,opponentDamage,2.0f)
-                                &&controller.getHealth()<playerBeforeExternal
-                                &&zombie.getHealth()<mobBeforeExternal,
-                            "External damage was not independently applied to both real bodies");
-                        helper.assertTrue(PlayerMobPossession.hasSession(controller.getUUID()),
-                            "Nonfatal reciprocal attacks unexpectedly ended Player↔Mob control");
-                        helper.assertTrue(PlayerMobPossession.end(controller),
-                            "Player/Mob reciprocal controller did not return on cancel");
-                        helper.assertTrue(zombie.isNoAi()==originalNoAi,
-                            "Returning from the exchange did not restore the Mob's original AI flag");
-                        System.out.println("FF-GAMEPLAY player_mob_reciprocal_attack PASS"
-                            +" playerMindAttacksPlayerBody=true mobMindAttacksMobBody=true"
-                            +" oppositeMobBodyHitsDetachedMind=true proxyDamageRedirected=true"
-                            +" externalAttackerDamagesBothBodies=true independentHealthPools=true");
-                        System.out.println("FF-GAMEPLAY player_mob_native_mind_proxy PASS"
-                            +" sameServerNativeAI=true playerBodyDrivenByMobMind=true"
-                            +" mobBodyDrivenByPlayerInput=true noMirroredMovement=true restored=true");
-                        zombie.discard();
-                        opponent.discard();
-                        controller.discard();
-                        zombieTarget.discard();
-                        helper.succeed();
-                    });
+                    // Clear only the vanilla damage-immunity timers. This is
+                    // the same fixture setup used by the other combat gates;
+                    // it avoids spending eleven extra GameTest ticks waiting
+                    // for a mock player's nonstandard tick cadence.
+                    clearHurtCooldown(controller);
+                    clearHurtCooldown(zombie);
+                    float playerBeforeExternal=controller.getHealth();
+                    float mobBeforeExternal=zombie.getHealth();
+                    var opponentDamage=level.damageSources().mobAttack(opponent);
+                    helper.assertTrue(controller.hurtServer(level,opponentDamage,2.0f)
+                            &&zombie.hurtServer(level,opponentDamage,2.0f)
+                            &&controller.getHealth()<playerBeforeExternal
+                            &&zombie.getHealth()<mobBeforeExternal,
+                        "External damage was not independently applied to both real bodies");
+                    helper.assertTrue(PlayerMobPossession.hasSession(controller.getUUID()),
+                        "Nonfatal reciprocal attacks unexpectedly ended Player↔Mob control");
+                    helper.assertTrue(PlayerMobPossession.end(controller),
+                        "Player/Mob reciprocal controller did not return on cancel");
+                    helper.assertTrue(zombie.isNoAi()==originalNoAi,
+                        "Returning from the exchange did not restore the Mob's original AI flag");
+                    System.out.println("FF-GAMEPLAY player_mob_reciprocal_attack PASS"
+                        +" playerMindAttacksPlayerBody=true mobMindAttacksMobBody=true"
+                        +" oppositeMobBodyHitsDetachedMind=true proxyDamageRedirected=true"
+                        +" externalAttackerDamagesBothBodies=true independentHealthPools=true");
+                    System.out.println("FF-GAMEPLAY player_mob_native_mind_proxy PASS"
+                        +" sameServerNativeAI=true playerBodyDrivenByMobMind=true"
+                        +" mobBodyDrivenByPlayerInput=true noMirroredMovement=true restored=true");
+                    zombie.discard();
+                    opponent.discard();
+                    controller.discard();
+                    zombieTarget.discard();
+                    helper.succeed();
                 });
                 });
             });
