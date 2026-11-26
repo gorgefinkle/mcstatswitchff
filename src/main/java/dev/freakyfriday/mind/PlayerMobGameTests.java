@@ -1013,8 +1013,7 @@ public final class PlayerMobGameTests {
         stimulus.setNoGravity(true);
         stimulus.setItemInHand(InteractionHand.MAIN_HAND,new ItemStack(Items.WHEAT_SEEDS));
         stimulus.setItemInHand(InteractionHand.OFF_HAND,new ItemStack(Items.WHEAT_SEEDS));
-        helper.assertTrue(level.addNewPlayer(stimulus)==null || level.getEntity(stimulus.getUUID())==stimulus,
-            "Seed-holding player stimulus failed to register in the real ServerLevel player list");
+        level.addNewPlayer(stimulus);
         helper.assertTrue(level.players().contains(stimulus),
             "Chicken TemptGoal stimulus is not visible through ServerLevel.players()");
 
