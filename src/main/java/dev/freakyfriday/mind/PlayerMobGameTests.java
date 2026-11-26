@@ -1016,6 +1016,10 @@ public final class PlayerMobGameTests {
         stimulus.setItemInHand(InteractionHand.MAIN_HAND,new ItemStack(Items.WHEAT_SEEDS));
         stimulus.setItemInHand(InteractionHand.OFF_HAND,new ItemStack(Items.WHEAT_SEEDS));
         level.addNewPlayer(stimulus);
+        helper.assertTrue(stimulus.isAlive()
+                &&stimulus.getMainHandItem().is(Items.WHEAT_SEEDS)
+                &&stimulus.getOffhandItem().is(Items.WHEAT_SEEDS),
+            "Registered Chicken TemptGoal stimulus must be alive and visibly hold Wheat Seeds");
         helper.assertTrue(level.players().contains(stimulus),
             "Chicken TemptGoal stimulus is not visible through ServerLevel.players()");
 
@@ -1029,6 +1033,7 @@ public final class PlayerMobGameTests {
         double zombieStart=zombie.distanceToSqr(stimulus);
         float golemHealthBefore=golem.getHealth();
         UUID requester=UUID.randomUUID();
+        System.setProperty("freakyfriday.debugProxy","true");
         String failure=GoalMindRuntime.begin(requester,zombie,chicken);
         helper.assertTrue(failure==null,
             "Live Chicken↔Zombie native controller exchange failed: "+failure);
@@ -1054,6 +1059,27 @@ public final class PlayerMobGameTests {
                     &&w.isRunning());
             helper.assertTrue(chickenTemptRunning,
                 "Chicken mind did not start its native TemptGoal for the registered seed-holding player");
+            boolean chickenHasWanted=chickenMind.getMoveControl().hasWanted();
+            System.out.println("[FF-CHICKEN-AI-STATE] playerRegistered="
+                +level.players().contains(stimulus)
+                +" playerAlive="+stimulus.isAlive()
+                +" playerInvisible="+stimulus.isInvisible()
+                +" playerInvulnerable="+stimulus.isInvulnerable()
+                +" mainHand="+stimulus.getMainHandItem()
+                +" offHand="+stimulus.getOffhandItem()
+                +" temptRunning="+chickenTemptRunning
+                +" navigationDone="+chickenMind.getNavigation().isDone()
+                +" navigationPath="+(chickenMind.getNavigation().getPath()!=null)
+                +" moveWanted="+chickenHasWanted
+                +" wanted="+(chickenHasWanted
+                    ?chickenMind.getMoveControl().getWantedX()+","
+                        +chickenMind.getMoveControl().getWantedY()+","
+                        +chickenMind.getMoveControl().getWantedZ():"none")
+                +" proxyPosition="+chickenMind.position()
+                +" physicalZombie="+zombie.position()
+                +" playerPosition="+stimulus.position()
+                +" moveDelta="+chickenMind.getDeltaMovement());
+            System.clearProperty("freakyfriday.debugProxy");
             helper.assertTrue(chickenEnd<chickenStart-0.5,
                 "Zombie mind did not move the real Chicken body toward its Golem target; "
                     +"distance="+chickenStart+"->"+chickenEnd);
