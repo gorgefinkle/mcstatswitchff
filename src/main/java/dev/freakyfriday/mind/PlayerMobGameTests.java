@@ -84,15 +84,25 @@ public final class PlayerMobGameTests {
         for(Class<?> type=body.getClass();type!=null;type=type.getSuperclass()) {
             for(java.lang.reflect.Field field:type.getDeclaredFields()) {
                 String name=field.getName().toLowerCase(java.util.Locale.ROOT);
-                // 26.3 profiles can expose the same damage timer using
-                // "invulnerability" rather than "invulnerable" terminology.
-                // Match their shared prefix so both mappings are reset.
-                if(field.getType()!=int.class
-                        ||(!name.contains("invulnerab")&&!name.contains("hurt")))continue;
+                // 26.3 renamed the vanilla hurt timer to a floating-point
+                // damageCooldownTime field. Include that mapped storage as
+                // well as the older int invulnerability/hurt timers. This is
+                // only called by GameTest fixtures, never by production combat.
+                boolean timer=name.contains("invulnerab")||name.contains("hurt")
+                    ||name.contains("damagecooldown");
+                if(!timer)continue;
                 try {
                     if(!field.trySetAccessible())continue;
-                    field.setInt(body,0);
-                    cleared++;
+                    if(field.getType()==int.class) {
+                        field.setInt(body,0);
+                        cleared++;
+                    } else if(field.getType()==float.class) {
+                        field.setFloat(body,0.0f);
+                        cleared++;
+                    } else if(field.getType()==double.class) {
+                        field.setDouble(body,0.0d);
+                        cleared++;
+                    }
                 } catch(ReflectiveOperationException|RuntimeException ignored) {
                     // Continue searching mapped superclass fields.
                 }
@@ -1000,9 +1010,12 @@ public final class PlayerMobGameTests {
                 net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
             level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,7,z)),
                 net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
-            for(int y=1;y<7;y++)
+            for(int y=1;y<7;y++) {
+                boolean wall=x==0||x==7||z==0||z==7;
                 level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,y,z)),
-                    net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+                    wall?net.minecraft.world.level.block.Blocks.STONE.defaultBlockState()
+                        :net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+            }
         }
 
         Mob zombie=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
@@ -1077,17 +1090,9 @@ public final class PlayerMobGameTests {
             Mob chickenMind=GoalMindRuntime.proxyForGameTest(zombieId);
             helper.assertTrue(zombieMind!=null&&chickenMind!=null,
                 "Both detached native minds must be running on opposite physical bodies");
-            // The GameTest runner places compact structures close together.
-            // A nearby Villager in the neighboring Brain test can otherwise
-            // satisfy the Zombie's higher-priority Villager target goal before
-            // its intended Iron Golem goal. Keep this test's native target
-            // search bounded around its own Golem; the goal classes/rules stay
-            // unmodified and the Golem remains comfortably inside the range.
-            var zombieFollowRange=zombieMind.getAttribute(
-                net.minecraft.world.entity.ai.attributes.Attributes.FOLLOW_RANGE);
-            helper.assertTrue(zombieFollowRange!=null,
-                "Zombie mind proxy must retain its native Follow Range attribute");
-            zombieFollowRange.setBaseValue(8.0);
+            // A closed test arena isolates this Zombie from actors in other
+            // concurrently running GameTests; its native Follow Range remains
+            // unchanged from the donor mob.
             // Native ZombieAttackGoal has a real attack/navigation cadence. It
             // can be running during the window and idle on its final tick once
             // the target is in reach or its cooldown is active. Sample the
@@ -1290,9 +1295,12 @@ public final class PlayerMobGameTests {
                 net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
             level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,7,z)),
                 net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
-            for(int y=1;y<7;y++)
+            for(int y=1;y<7;y++) {
+                boolean wall=x==0||x==18||z==0||z==8;
                 level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,y,z)),
-                    net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+                    wall?net.minecraft.world.level.block.Blocks.STONE.defaultBlockState()
+                        :net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+            }
         }
 
         Mob physicalVillager=EntityTypes.VILLAGER.create(level,EntitySpawnReason.COMMAND);
@@ -1491,9 +1499,12 @@ public final class PlayerMobGameTests {
             // The default GameTest template may leave barrier blocks inside
             // this larger custom arena. Clear its playable volume so the
             // native LOS ray sees only the explicitly built floor and roof.
-            for(int y=1;y<7;y++)
+            for(int y=1;y<7;y++) {
+                boolean wall=x==0||x==24||z==0||z==10;
                 level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,y,z)),
-                    net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+                    wall?net.minecraft.world.level.block.Blocks.STONE.defaultBlockState()
+                        :net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+            }
         }
         // This fixture deliberately uses a registered hostile target rather
         // than a GameTest mock player, which is not part of ServerLevel.players().
