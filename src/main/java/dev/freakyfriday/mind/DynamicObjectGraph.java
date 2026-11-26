@@ -130,7 +130,11 @@ public final class DynamicObjectGraph {
                 List<Object> backing;
                 if (type == ArrayList.class) backing = new ArrayList<>(list.size());
                 else if (type == LinkedList.class) backing = new LinkedList<>();
-                else if (immutable || unmodifiable) backing = new ArrayList<>(list.size());
+                else if (immutable) backing = new ArrayList<>(list.size());
+                else if (unmodifiable && name.endsWith("UnmodifiableRandomAccessList"))
+                    backing = new ArrayList<>(list.size());
+                else if (unmodifiable && name.endsWith("UnmodifiableList"))
+                    backing = new LinkedList<>();
                 else throw new Uncapturable("Unsupported List implementation; refusing to change collection semantics: " + name);
                 Object result = unmodifiable ? Collections.unmodifiableList(backing) : backing;
                 copies.put(source, result);
@@ -148,10 +152,12 @@ public final class DynamicObjectGraph {
                 String name = type.getName();
                 boolean immutable = name.startsWith("java.util.ImmutableCollections$Set");
                 boolean unmodifiable = name.startsWith("java.util.Collections$Unmodifiable");
+                if (unmodifiable)
+                    throw new Uncapturable("Unmodifiable Set wrapper hides its equality/order semantics: " + name);
                 Set<Object> backing;
                 if (type == HashSet.class) backing = new HashSet<>();
                 else if (type == LinkedHashSet.class) backing = new LinkedHashSet<>();
-                else if (immutable || unmodifiable) backing = new LinkedHashSet<>();
+                else if (immutable) backing = new LinkedHashSet<>();
                 else throw new Uncapturable("Unsupported Set implementation; refusing to change collection semantics: " + name);
                 Object result = unmodifiable ? Collections.unmodifiableSet(backing) : backing;
                 copies.put(source, result);
@@ -171,11 +177,13 @@ public final class DynamicObjectGraph {
                 String name = type.getName();
                 boolean immutable = name.startsWith("java.util.ImmutableCollections$Map");
                 boolean unmodifiable = name.startsWith("java.util.Collections$Unmodifiable");
+                if (unmodifiable)
+                    throw new Uncapturable("Unmodifiable Map wrapper hides its key semantics: " + name);
                 Map<Object, Object> backing;
                 if (type == HashMap.class) backing = new HashMap<>();
                 else if (type == LinkedHashMap.class) backing = new LinkedHashMap<>();
                 else if (type == IdentityHashMap.class) backing = new IdentityHashMap<>();
-                else if (immutable || unmodifiable) backing = new LinkedHashMap<>();
+                else if (immutable) backing = new LinkedHashMap<>();
                 else throw new Uncapturable("Unsupported Map implementation; refusing to change collection semantics: " + name);
                 Object result = unmodifiable ? Collections.unmodifiableMap(backing) : backing;
                 copies.put(source, result);
