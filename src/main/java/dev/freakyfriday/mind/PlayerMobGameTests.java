@@ -1553,6 +1553,18 @@ public final class PlayerMobGameTests {
             "An already-occupied physical body was allowed into a second exchange");
 
         double chickenStart=chicken.distanceToSqr(zombieTarget);
+        // Track the closest approach, not only the final position. A native
+        // melee goal can reach the target and then stop/repath or be pushed
+        // away by the target's collision response before the 75-tick window
+        // ends. The acceptance is that native AI actually drove the body
+        // toward its selected target during the live exchange.
+        double[] chickenClosest={chickenStart};
+        for(int sample=1;sample<75;sample++) {
+            helper.runAfterDelay(sample,()->{
+                chickenClosest[0]=Math.min(chickenClosest[0],
+                    chicken.distanceToSqr(zombieTarget));
+            });
+        }
         // Native nearest-target goals have an internal random acquisition
         // interval. Allow enough real server ticks for the unmodified vanilla
         // selector to make its ordinary acquisition attempt.
@@ -1570,9 +1582,12 @@ public final class PlayerMobGameTests {
             helper.assertTrue(zombieMind.getTarget()==zombieTarget,
                 "Zombie mind's native target selector did not acquire its real Iron Golem stimulus; "
                     +"target="+zombieMind.getTarget()+" goals="+targetGoalState);
-            helper.assertTrue(chickenEnd<chickenStart,
-                "Zombie mind must move the Chicken physical body toward the real Iron Golem"
-                    +" chickenToGolem="+chickenStart+"->"+chickenEnd);
+            System.out.println("[FF-MOBMOB-PURSUIT] chickenToGolemStart="+chickenStart
+                +" closest="+chickenClosest[0]+" final="+chickenEnd);
+            helper.assertTrue(chickenClosest[0]<chickenStart-0.5,
+                "Zombie mind never moved the Chicken physical body toward the real Iron Golem"
+                    +" chickenToGolemStart="+chickenStart
+                    +" closest="+chickenClosest[0]+" final="+chickenEnd);
             // The Chicken body remains alive while its incoming Zombie mind
             // independently pursues the real Golem. The reciprocal Villager↔Zombie
             // acceptance below checks a Brain-driven mind in the other direction.
