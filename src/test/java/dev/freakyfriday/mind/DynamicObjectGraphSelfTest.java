@@ -2,6 +2,7 @@ package dev.freakyfriday.mind;
 
 import java.util.EnumSet;
 import java.util.IdentityHashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -62,6 +63,22 @@ public final class DynamicObjectGraphSelfTest {
             marks = Map.of("owner", body);
         }
     }
+    private static final class EqualKeyGoal extends DynamicGoal {
+        final IdentityHashMap<Object, Body> identityMap = new IdentityHashMap<>();
+        EqualKeyGoal(Body body) {
+            super(body, 7.0);
+            identityMap.put(new String("same"), body);
+            identityMap.put(new String("same"), body);
+        }
+    }
+    private static final class CustomList<E> extends ArrayList<E> {}
+    private static final class CustomCollectionGoal extends DynamicGoal {
+        final CustomList<Body> custom = new CustomList<>();
+        CustomCollectionGoal(Body body) {
+            super(body, 8.0);
+            custom.add(body);
+        }
+    }
     private static final class ClosedGoal extends DynamicGoal {
         final Predicate<Body> predicate;
         ClosedGoal(Body body) {
@@ -98,6 +115,12 @@ public final class DynamicObjectGraphSelfTest {
             "goal scheduling flags copied without shared mutable state");
         check(second.targets.size() == 1 && second.targets.get(0) == pig,
             "container references rebound recursively");
+        try {
+            second.targets.add(cow);
+            throw new AssertionError("immutable source list became mutable");
+        } catch (UnsupportedOperationException expected) {
+            checks++;
+        }
         second.cooldown = 100;
         check(first.cooldown == 37, "captured goal state independent of donor");
 
@@ -107,6 +130,29 @@ public final class DynamicObjectGraphSelfTest {
         check(cloned.copy[0] == cloned.child, "alias identity preserved across arrays");
         check(cloned.marks.get("owner") == pig, "mapped members inside maps");
         check(nested.marks.get("owner") == cow, "donor graph unchanged");
+        try {
+            cloned.marks.put("intruder", cow);
+            throw new AssertionError("immutable source map became mutable");
+        } catch (UnsupportedOperationException expected) {
+            checks++;
+        }
+
+        EqualKeyGoal identitySource = new EqualKeyGoal(cow);
+        EqualKeyGoal identityCopy = DynamicObjectGraph.capture(
+            identitySource, EqualKeyGoal.class, binding(cow, pig));
+        check(identityCopy.identityMap.size() == 2,
+            "IdentityHashMap equality semantics retained");
+        check(identityCopy.identityMap.values().stream().allMatch(value -> value == pig),
+            "IdentityHashMap values rebound to recipient");
+
+        try {
+            DynamicObjectGraph.capture(new CustomCollectionGoal(cow),
+                CustomCollectionGoal.class, binding(cow, pig));
+            throw new AssertionError("unknown List subtype must not be silently downgraded");
+        } catch (DynamicObjectGraph.Uncapturable expected) {
+            check(expected.getMessage().contains("Unsupported List implementation"),
+                "unknown collection implementations fail closed with a precise reason");
+        }
         // Two native GoalSelector roots may share a helper object. One graph
         // traversal must retain that alias, not duplicate it per goal.
         DynamicGoal[] twoRoots = new DynamicGoal[]{nested, nested.child, nested.child};
