@@ -143,8 +143,14 @@ public final class GoalMindRuntime {
             return "The mob has active Brain AI beyond goal selectors; "
                 + "a complete dynamic transfer needs the Brain runtime as well.";
 
-        Snapshot originalFirst = snapshot(first);
-        Snapshot originalSecond = snapshot(second);
+        final Snapshot originalFirst, originalSecond;
+        try {
+            originalFirst = snapshot(first);
+            originalSecond = snapshot(second);
+        } catch (RuntimeException invalidScheduler) {
+            return "Native goal scheduler state is inconsistent or inaccessible; no swap performed: "
+                + invalidScheduler.getMessage();
+        }
         if (originalFirst.goals().entries().isEmpty() && originalFirst.targets().entries().isEmpty())
             return "The first mob has no goal AI to capture.";
         if (originalSecond.goals().entries().isEmpty() && originalSecond.targets().entries().isEmpty())
