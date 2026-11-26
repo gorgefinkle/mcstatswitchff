@@ -1060,7 +1060,6 @@ public final class PlayerMobGameTests {
         UUID zombieId=zombie.getUUID(),chickenId=chicken.getUUID();
         double chickenStart=chicken.distanceToSqr(golem);
         double zombieStart=zombie.distanceToSqr(stimulus);
-        float golemHealthBefore=golem.getHealth();
         boolean chickenMeleeAvailable=MinecraftBodyPortFactory.create(chicken)
             .supports(BodyActionGate.ATTACK_ENTITY);
         UUID requester=UUID.randomUUID();
@@ -1160,14 +1159,17 @@ public final class PlayerMobGameTests {
                         "Chicken mind did not move the real Zombie body toward the seed-holding player; "
                             +"distance="+zombieStart+"->"+zombieEnd);
                     // The Chicken body has no vanilla ATTACK_DAMAGE attribute.
-                    // Keep the Zombie's native attack decision, but do not grant
-                    // the Chicken a supernatural melee capability.
+                    // The body adapter is authoritative: it must report the
+                    // attack unavailable, and the detached Zombie proxy must
+                    // not appear as the Golem's attacker. Do not compare total
+                    // Golem health here because other live GameTest fixtures
+                    // share the ServerLevel and may damage unrelated targets.
                     if(chickenMeleeAvailable) {
-                        helper.assertTrue(golem.getHealth()<golemHealthBefore,
+                        helper.assertTrue(golem.getLastHurtByMob()==zombieMind,
                             "A Chicken body with native melee capability did not execute the Zombie mind's attack");
                     } else {
-                        helper.assertTrue(Float.compare(golem.getHealth(),golemHealthBefore)==0,
-                            "The Zombie mind bypassed the Chicken body's unavailable melee capability");
+                        helper.assertTrue(golem.getLastHurtByMob()!=zombieMind,
+                            "The Zombie mind proxy bypassed the Chicken body's unavailable melee capability");
                     }
                     helper.assertTrue(GoalMindRuntime.activeSessions(requester)==1
                             &&GoalMindRuntime.bodyReserved(zombieId)
