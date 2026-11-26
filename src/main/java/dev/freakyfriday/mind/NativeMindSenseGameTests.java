@@ -84,6 +84,33 @@ public final class NativeMindSenseGameTests {
         helper.assertTrue(!MinecraftMindSenseCapture.withinRange(23,23,0)
                 && !MinecraftMindSenseCapture.withinRange(Double.NaN,0,0),
             "The radial sensory entity range must reject diagonal overflow and non-finite values");
+        var verticalObservation=NativeMindObservation.observe(
+            0.0,0.0,0.0,0.0,1.0,0.0,true);
+        helper.assertTrue(verticalObservation!=null
+                && Math.abs(verticalObservation.dx())<1.0e-8
+                && verticalObservation.dy()>3.4
+                && Math.abs(verticalObservation.dz())<1.0e-8,
+            "Native worker observation discarded vertical flight/swim displacement");
+
+        // A received 3D intent must use the original physical Mob's native
+        // travel method, rather than translating the entity with move().
+        Mob verticalBody=EntityTypes.ZOMBIE.create(level,EntitySpawnReason.COMMAND);
+        helper.assertTrue(verticalBody!=null,
+            "Native recipient travel fixture requires a real Mob body");
+        verticalBody.setPos(origin.getX()+5.5,origin.getY()+1.0,origin.getZ()+4.5);
+        verticalBody.setNoAi(true);
+        verticalBody.setNoGravity(true);
+        helper.assertTrue(level.addFreshEntity(verticalBody),
+            "Native vertical recipient body failed to register");
+        double verticalStart=verticalBody.getY();
+        BodyActionGate.Result verticalResult=new MinecraftBodyPort(verticalBody).perform(
+            new BodyActionGate.Intent(MinecraftBodyPort.MOVE_OFFSET,
+                java.util.Map.of("dx","0","dy","3.5","dz","0","speed","0.65")));
+        helper.assertTrue(verticalResult.status()==BodyActionGate.Status.EXECUTED
+                && verticalBody.getY()>verticalStart+0.01,
+            "Physical recipient Mob did not execute vertical intent through native travel; "
+                +"result="+verticalResult+" y="+verticalStart+"->"+verticalBody.getY());
+        verticalBody.discard();
         target.discard();
         level.setBlockAndUpdate(logPos,Blocks.AIR.defaultBlockState());
         UUID nearbyPlayerId=UUID.randomUUID();
