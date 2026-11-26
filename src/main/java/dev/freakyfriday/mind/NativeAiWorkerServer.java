@@ -164,8 +164,10 @@ public final class NativeAiWorkerServer {
             this.previousSense=previousSense;
             this.sensesInbox=sensesInbox;
             this.startX=donor.getX();
+            this.startY=donor.getY();
             this.startZ=donor.getZ();
             this.lastReportedX=donor.getX();
+            this.lastReportedY=donor.getY();
             this.lastReportedZ=donor.getZ();
             this.currentRecipientTick=request.recipientTick();
         }
