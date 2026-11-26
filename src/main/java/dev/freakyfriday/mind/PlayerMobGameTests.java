@@ -1656,7 +1656,9 @@ public final class PlayerMobGameTests {
                     new OneShotNativeAttackGoal(secondZombieMindA,secondZombieB));
                 secondZombieMindB.goalSelector.addGoal(0,
                     new OneShotNativeAttackGoal(secondZombieMindB,secondZombieA));
+                System.setProperty("freakyfriday.debugProxy","true");
                 helper.runAfterDelay(20,()->{
+                    try {
                     helper.assertTrue(secondZombieA.getHealth()<secondAAfterMindHit
                             &&secondZombieB.getHealth()<secondBAfterMindHit,
                         "Both opposite native minds must also damage the other real physical body directly");
@@ -1726,6 +1728,9 @@ public final class PlayerMobGameTests {
                     secondZombieA.discard();
                     secondZombieB.discard();
                     helper.succeed();
+                    } finally {
+                        System.clearProperty("freakyfriday.debugProxy");
+                    }
                 });
             });
         });
