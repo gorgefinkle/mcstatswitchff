@@ -5,6 +5,12 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.EnumSet;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
@@ -117,24 +123,52 @@ public final class DynamicObjectGraph {
             }
 
             if (source instanceof List<?> list) {
-                List<Object> result = new ArrayList<>(list.size());
+                List<Object> result;
+                String name = type.getName();
+                boolean immutable = name.startsWith("java.util.ImmutableCollections$List");
+                boolean unmodifiable = name.startsWith("java.util.Collections$Unmodifiable");
+                if (type == ArrayList.class) result = new ArrayList<>(list.size());
+                else if (type == LinkedList.class) result = new LinkedList<>();
+                else if (immutable || unmodifiable) result = new ArrayList<>(list.size());
+                else throw new Uncapturable("Unsupported List implementation; refusing to change collection semantics: " + name);
                 copies.put(source, result);
                 for (Object value : list) result.add(copy(value, depth + 1));
+                if (immutable) return List.copyOf(result);
+                if (unmodifiable) return Collections.unmodifiableList(result);
                 return result;
             }
 
             if (source instanceof Set<?> set) {
-                Set<Object> result = new LinkedHashSet<>();
+                Set<Object> result;
+                String name = type.getName();
+                boolean immutable = name.startsWith("java.util.ImmutableCollections$Set");
+                boolean unmodifiable = name.startsWith("java.util.Collections$Unmodifiable");
+                if (type == HashSet.class) result = new HashSet<>();
+                else if (type == LinkedHashSet.class) result = new LinkedHashSet<>();
+                else if (immutable || unmodifiable) result = new LinkedHashSet<>();
+                else throw new Uncapturable("Unsupported Set implementation; refusing to change collection semantics: " + name);
                 copies.put(source, result);
                 for (Object value : set) result.add(copy(value, depth + 1));
+                if (immutable) return Set.copyOf(result);
+                if (unmodifiable) return Collections.unmodifiableSet(result);
                 return result;
             }
 
             if (source instanceof Map<?, ?> map) {
-                Map<Object, Object> result = new LinkedHashMap<>();
+                Map<Object, Object> result;
+                String name = type.getName();
+                boolean immutable = name.startsWith("java.util.ImmutableCollections$Map");
+                boolean unmodifiable = name.startsWith("java.util.Collections$Unmodifiable");
+                if (type == HashMap.class) result = new HashMap<>();
+                else if (type == LinkedHashMap.class) result = new LinkedHashMap<>();
+                else if (type == IdentityHashMap.class) result = new IdentityHashMap<>();
+                else if (immutable || unmodifiable) result = new LinkedHashMap<>();
+                else throw new Uncapturable("Unsupported Map implementation; refusing to change collection semantics: " + name);
                 copies.put(source, result);
                 for (var e : map.entrySet())
                     result.put(copy(e.getKey(), depth + 1), copy(e.getValue(), depth + 1));
+                if (immutable) return Map.copyOf(result);
+                if (unmodifiable) return Collections.unmodifiableMap(result);
                 return result;
             }
 
