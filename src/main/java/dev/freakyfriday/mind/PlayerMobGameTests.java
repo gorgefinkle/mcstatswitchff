@@ -1417,8 +1417,6 @@ public final class PlayerMobGameTests {
                             net.minecraft.world.entity.ai.memory.MemoryModuleType.NEAREST_HOSTILE)
                         +" walkTarget="+villagerMindProxy.getBrain().getMemory(
                             net.minecraft.world.entity.ai.memory.MemoryModuleType.WALK_TARGET)
-                        +" panicking="+villagerMindProxy.getBrain().getMemory(
-                            net.minecraft.world.entity.ai.memory.MemoryModuleType.IS_PANICKING)
                         +" activity="+villagerMindProxy.getBrain().getActiveNonCoreActivity()
                         +" runningBehaviors="+villagerMindProxy.getBrain().getRunningBehaviors().stream()
                             .map(b->b.getClass().getSimpleName()).toList()
