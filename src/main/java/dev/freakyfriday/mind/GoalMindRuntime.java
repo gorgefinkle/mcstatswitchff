@@ -608,9 +608,18 @@ public final class GoalMindRuntime {
             // mapped to the opposing participant's physical body, that body
             // is a valid action target even though its UUID was excluded from
             // perception. Keep only the controller's own body/proxy/alias out.
-            if(!closed&&target!=null&&!target.isRemoved()&&target.isAlive()
-                    &&target!=physicalBody&&target!=proxy&&target!=mindAlias)
-                pendingAttack=target;
+            boolean accepted=!closed&&target!=null&&!target.isRemoved()&&target.isAlive()
+                &&target!=physicalBody&&target!=proxy&&target!=mindAlias;
+            if(accepted)pendingAttack=target;
+            if(Boolean.getBoolean("freakyfriday.debugProxy"))
+                System.out.println("[FF-ATTACK-RECORD] controller="+proxy.getUUID()
+                    +" mindType="+proxy.getType()
+                    +" physicalBody="+physicalBody.getUUID()
+                    +" target="+(target==null?"null":target.getUUID())
+                    +" accepted="+accepted
+                    +" closed="+closed
+                    +" targetIsHost="+(target==physicalBody)
+                    +" targetAlive="+(target!=null&&target.isAlive()));
         }
 
         // Package-private GameTest seam: tests add a one-shot native Goal to
@@ -1072,9 +1081,19 @@ public final class GoalMindRuntime {
             physicalBody,step.displacement(),step.yaw(),step.pitch());
         Entity target=step.attackTarget();
         if(target!=null&&!target.isRemoved()&&target.isAlive()) {
-            BodyActionGate.dispatch(new MinecraftBodyPort(physicalBody),
+            float before=target instanceof LivingEntity living?living.getHealth():Float.NaN;
+            BodyActionGate.Result result=BodyActionGate.dispatch(
+                new MinecraftBodyPort(physicalBody),
                 new BodyActionGate.Intent(BodyActionGate.ATTACK_ENTITY,
                     Map.of("targetId",target.getUUID().toString())));
+            float after=target instanceof LivingEntity living?living.getHealth():Float.NaN;
+            if(Boolean.getBoolean("freakyfriday.debugProxy"))
+                System.out.println("[FF-ATTACK-DISPATCH] body="+physicalBody.getUUID()
+                    +" bodyType="+physicalBody.getType()
+                    +" target="+target.getUUID()
+                    +" result="+result
+                    +" targetHealth="+before+"->"+after
+                    +" bodyDistanceSq="+physicalBody.distanceToSqr(target));
         }
     }
 
