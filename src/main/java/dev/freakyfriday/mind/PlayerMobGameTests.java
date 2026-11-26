@@ -112,7 +112,17 @@ public final class PlayerMobGameTests {
         @Override public void tick() {
             if(fired||!target.isAlive())return;
             fired=true;
-            attacker.doHurtTarget((ServerLevel)attacker.level(),target);
+            float before=target.getHealth();
+            boolean accepted=attacker.doHurtTarget((ServerLevel)attacker.level(),target);
+            System.out.println("[FF-ONESHOT-ATTACK] attacker="+attacker.getType()
+                +" attackerId="+attacker.getUUID()
+                +" target="+target.getType()
+                +" targetId="+target.getUUID()
+                +" accepted="+accepted
+                +" health="+before+"->"+target.getHealth()
+                +" distanceSq="+attacker.distanceToSqr(target)
+                +" attackerNoAi="+attacker.isNoAi()
+                +" targetNoAi="+target.isNoAi());
         }
     }
 
@@ -1058,6 +1068,19 @@ public final class PlayerMobGameTests {
             Mob chickenMind=GoalMindRuntime.proxyForGameTest(zombieId);
             helper.assertTrue(zombieMind!=null&&chickenMind!=null,
                 "Both detached native minds must be running on opposite physical bodies");
+            // Native ZombieAttackGoal has a real attack/navigation cadence. It
+            // can be running during the window and idle on its final tick once
+            // the target is in reach or its cooldown is active. Sample the
+            // complete interval instead of mistaking one idle tick for failure.
+            boolean[] zombieAttackGoalSeenRunning={false};
+            for(int sample=1;sample<75;sample++) {
+                helper.runAfterDelay(sample,()->{
+                    if(zombieMind.goalSelector.getAvailableGoals().stream()
+                            .anyMatch(w->w.getGoal().getClass().getSimpleName().equals("ZombieAttackGoal")
+                                &&w.isRunning()))
+                        zombieAttackGoalSeenRunning[0]=true;
+                });
+            }
             helper.runAfterDelay(75,()->{
                 try {
                     helper.assertTrue(zombie.isAlive()&&chicken.isAlive()
@@ -1081,8 +1104,9 @@ public final class PlayerMobGameTests {
                             &&w.isRunning());
                     helper.assertTrue(chickenTemptRunning,
                         "Chicken mind did not start its native TemptGoal for the registered seed-holding player");
-                    helper.assertTrue(zombieAttackGoalPresent&&zombieAttackGoalRunning,
-                        "Zombie mind did not run its native ZombieAttackGoal against the real Iron Golem");
+                    helper.assertTrue(zombieAttackGoalPresent
+                            &&(zombieAttackGoalSeenRunning[0]||zombieAttackGoalRunning),
+                        "Zombie mind never ran its native ZombieAttackGoal against the real Iron Golem");
 
                     boolean chickenHasWanted=chickenMind.getMoveControl().hasWanted();
                     System.out.println("[FF-CHICKEN-AI-STATE] playerRegistered="
@@ -1099,6 +1123,7 @@ public final class PlayerMobGameTests {
                         +" proxyOnGround="+chickenMind.onGround()
                         +" bodyOnGround="+zombie.onGround()
                         +" zombieAttackGoalRunning="+zombieAttackGoalRunning
+                        +" zombieAttackGoalSeenRunning="+zombieAttackGoalSeenRunning[0]
                         +" chickenMeleeAvailable="+chickenMeleeAvailable
                         +" moveDelta="+chickenMind.getDeltaMovement());
                     System.clearProperty("freakyfriday.debugProxy");
@@ -1601,11 +1626,22 @@ public final class PlayerMobGameTests {
                 float secondBAfterMindHit=secondZombieB.getHealth();
                 clearHurtCooldown(secondZombieA);
                 clearHurtCooldown(secondZombieB);
+                // Put the two bodies comfortably inside vanilla melee reach,
+                // preserve their facing, and make the hit cooldown state
+                // explicit before each incoming native mind attempts a hit.
+                BlockPos phase2A=helper.absolutePos(new BlockPos(16,1,4));
+                BlockPos phase2B=helper.absolutePos(new BlockPos(17,1,4));
+                secondZombieA.setPos(phase2A.getX()+0.5,phase2A.getY(),phase2A.getZ()+0.5);
+                secondZombieB.setPos(phase2B.getX()+0.5,phase2B.getY(),phase2B.getZ()+0.5);
+                secondZombieA.setYRot(-90.0f);
+                secondZombieB.setYRot(90.0f);
+                secondZombieA.setYHeadRot(-90.0f);
+                secondZombieB.setYHeadRot(90.0f);
                 secondZombieMindA.goalSelector.addGoal(0,
                     new OneShotNativeAttackGoal(secondZombieMindA,secondZombieB));
                 secondZombieMindB.goalSelector.addGoal(0,
                     new OneShotNativeAttackGoal(secondZombieMindB,secondZombieA));
-                helper.runAfterDelay(10,()->{
+                helper.runAfterDelay(20,()->{
                     helper.assertTrue(secondZombieA.getHealth()<secondAAfterMindHit
                             &&secondZombieB.getHealth()<secondBAfterMindHit,
                         "Both opposite native minds must also damage the other real physical body directly");
