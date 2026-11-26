@@ -35,6 +35,23 @@ neoForge {
             systemProperty 'neoforge.enabledGameTestNamespaces', 'freakyfriday'
             systemProperty 'freakyfriday.thirdPartyFixture', 'true'
         }
+        // Test-only isolated native mind producers. Each worker receives
+        // its own disposable game directory, authenticated request files and
+        // no live-world references. These are separate Gradle run profiles so
+        // CI can exercise the child-server producer exactly as production
+        // would launch it, without sharing the parent server's save directory.
+        aiWorker {
+            server()
+            gameDirectory = project.file('run-ai-worker')
+            programArgument '--nogui'
+            systemProperty 'freakyfriday.aiWorker', 'true'
+        }
+        aiWorkerReverse {
+            server()
+            gameDirectory = project.file('run-ai-worker-reverse')
+            programArgument '--nogui'
+            systemProperty 'freakyfriday.aiWorker', 'true'
+        }
     }
     mods { freakyfriday { sourceSet(sourceSets.main) } }
 }
