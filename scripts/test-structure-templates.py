@@ -10,6 +10,7 @@ from __future__ import annotations
 import gzip
 import json
 import struct
+import zlib
 import sys
 from pathlib import Path
 from typing import Any
@@ -120,7 +121,7 @@ def parse_structure(path: Path) -> tuple[int, int, int]:
     try:
         compressed = path.read_bytes()
         raw = gzip.decompress(compressed)  # validates DEFLATE stream and CRC trailer
-    except (OSError, EOFError) as exc:
+    except (OSError, EOFError, zlib.error) as exc:
         raise NBTError(f"{path.relative_to(ROOT)}: invalid GZIP: {exc}") from exc
 
     reader = Reader(raw)
