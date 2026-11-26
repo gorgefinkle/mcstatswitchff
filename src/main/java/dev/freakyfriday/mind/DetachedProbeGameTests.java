@@ -934,10 +934,13 @@ public final class DetachedProbeGameTests {
             }
             var pos=decoded.frame().actions().get(1).arguments();
             double dx=Double.parseDouble(pos.get("dx"));
+            double dy=Double.parseDouble(pos.get("dy"));
             double dz=Double.parseDouble(pos.get("dz"));
-            helper.assertTrue(Math.hypot(dx,dz)>3.0
-                    && Math.hypot(dx,dz)<4.0,
-                "Donor native motion missing: offset="+dx+","+dz);
+            double observedMagnitude=Math.sqrt(dx*dx+dy*dy+dz*dz);
+            helper.assertTrue(Double.isFinite(dx)&&Double.isFinite(dy)&&Double.isFinite(dz)
+                    && observedMagnitude>3.0 && observedMagnitude<4.0,
+                "Donor native 3D motion missing: offset="+dx+","+dy+","+dz
+                    +" magnitude="+observedMagnitude);
 
             byte[] corrupt=packet.clone();
             corrupt[20]^=1;
