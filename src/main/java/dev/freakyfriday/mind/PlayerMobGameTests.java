@@ -78,39 +78,6 @@ public final class PlayerMobGameTests {
                 +" class="+player.getClass().getName());
     }
 
-    /** Clear NeoForge FakePlayer's constructor invulnerability across target profiles. */
-    private static void makeDamageableFakePlayer(ServerPlayer player) {
-        player.getAbilities().invulnerable=false;
-        player.getAbilities().instabuild=false;
-        player.setGameMode(net.minecraft.world.level.GameType.SURVIVAL);
-        player.gameMode.changeGameModeForPlayer(net.minecraft.world.level.GameType.SURVIVAL);
-        int cleared=0;
-        for(Class<?> type=player.getClass();type!=null;type=type.getSuperclass()) {
-            for(java.lang.reflect.Field field:type.getDeclaredFields()) {
-                String name=field.getName().toLowerCase(java.util.Locale.ROOT);
-                if(field.getType()!=boolean.class||!name.contains("invulnerable"))continue;
-                try {
-                    if(!field.trySetAccessible())continue;
-                    field.setBoolean(player,false);
-                    cleared++;
-                } catch(ReflectiveOperationException|RuntimeException ignored) {
-                    // Continue searching mapped superclass fields.
-                }
-            }
-        }
-        if(cleared==0||player.isInvulnerable()||player.getAbilities().invulnerable
-                ||player.getAbilities().instabuild||player.isCreative()||player.isSpectator())
-            throw new IllegalStateException(
-                "Could not configure registered FakePlayer as a damageable Survival stimulus"
-                +" reflectiveFlagsCleared="+cleared
-                +" invulnerable="+player.isInvulnerable()
-                +" abilitiesInvulnerable="+player.getAbilities().invulnerable
-                +" instabuild="+player.getAbilities().instabuild
-                +" creative="+player.isCreative()
-                +" spectator="+player.isSpectator()
-                +" class="+player.getClass().getName());
-    }
-
     /** Clear the vanilla damage immunity timer across mapped server versions. */
     private static void clearHurtCooldown(LivingEntity body) {
         int cleared=0;
@@ -1006,11 +973,10 @@ public final class PlayerMobGameTests {
     private static void verifyZombieChickenBehaviorAcceptance(GameTestHelper helper) {
         var level=helper.getLevel();
         level.getServer().setDifficulty(net.minecraft.world.Difficulty.NORMAL,true);
-        // Keep the two AI stimuli on opposite sides of the test arena. The
-        // Zombie controller should see only the Iron Golem near the Chicken
-        // body; the Chicken controller should see only the seed-holding player
-        // near the Zombie body.
-        for(int x=0;x<=56;x++)for(int z=0;z<=8;z++) {
+        // Keep both behavior pairs inside the allocated test structure. The
+        // creative FakePlayer is a valid Chicken TemptGoal stimulus, while
+        // Mob.asValidTarget correctly excludes it from Zombie target selection.
+        for(int x=0;x<=7;x++)for(int z=0;z<=7;z++) {
             level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,0,z)),
                 net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
             level.setBlockAndUpdate(helper.absolutePos(new BlockPos(x,7,z)),
@@ -1025,11 +991,11 @@ public final class PlayerMobGameTests {
         Mob golem=EntityTypes.IRON_GOLEM.create(level,EntitySpawnReason.COMMAND);
         helper.assertTrue(zombie!=null&&chicken!=null&&golem!=null,
             "Real Zombie, Chicken and Iron Golem required");
-        BlockPos chickenBodyPos=helper.absolutePos(new BlockPos(4,1,4));
-        BlockPos zombieBodyPos=helper.absolutePos(new BlockPos(42,1,4));
-        // Keep the target close enough for a genuine native Zombie melee
-        // attempt inside the same 75-tick acceptance window.
-        BlockPos golemPos=helper.absolutePos(new BlockPos(8,1,4));
+
+        BlockPos chickenBodyPos=helper.absolutePos(new BlockPos(2,1,2));
+        BlockPos zombieBodyPos=helper.absolutePos(new BlockPos(2,1,6));
+        BlockPos golemPos=helper.absolutePos(new BlockPos(6,1,2));
+        BlockPos seedPlayerPos=helper.absolutePos(new BlockPos(6,1,6));
         zombie.setPos(zombieBodyPos.getX()+0.5,zombieBodyPos.getY(),zombieBodyPos.getZ()+0.5);
         chicken.setPos(chickenBodyPos.getX()+0.5,chickenBodyPos.getY(),chickenBodyPos.getZ()+0.5);
         golem.setPos(golemPos.getX()+0.5,golemPos.getY(),golemPos.getZ()+0.5);
@@ -1044,20 +1010,15 @@ public final class PlayerMobGameTests {
         String fakeName="FFSeed"+UUID.randomUUID().toString().replace("-","").substring(0,6);
         var stimulus=net.neoforged.neoforge.common.util.FakePlayerFactory.get(
             level,new com.mojang.authlib.GameProfile(UUID.randomUUID(),fakeName));
-        stimulus.setPos(zombie.getX()+5.0,zombie.getY(),zombie.getZ());
+        stimulus.setPos(seedPlayerPos.getX()+0.5,seedPlayerPos.getY(),seedPlayerPos.getZ()+0.5);
         stimulus.setNoGravity(true);
-        // FakePlayerFactory defaults fake players to invulnerable. This is a
-        // normal survival-style stimulus for TemptGoal and pathfinding.
-        makeDamageableFakePlayer(stimulus);
+        // Creative is deliberate: Chicken TemptGoal still sees a player
+        // holding seeds, but the Zombie mind's native target rules ignore it.
+        stimulus.setGameMode(net.minecraft.world.level.GameType.CREATIVE);
+        stimulus.gameMode.changeGameModeForPlayer(net.minecraft.world.level.GameType.CREATIVE);
         stimulus.setItemInHand(InteractionHand.MAIN_HAND,new ItemStack(Items.WHEAT_SEEDS));
         stimulus.setItemInHand(InteractionHand.OFF_HAND,new ItemStack(Items.WHEAT_SEEDS));
         level.addNewPlayer(stimulus);
-        helper.assertTrue(stimulus.isAlive()
-                &&stimulus.getMainHandItem().is(Items.WHEAT_SEEDS)
-                &&stimulus.getOffhandItem().is(Items.WHEAT_SEEDS),
-            "Registered Chicken TemptGoal stimulus must be alive and visibly hold Wheat Seeds");
-        helper.assertTrue(level.players().contains(stimulus),
-            "Chicken TemptGoal stimulus is not visible through ServerLevel.players()");
 
         boolean zombieNoAi=zombie.isNoAi(),chickenNoAi=chicken.isNoAi();
         List<GoalSnapshot> zombieGoals=snapshotGoals(zombie,false);
@@ -1068,92 +1029,127 @@ public final class PlayerMobGameTests {
         double chickenStart=chicken.distanceToSqr(golem);
         double zombieStart=zombie.distanceToSqr(stimulus);
         float golemHealthBefore=golem.getHealth();
+        boolean chickenMeleeAvailable=MinecraftBodyPortFactory.create(chicken)
+            .supports(BodyActionGate.ATTACK_ENTITY);
         UUID requester=UUID.randomUUID();
-        System.setProperty("freakyfriday.debugProxy","true");
-        String failure=GoalMindRuntime.begin(requester,zombie,chicken);
-        helper.assertTrue(failure==null,
-            "Live Chicken↔Zombie native controller exchange failed: "+failure);
-
-        Mob zombieMind=GoalMindRuntime.proxyForGameTest(chickenId);
-        Mob chickenMind=GoalMindRuntime.proxyForGameTest(zombieId);
-        helper.assertTrue(zombieMind!=null&&chickenMind!=null,
-            "Both detached native minds must be running on opposite physical bodies");
-        helper.runAfterDelay(75,()->{
-            helper.assertTrue(zombie.isAlive()&&chicken.isAlive()
-                    &&zombie.isNoAi()&&chicken.isNoAi()
-                    &&zombie.getType().equals(EntityTypes.ZOMBIE)
-                    &&chicken.getType().equals(EntityTypes.CHICKEN)
-                    &&level.getEntity(zombieId)==zombie&&level.getEntity(chickenId)==chicken,
-                "The two original physical bodies did not retain their identity while both minds ran");
-            helper.assertTrue(zombieMind.getTarget()==golem,
-                "Zombie mind did not acquire its native Iron Golem target in the Chicken body; target="
-                    +zombieMind.getTarget());
-            double chickenEnd=chicken.distanceToSqr(golem);
-            double zombieEnd=zombie.distanceToSqr(stimulus);
-            boolean chickenTemptRunning=chickenMind.goalSelector.getAvailableGoals().stream()
-                .anyMatch(w->w.getGoal().getClass().getSimpleName().equals("TemptGoal")
-                    &&w.isRunning());
-            helper.assertTrue(chickenTemptRunning,
-                "Chicken mind did not start its native TemptGoal for the registered seed-holding player");
-            boolean chickenHasWanted=chickenMind.getMoveControl().hasWanted();
-            System.out.println("[FF-CHICKEN-AI-STATE] playerRegistered="
-                +level.players().contains(stimulus)
-                +" playerAlive="+stimulus.isAlive()
-                +" playerInvisible="+stimulus.isInvisible()
-                +" playerInvulnerable="+stimulus.isInvulnerable()
-                +" mainHand="+stimulus.getMainHandItem()
-                +" offHand="+stimulus.getOffhandItem()
-                +" temptRunning="+chickenTemptRunning
-                +" navigationDone="+chickenMind.getNavigation().isDone()
-                +" navigationPath="+(chickenMind.getNavigation().getPath()!=null)
-                +" moveWanted="+chickenHasWanted
-                +" wanted="+(chickenHasWanted
-                    ?chickenMind.getMoveControl().getWantedX()+","
-                        +chickenMind.getMoveControl().getWantedY()+","
-                        +chickenMind.getMoveControl().getWantedZ():"none")
-                +" proxyPosition="+chickenMind.position()
-                +" physicalZombie="+zombie.position()
-                +" playerPosition="+stimulus.position()
-                +" proxyOnGround="+chickenMind.onGround()
-                +" bodyOnGround="+zombie.onGround()
-                +" proxyInWater="+chickenMind.isInWater()
-                +" directPathToPlayer="+(chickenMind.getNavigation().createPath(stimulus,1)!=null)
-                +" moveDelta="+chickenMind.getDeltaMovement());
+        Runnable cleanup=()->{
             System.clearProperty("freakyfriday.debugProxy");
-            helper.assertTrue(chickenEnd<chickenStart-0.5,
-                "Zombie mind did not move the real Chicken body toward its Golem target; "
-                    +"distance="+chickenStart+"->"+chickenEnd);
-            helper.assertTrue(golem.getHealth()<golemHealthBefore,
-                "Zombie mind did not carry its native melee attack through the physical Chicken body; "
-                    +"Golem health="+golemHealthBefore+"->"+golem.getHealth());
-            helper.assertTrue(zombieEnd<zombieStart-0.5,
-                "Chicken mind did not move the real Zombie body toward the seed-holding player; "
-                    +"distance="+zombieStart+"->"+zombieEnd);
-            helper.assertTrue(GoalMindRuntime.activeSessions(requester)==1
-                    &&GoalMindRuntime.bodyReserved(zombieId)
-                    &&GoalMindRuntime.bodyReserved(chickenId),
-                "Both physical bodies must remain independently assigned during the reciprocal behavior test");
-            helper.assertTrue(GoalMindRuntime.cancelByAccount(requester)
-                    &&GoalMindRuntime.activeSessions(requester)==0,
-                "The original Chicken/Zombie controllers did not restore cleanly");
-            helper.assertTrue(zombie.isNoAi()==zombieNoAi&&chicken.isNoAi()==chickenNoAi
-                    &&hasSameGoals(zombie,false,zombieGoals)
-                    &&hasSameGoals(zombie,true,zombieTargets)
-                    &&hasSameGoals(chicken,false,chickenGoals)
-                    &&hasSameGoals(chicken,true,chickenTargets),
-                "Returning from the exchange did not restore each body's exact original AI state");
-            level.removePlayerImmediately(stimulus,Entity.RemovalReason.DISCARDED);
-            zombie.discard();
-            chicken.discard();
-            golem.discard();
-            System.out.println("FF-GAMEPLAY zombie_chicken_behavior_acceptance PASS"
-                +" zombieMindPursuesGolemInChickenBody=true"
-                +" chickenMindTemptsPlayerInZombieBody=true"
-                +" simultaneousIndependentBodies=true originalAIrestored=true");
-            helper.succeed();
-        });
-    }
+            if(GoalMindRuntime.activeSessions(requester)>0)
+                GoalMindRuntime.cancelByAccount(requester);
+            if(!stimulus.isRemoved())
+                level.removePlayerImmediately(stimulus,Entity.RemovalReason.DISCARDED);
+            if(!zombie.isRemoved())zombie.discard();
+            if(!chicken.isRemoved())chicken.discard();
+            if(!golem.isRemoved())golem.discard();
+        };
 
+        try {
+            helper.assertTrue(stimulus.isAlive()
+                    &&level.players().contains(stimulus)
+                    &&stimulus.getMainHandItem().is(Items.WHEAT_SEEDS)
+                    &&stimulus.getOffhandItem().is(Items.WHEAT_SEEDS),
+                "The registered creative player must be a visible Wheat Seeds stimulus");
+            System.setProperty("freakyfriday.debugProxy","true");
+            String failure=GoalMindRuntime.begin(requester,zombie,chicken);
+            helper.assertTrue(failure==null,
+                "Live Chicken↔Zombie native controller exchange failed: "+failure);
+
+            Mob zombieMind=GoalMindRuntime.proxyForGameTest(chickenId);
+            Mob chickenMind=GoalMindRuntime.proxyForGameTest(zombieId);
+            helper.assertTrue(zombieMind!=null&&chickenMind!=null,
+                "Both detached native minds must be running on opposite physical bodies");
+            helper.runAfterDelay(75,()->{
+                try {
+                    helper.assertTrue(zombie.isAlive()&&chicken.isAlive()
+                            &&zombie.isNoAi()&&chicken.isNoAi()
+                            &&zombie.getType().equals(EntityTypes.ZOMBIE)
+                            &&chicken.getType().equals(EntityTypes.CHICKEN)
+                            &&level.getEntity(zombieId)==zombie&&level.getEntity(chickenId)==chicken,
+                        "The two original physical bodies did not retain their identity while both minds ran");
+                    helper.assertTrue(zombieMind.getTarget()==golem,
+                        "Zombie mind did not acquire its native Iron Golem target in the Chicken body; target="
+                            +zombieMind.getTarget());
+                    double chickenEnd=chicken.distanceToSqr(golem);
+                    double zombieEnd=zombie.distanceToSqr(stimulus);
+                    boolean chickenTemptRunning=chickenMind.goalSelector.getAvailableGoals().stream()
+                        .anyMatch(w->w.getGoal().getClass().getSimpleName().equals("TemptGoal")
+                            &&w.isRunning());
+                    boolean zombieAttackGoalPresent=zombieMind.goalSelector.getAvailableGoals().stream()
+                        .anyMatch(w->w.getGoal().getClass().getSimpleName().equals("ZombieAttackGoal"));
+                    boolean zombieAttackGoalRunning=zombieMind.goalSelector.getAvailableGoals().stream()
+                        .anyMatch(w->w.getGoal().getClass().getSimpleName().equals("ZombieAttackGoal")
+                            &&w.isRunning());
+                    helper.assertTrue(chickenTemptRunning,
+                        "Chicken mind did not start its native TemptGoal for the registered seed-holding player");
+                    helper.assertTrue(zombieAttackGoalPresent&&zombieAttackGoalRunning,
+                        "Zombie mind did not run its native ZombieAttackGoal against the real Iron Golem");
+
+                    boolean chickenHasWanted=chickenMind.getMoveControl().hasWanted();
+                    System.out.println("[FF-CHICKEN-AI-STATE] playerRegistered="
+                        +level.players().contains(stimulus)
+                        +" playerAlive="+stimulus.isAlive()
+                        +" playerCreative="+stimulus.isCreative()
+                        +" temptRunning="+chickenTemptRunning
+                        +" navigationDone="+chickenMind.getNavigation().isDone()
+                        +" navigationPath="+(chickenMind.getNavigation().getPath()!=null)
+                        +" moveWanted="+chickenHasWanted
+                        +" proxyPosition="+chickenMind.position()
+                        +" physicalZombie="+zombie.position()
+                        +" playerPosition="+stimulus.position()
+                        +" proxyOnGround="+chickenMind.onGround()
+                        +" bodyOnGround="+zombie.onGround()
+                        +" zombieAttackGoalRunning="+zombieAttackGoalRunning
+                        +" chickenMeleeAvailable="+chickenMeleeAvailable
+                        +" moveDelta="+chickenMind.getDeltaMovement());
+                    System.clearProperty("freakyfriday.debugProxy");
+
+                    helper.assertTrue(chickenEnd<chickenStart-0.5,
+                        "Zombie mind did not move the real Chicken body toward its Golem target; "
+                            +"distance="+chickenStart+"->"+chickenEnd);
+                    helper.assertTrue(zombieEnd<zombieStart-0.5,
+                        "Chicken mind did not move the real Zombie body toward the seed-holding player; "
+                            +"distance="+zombieStart+"->"+zombieEnd);
+                    // The Chicken body has no vanilla ATTACK_DAMAGE attribute.
+                    // Keep the Zombie's native attack decision, but do not grant
+                    // the Chicken a supernatural melee capability.
+                    if(chickenMeleeAvailable) {
+                        helper.assertTrue(golem.getHealth()<golemHealthBefore,
+                            "A Chicken body with native melee capability did not execute the Zombie mind's attack");
+                    } else {
+                        helper.assertTrue(Float.compare(golem.getHealth(),golemHealthBefore)==0,
+                            "The Zombie mind bypassed the Chicken body's unavailable melee capability");
+                    }
+                    helper.assertTrue(GoalMindRuntime.activeSessions(requester)==1
+                            &&GoalMindRuntime.bodyReserved(zombieId)
+                            &&GoalMindRuntime.bodyReserved(chickenId),
+                        "Both physical bodies must remain independently assigned during the reciprocal behavior test");
+                    helper.assertTrue(GoalMindRuntime.cancelByAccount(requester)
+                            &&GoalMindRuntime.activeSessions(requester)==0,
+                        "The original Chicken/Zombie controllers did not restore cleanly");
+                    helper.assertTrue(zombie.isNoAi()==zombieNoAi&&chicken.isNoAi()==chickenNoAi
+                            &&hasSameGoals(zombie,false,zombieGoals)
+                            &&hasSameGoals(zombie,true,zombieTargets)
+                            &&hasSameGoals(chicken,false,chickenGoals)
+                            &&hasSameGoals(chicken,true,chickenTargets),
+                        "Returning from the exchange did not restore each body's exact original AI state");
+
+                    System.out.println("FF-GAMEPLAY zombie_chicken_behavior_acceptance PASS"
+                        +" zombieMindPursuesGolemInChickenBody=true"
+                        +" chickenMindTemptsPlayerInZombieBody=true"
+                        +" zombieAttackGoalRunning="+zombieAttackGoalRunning
+                        +" chickenMeleeAvailable="+chickenMeleeAvailable
+                        +" bodyCapabilityRespected=true"
+                        +" simultaneousIndependentBodies=true originalAIrestored=true");
+                    helper.succeed();
+                } finally {
+                    cleanup.run();
+                }
+            });
+        } catch(RuntimeException failure) {
+            cleanup.run();
+            throw failure;
+        }
+    }
 
     static void verifyMobMobReciprocalAttack(GameTestHelper helper) {
         var level=helper.getLevel();
