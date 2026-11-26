@@ -67,15 +67,14 @@ public final class PossessionMotion {
         double vertical=mediumVertical
             ?Math.max(-1.0,Math.min(1.0,donorDisplacement.y))*nativeScale:0.0;
         boolean jump=body.onGround()&&donorDisplacement.y>0.12;
-        // Do not call travel for an idle mind: the real entity tick already
-        // applied its gravity/drag this frame. A second zero-input travel
-        // would double-apply vertical physics to the physical recipient.
-        if(Math.abs(strafe)<1.0e-5&&Math.abs(forward)<1.0e-5
-                &&Math.abs(vertical)<1.0e-5&&!jump)return;
-        // The native travel call still owns terrain/fluid/gravity/collision
-        // behavior. A stable baseline speed plus attribute-scaled input keeps
-        // recipient movement speed distinct even when vanilla's Mob travel
-        // path is invoked outside MoveControl.
+        // The original Mob's NoAI flag suppresses LivingEntity.aiStep's
+        // ordinary travel() call as well as its decision loop. Its physical
+        // entity tick still runs, but gravity, fluid response and collision
+        // movement would silently stop on idle frames unless this adapter
+        // supplies the one native travel step for the body. Always execute it,
+        // including zero-input frames; this is not a second travel step.
+        // The native recipient travel implementation remains authoritative
+        // for gravity, collision, fluids, climbing, flying and modded movement.
         body.setSpeed(MOB_TRAVEL_BASE_SPEED);
         boolean originallyNoAi=body.isNoAi();
         if(originallyNoAi)body.setNoAi(false);
