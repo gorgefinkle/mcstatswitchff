@@ -313,6 +313,23 @@ References for the exact 26.2 API shape:
 - Control classes: https://mappings.relativitymc.org/26.2/net/minecraft/entity/ai/control/index.html
 - NeoForge 26.1.x → 26.2 migration notes: https://github.com/neoforged/.github/blob/main/primers/26.2/index.md
 
+### 26.2 Mob hook map — confirmed class and method surfaces
+
+The 26.2 MobEntity mapping (official alias net.minecraft.world.entity.Mob) gives a concrete hook plan:
+
+- Mob.serverAiStep is protected final. Inject at its head/tail; do not try to override it. This is the shared server AI envelope.
+- Mob.customServerAiStep(ServerLevel) is protected and overridable. It is the key observation boundary for custom/Brain AI extensions. Instrument the common method call and separately verify that subclass overrides still pass through the Mob envelope.
+- Mob.goalSelector and Mob.targetSelector are protected final fields. Their runtime type is GoalSelector. Use public Mob#getGoalSelector where available, but target selector may need a mixin/accessor depending on exact visibility in the target mappings.
+- Mob.getLookControl, getMoveControl, getJumpControl, getNavigation, and getSensing are public. These are suitable observation points and avoid cloning those controller instances.
+- Mob.getTarget, getTargetUnchecked, and setTarget are public; getTargetFromBrain is protected final. Hook target assignment and target validity boundaries, not just the selector's goal classes.
+- Mob.setZza, setYya, setXxa, setSpeed, and stopInPlace expose movement intent/drive state. These are useful additional observation points but must be correlated with control requests to avoid treating every velocity update as a new intent.
+- Mob.tick and Mob.aiStep are visible lifecycle/tick surfaces. The Mob AI envelope should be instrumented once; avoid double-counting if aiStep and serverAiStep hooks both see the same action.
+- Mob.updateControlFlags is protected and affects selector controls. Capture its control enable/disable transitions as environment constraints, not as the mind choosing a new intent.
+
+This confirms a practical first hook set for 26.2: serverAiStep envelope; GoalSelector.tick/tickRunningGoals and WrappedGoal lifecycle; Brain.tick and memory writes; customServerAiStep; setTarget; navigation request methods; MoveControl/LookControl/JumpControl command methods; and attack/action outcome boundaries. Add startup hook-health diagnostics for each family.
+
+Important 26.2 implementation note: the GoalSelector mapping exposes addGoal, removeGoal, removeAllGoals(predicate), tick, tickRunningGoals(boolean), getAvailableGoals, disableControlFlag, enableControlFlag, and setControlFlag. Prefer observing its actual lifecycle rather than trying to serialize its private lock map.
+
 ## Implementation sequence
 
 ### Phase 0 — exact version source map
