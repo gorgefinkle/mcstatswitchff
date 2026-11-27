@@ -99,8 +99,11 @@ public class Entity {private final UUID uuid=UUID.randomUUID();private final Ser
 public Entity(String name,ServerLevel l){this.name=name;level=l;l.add(this);}public UUID getUUID(){return uuid;}public ServerLevel level(){return level;}
 public Component getDisplayName(){return Component.literal(name);} }''',
 'net/minecraft/world/entity/LivingEntity.java':'''package net.minecraft.world.entity;
-import net.minecraft.server.level.ServerLevel;import net.minecraft.world.entity.ai.attributes.*;import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.server.level.ServerLevel;import net.minecraft.world.entity.ai.attributes.*;import net.minecraft.core.registries.BuiltInRegistries;import net.minecraft.world.item.ItemStack;
 public class LivingEntity extends Entity{private final AttributeMap attrs=new AttributeMap();private float health=20, absorption=0; private boolean alive=true; public float maxHealthPenalty=0;
+private ItemStack main=new ItemStack(new Object()),off=new ItemStack(new Object());
+public ItemStack getMainHandItem(){return main;} public ItemStack getOffhandItem(){return off;}
+public void setMainHandItem(Object item){main=new ItemStack(item);} public void setOffHandItem(Object item){off=new ItemStack(item);}
 public boolean isAlive(){return alive;}public void kill(){alive=false;} public void revive(){alive=true;}
 public LivingEntity(String name,ServerLevel l){super(name,l);} public AttributeMap getAttributes(){return attrs;}
 public float getHealth(){return health;}public void setHealth(float value){health=Math.max(0,Math.min(value,getMaxHealth()));}
