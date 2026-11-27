@@ -10,8 +10,9 @@ printf 'eula=true\n' > "$RUN_DIR/eula.txt"
 cat > "$RUN_DIR/server.properties" <<'EOF'
 online-mode=false
 difficulty=normal
-spawn-monsters=true
-spawn-animals=true
+spawn-monsters=false
+spawn-animals=false
+doMobSpawning=false
 enable-rcon=true
 rcon.password=ff-ci-mixin-smoke
 rcon.port=25575
