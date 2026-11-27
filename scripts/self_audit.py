@@ -12,6 +12,10 @@ for file in sorted(resources.rglob('*.json')):
 mods=tomllib.loads((resources/'META-INF/neoforge.mods.toml').read_text())
 assert mods['mods'][0]['modId']=='freakyfriday'
 assert mods['mods'][0]['version']=='${ff_mod_version}'
+assert mods['mixins'][0]['config']=='freakyfriday.mixins.json'
+assert (resources/'freakyfriday.mixins.json').exists()
+assert (root/'src/main/java/dev/freakyfriday/mixin/MobServerAiStepMixin.java').exists()
+assert (root/'src/main/java/dev/freakyfriday/mind/MindHostRegistry.java').exists()
 assert "version = '0.13.2-alpha'" in (root/'build.gradle').read_text()
 assert (root/'src/platform/minecraft-26.2/java/dev/freakyfriday/compat/PlatformHooks.java').exists()
 assert 'src/platform/minecraft-26.2/java' in (root/'build.gradle').read_text()
@@ -50,5 +54,5 @@ assert 'addPermanentModifier' in (root/'src/main/java/dev/freakyfriday/Attribute
 assert 'removeModifiers()' not in '\n'.join(line for line in (root/'src/main/java/dev/freakyfriday/AttributeModifierTransfer.java').read_text().splitlines() if not line.strip().startswith('*') and not line.strip().startswith('//'))
 assert 'Category replacement was not exact' in (root/'src/main/java/dev/freakyfriday/core/CategoryExchange.java').read_text()
 subprocess.run([sys.executable, str(root/'scripts/test-version-profiles.py')], cwd=root, check=True)
-print('PASS: resources, metadata, and Minecraft 26.2-only source wiring')
+print('PASS: resources, metadata, 26.2 mixin registration, and AI host hook source wiring')
 print('NOT TESTED HERE: real NeoForge build/integrated/dedicated server runtime. Run scripts/build_doctor.py separately.')
