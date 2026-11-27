@@ -222,6 +222,50 @@ Limitations:
 
 Verdict: use targeted instrumentation at shared Minecraft boundaries first. Do not promise complete interception of arbitrary bytecode.
 
+## Expanded 26.2 tick-dispatch design: preserve subclass tick and AI phases
+
+A Mob.serverAiStep-only redirect is insufficient for complete mind continuity. Exact 26.2 source shows:
+- ServerLevel.tickNonPassenger updates old position/tick count and calls Entity.tick().
+- Entity.tick() delegates to baseTick().
+- LivingEntity.tick() performs body lifecycle updates and invokes virtual aiStep().
+- Mob.tick() delegates to LivingEntity.tick() and then updates GoalSelector control flags.
+- LivingEntity.aiStep() performs movement/physics-adjacent AI work and calls serverAiStep() when effective server AI is active.
+- Mob.aiStep() adds mob-specific work before/after the common living-entity implementation.
+- Concrete subclasses can add mind-relevant logic in tick() outside serverAiStep. Creeper.tick(), for example, advances its fuse and can call explodeCreeper() before super.tick().
+
+This means a serverAiStep-only dispatch would leave a Creeper's fuse logic running on the physical Creeper object rather than following the Creeper controller. This is a real functional hole, not a theoretical edge case.
+
+### Candidate layered dispatch
+
+For a physical Mob body B controlled by original controller host A:
+
+1. Intercept the Entity.tick() call in ServerLevel.tickNonPassenger for B.
+2. If A == B, preserve the vanilla path exactly.
+3. If A != B, establish MindBodyContext(A, B) and invoke A.tick() so the concrete donor subclass's tick overrides execute with their original owner and fields.
+4. At the Mob.tick() superclass boundary, redirect the LivingEntity.tick() base call to B's exact LivingEntity implementation using a Mixin invoker. This performs body B's base tick, health/effect/equipment aging, and common physical lifecycle once.
+5. In B's LivingEntity.tick(), redirect the virtual aiStep() call to A.aiStep(), preserving the donor subclass's aiStep overrides and the normal Mob/Brain/Goal AI path.
+6. In A.serverAiStep(), retain A.goalSelector and A.targetSelector; redirect the direct sensing, navigation, moveControl, lookControl, jumpControl, and level accesses to B's physical services.
+7. Return through the controller's Mob.tick() tail so controller-owned GoalSelector control flags update based on the body context.
+8. Leave entity tracking, collision, physical movement resolution, passenger handling, and network replication attached to B.
+
+This uses the original native controller object as an executable host. It does not transplant Goals, Brain instances, captured lambdas, custom fields, or task-local state. The original class-specific tick and aiStep methods run on the controller host, while the common LivingEntity base tick and native control objects run against the physical body.
+
+### Why this is only a candidate until proven
+
+The controller's concrete tick/aiStep override can still write its own private subclass fields directly. That is usually correct for mind-owned task state (such as an active fuse timer), but a subclass method can also mutate fields that represent physical state, set a dead flag, discard itself, or invoke world actions directly. A generic body facade must distinguish those effects.
+
+The first test cases must specifically cover:
+- Creeper fuse intent advances with the Creeper mind while in another body, without silently exploding the original physical Creeper body.
+- Reverse exchange restores that same fuse/task state to the Creeper body.
+- Zombie and Skeleton attack/avoid/panic custom AI phases follow their controllers.
+- Chicken/Dragon tick and aiStep overrides do not double-run or mutate the wrong physical body.
+- Every physical body receives exactly one LivingEntity base tick and one physical movement/collision pass.
+- Every controller executes exactly one subclass tick, aiStep, Goal/Brain, and customServerAiStep phase per server tick.
+
+The likely first Mixin sites are ServerLevel.tickNonPassenger, Mob.tick, LivingEntity.tick, and Mob.serverAiStep. Use invokers only for the exact 26.2 superclass method calls. Every redirect must be scoped through MindBodyContext and use try/finally; global entity fields must never be swapped temporarily.
+
+A generic tick() host invocation alone is not a complete solution if the controller's tick method performs body-specific direct field writes. If the live Creeper test exposes such a write, instrument the common underlying side-effect boundary (for example entity removal/death/explosion dispatch) and the exact inherited physical-state fields first. Do not add a Creeper-specific pairing rule or reject the pair. Preserve controller state and translate or retain its action at the body boundary.
+
 ## First Minecraft 26.2 implementation probe
 
 The first 26.2 Mixin is intentionally passive: it injects at the head of Mob.serverAiStep and registers the original Mob as a native controller host. This proves the common entry hook can be compiled and is configured for the 26.2 target; the dedicated-server smoke test is being added to verify that the configuration actually applies at runtime.
