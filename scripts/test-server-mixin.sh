@@ -90,7 +90,10 @@ if auth_id != 41:
 for request_id, command in (
     (42, "forceload add 0 0"),
     (43, "summon minecraft:zombie 0 80 0"),
-    (44, "say Freaky Friday 26.2 AI mixin smoke test"),
+    (44, "summon minecraft:creeper 3 80 0"),
+    (45, "freakyfriday debug-exchange @e[type=minecraft:zombie,limit=1,sort=nearest] @e[type=minecraft:creeper,limit=1,sort=nearest]"),
+    (46, "freakyfriday debug-tick @e[type=minecraft:creeper,limit=1,sort=nearest]"),
+    (47, "freakyfriday debug-tick @e[type=minecraft:zombie,limit=1,sort=nearest]"),
 ):
     send_packet(sock, request_id, 2, command)
     response_id, _, response = read_packet(sock)
@@ -122,4 +125,8 @@ if ! grep -Fq 'Freaky Friday 26.2 native Mob AI observer is active' "$CONSOLE_LO
   exit 1
 fi
 
-echo "PASS dedicated 26.2 server applied the Mixin config and executed the Mob.serverAiStep observer on a live Zombie."
+if ! grep -Fq 'DEBUG exchange:' "$CONSOLE_LOG" "$LOG_FILE" 2>/dev/null; then
+  echo "The debug exchange command did not reach native controller/body binding."
+  exit 1
+fi
+echo "PASS dedicated 26.2 server applied the full Mob tick Mixin, exchanged Zombie/Creeper controllers, and invoked both body ticks."
