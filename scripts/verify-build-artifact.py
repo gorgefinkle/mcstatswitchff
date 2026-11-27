@@ -26,6 +26,9 @@ def main():
         "dev/freakyfriday/mind/GoalMindRuntime.class",
         "dev/freakyfriday/mind/GoalSelectorState.class",
         "dev/freakyfriday/mind/DynamicObjectGraph.class",
+        "dev/freakyfriday/mind/GoalTransferAdapters.class",
+        "dev/freakyfriday/mind/GoalTransferAdapters$RecipientRemoveBlockGoal.class",
+        "dev/freakyfriday/mind/RecipientAttackIntentGoal.class",
         "dev/freakyfriday/mind/MindSwapSessions.class",
         "dev/freakyfriday/CategoryPickerPayload.class",
         "dev/freakyfriday/CategoryPickerNetworking.class",
@@ -44,6 +47,13 @@ def main():
             "public net.minecraft.world.entity.ai.goal.GoalSelector lockedFlags",
             "public net.minecraft.world.entity.ai.goal.GoalSelector disabledFlags",
             "public net.minecraft.world.entity.ai.goal.WrappedGoal isRunning",
+            "public net.minecraft.world.entity.ai.goal.MeleeAttackGoal speedModifier",
+            "public net.minecraft.world.entity.ai.goal.MeleeAttackGoal followingTargetEvenIfNotSeen",
+            "public net.minecraft.world.entity.ai.goal.RangedBowAttackGoal speedModifier",
+            "public net.minecraft.world.entity.ai.goal.RangedBowAttackGoal attackIntervalMin",
+            "public net.minecraft.world.entity.ai.goal.RangedBowAttackGoal attackRadiusSqr",
+            "public net.minecraft.world.entity.ai.goal.RemoveBlockGoal blockToRemove",
+            "public net.minecraft.world.entity.ai.goal.MoveToBlockGoal verticalSearchRange",
         )
         missing_scheduler_access = [entry for entry in required_scheduler_access if entry not in access]
         if missing_scheduler_access:
