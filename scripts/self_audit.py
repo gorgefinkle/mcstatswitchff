@@ -33,7 +33,10 @@ for scheduler_field in (
     'MeleeAttackGoal speedModifier','MeleeAttackGoal followingTargetEvenIfNotSeen',
     'RangedBowAttackGoal speedModifier','RangedBowAttackGoal attackIntervalMin',
     'RangedBowAttackGoal attackRadiusSqr','RemoveBlockGoal blockToRemove',
-    'MoveToBlockGoal verticalSearchRange'
+    'MoveToBlockGoal verticalSearchRange',
+    'AvoidEntityGoal avoidClass','AvoidEntityGoal avoidPredicate','AvoidEntityGoal maxDist',
+    'AvoidEntityGoal predicateOnAvoidEntity','AvoidEntityGoal walkSpeedModifier',
+    'AvoidEntityGoal sprintSpeedModifier'
 ):
     assert scheduler_field in scheduler_at, f'missing scheduler access transformer: {scheduler_field}'
 dynamic_runtime=(root/'src/main/java/dev/freakyfriday/mind/GoalMindRuntime.java').read_text()
