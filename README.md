@@ -1,40 +1,43 @@
 # Freaky Friday — Whole Mind Swap (R0.13 development branch)
 
-**New gameplay direction:** One book, two living bodies, **exchange their complete minds/controllers**. No stat-category picker in the final experience.
+**Gameplay direction:** one book, two living bodies, exchange their complete minds/controllers. The goal is not a stat-category picker.
 
-- **Mob ↔ Mob:** exchange entire AI behavior while both physical mob bodies remain unchanged.
-- **Player ↔ Player:** both authenticated users control each other's physical avatars. Account UUIDs, passwords, permissions and chat identities do not change; bodies retain appearance, equipment, inventory and health.
+- **Mob ↔ Mob:** exchange minds while the physical mob bodies remain unchanged.
+- **Player ↔ Player:** each authenticated user controls the other's physical avatar. Account UUIDs, permissions, chat identity, and credentials remain attached to the account.
 - **Player ↔ Mob:** a player controls the mob while its mind controls the vacated human body.
-- Reverse the same exchange to restore both original minds.
+- Reverse the exchange to restore the original assignments.
 
-The new source of truth for the redesign is [docs/WHOLE_MIND_SWAP_R0_13.md](docs/WHOLE_MIND_SWAP_R0_13.md).
+The binding product requirements are in [docs/UNIVERSAL_MIND_EXCHANGE_ARCHITECTURE.md](docs/UNIVERSAL_MIND_EXCHANGE_ARCHITECTURE.md). The current technical investigation is [docs/DYNAMIC_AI_CAPTURE_STUDY.md](docs/DYNAMIC_AI_CAPTURE_STUDY.md).
 
-### Important status distinction
+## Current engineering status
 
-The book now uses **two-click, category-free selection**, with a **dynamic runtime capturer** for goal-driven NPCs. `GoalMindRuntime` scans both native goal selectors, captures every actual goal and its nested state, and attempts to rebind donor-owned references to the recipient as one complete graph. There is no cow/pig profile table, no mob whitelist, and no fallback that quietly skips unsupported goals. A separate same-class native-`Brain` path remains available.
+The R0.13 native-Brain and cloned-Goal experiments are not a universal solution. They are being replaced by a body-independent mind record, passive observation of native AI decisions, and a generic bridge to the current body's capabilities.
 
-**Status: experimental.** This proves a dynamic capture strategy and compiling integration, **not** that every mob's AI can be executed in an arbitrary body. Source-specific cast/method expectations, `Brain` activities, hardwired AI outside selectors, player input, and world persistence remain major unsolved gates. Test only in a disposable world; a field-level rejection is intentional when a goal cannot be safely rebound.
+**Do not treat the existing R0.13 JAR as a universal mind-swap test build.** It does not meet the cross-species or player-to-NPC acceptance criteria. A successful synthetic test or compilation is not proof of live AI exchange.
 
-See [dynamic AI capture architecture and acceptance gates](docs/R0_13_DYNAMIC_AI_CAPTURE.md). The prior [cow/pig hardcoded prototype](docs/R0_13_CROSS_SPECIES_GOAL_PROOF.md) is **superseded**, not the current implementation.
+Every living mob pairing must be accepted, including vanilla-to-modded and modded-to-modded pairs. If a recipient body cannot express an intent, the exchange still succeeds and that intent remains with the mind for a body that can express it.
 
-The existing R0.12 numerical-category prototype remains on [main](../../tree/main) as a known buildable reference. The historical original is preserved on [archive/r0.11-original](../../tree/archive/r0.11-original).
+## Active development target — Minecraft 26.2 only
 
-## Build targets
+- Minecraft **26.2**
+- NeoForge **26.2.0.95**
+- Java **25**
+- Gradle wrapper / ModDevGradle build
 
-- Minecraft 26.2 / NeoForge — primary target.
-- Minecraft 26.3 / NeoForge — secondary target.
-- Java 25, Gradle 9.2.1, one shared source with version-specific adapters.
+All implementation, mappings, runtime hooks, build verification, and live testing are focused on 26.2. The Gradle build is pinned to 26.2 and rejects any request for another Minecraft target. The dormant 26.3 source/profile files are not part of the active build or CI.
 
-Run the controller-assignment tests without downloading NeoForge:
+Later Minecraft versions will be ported only after the 26.2 mind-exchange implementation passes its real acceptance tests, including cross-species, repeated reverse exchanges, and modded mobs.
+
+Run the pure Java regression checks:
 
 ```bash
 sh scripts/test-core.sh
 ```
 
-Build each target with GitHub Actions or:
+Build the active target:
 
 ```bash
-./gradlew build -PtargetMinecraft=26.2 --no-daemon
+./gradlew clean build --no-daemon
 ```
 
-GitHub Actions resolves third-party dependencies upstream and caches them. Do not commit large JDK installers, Minecraft/NeoForge downloads, or build caches.
+The completed 26.2 workflow uploads the version-specific JAR and build reports. A passing build still needs live in-game testing before it can be called playable or complete.
