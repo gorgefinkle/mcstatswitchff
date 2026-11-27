@@ -17,8 +17,9 @@ import net.minecraft.world.item.Items;
  *
  * The donor contributes attack cadence, movement speed, pursuit policy and
  * scheduler flags. The recipient contributes the actual attack mechanism:
- * bow-capable bodies holding a bow use their native ranged attack contract;
- * all other PathfinderMob bodies use native melee attack behavior.
+ * Creepers use their native swelling action; otherwise bow-capable bodies
+ * holding a bow use their ranged contract, and remaining PathfinderMob bodies
+ * use native melee attack behavior.
  *
  * This intentionally does not clone a Skeleton-only or Zombie-only Goal.
  * The selected delegate is created lazily on the server thread and is always
