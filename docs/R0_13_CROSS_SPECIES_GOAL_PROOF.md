@@ -1,3 +1,5 @@
+> **SUPERSEDED — NOT THE PRODUCT REQUIREMENT.** This document describes an abandoned prototype approach. Its supported-pair model, per-species goal assumptions, goal-class matching, and species/goal-based rejection behavior are explicitly incompatible with the universal mind-exchange contract in [UNIVERSAL_MIND_EXCHANGE_ARCHITECTURE.md](UNIVERSAL_MIND_EXCHANGE_ARCHITECTURE.md). Do not extend this implementation strategy or use its acceptance list as the target. It is retained only as historical evidence of the R0.13 prototype and its limitations.
+
 # R0.13.1 — Cow ↔ Pig cross-species AI-goal exchange
 
 This is the **first supported cross-species implementation** in the `feature/whole-mind-swap` branch. It is not a universal all-mob brain transfer.
