@@ -1,56 +1,65 @@
 package dev.freakyfriday.mind;
 
+import com.mojang.logging.LogUtils;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 import net.minecraft.world.entity.Mob;
 import org.slf4j.Logger;
-import com.mojang.logging.LogUtils;
 
 /**
  * Dynamic, species-independent registry of native Mob AI hosts.
  *
- * This registry deliberately does not clone Goals or Brain objects. It keeps
- * weak references to the original Mob hosts so the next implementation stage
- * can bind each host to a different physical body without losing owner-bound
- * native AI objects. Observation is passive: it does not change AI execution.
+ * The registry is confined to the logical server thread. It keeps weak
+ * references to original Mob hosts so later controller/body binding can
+ * preserve the host's real Goals, Brain, callbacks and mod-added state.
+ * Observation is passive and does not change native AI execution.
  */
 public final class MindHostRegistry {
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    private static final Map<UUID, WeakReference<Mob>> HOSTS = new ConcurrentHashMap<>();
-    private static final Map<String, AtomicLong> AI_PHASES_BY_TYPE = new ConcurrentHashMap<>();
+    private record HostRef(WeakReference<Mob> mob, String entityType) {}
+
+    // Mob AI phases run on the logical server thread, so concurrent collections
+    // and atomic counters add overhead without providing useful safety here.
+    private static final Map<UUID, HostRef> HOSTS = new HashMap<>();
+    private static final Map<String, Long> AI_PHASES_BY_TYPE = new HashMap<>();
+    private static boolean hookActivationLogged;
 
     private MindHostRegistry() {}
 
     /**
      * Called at the start of Mob.serverAiStep on the logical server.
-     * The operation is constant-time and does not reflect over AI objects.
+     * Hot path is O(1), performs no reflection, and allocates only on first sight.
      */
     public static void observeServerAiPhase(Mob host) {
         if (host == null || host.level().isClientSide()) return;
 
-        UUID id = host.getUUID();
-        WeakReference<Mob> current = HOSTS.get(id);
-        if (current == null || current.get() != host) {
-            HOSTS.put(id, new WeakReference<>(host));
-            LOGGER.debug("Freaky Friday registered native AI host {} ({})",
-                id, host.getType());
+        if (!hookActivationLogged) {
+            hookActivationLogged = true;
+            LOGGER.info("Freaky Friday 26.2 native Mob AI observer is active");
         }
 
-        AI_PHASES_BY_TYPE.computeIfAbsent(host.getType().toString(), ignored -> new AtomicLong())
-            .incrementAndGet();
+        UUID id = host.getUUID();
+        HostRef reference = HOSTS.get(id);
+        if (reference == null || reference.mob().get() != host) {
+            String entityType = host.getType().toString();
+            reference = new HostRef(new WeakReference<>(host), entityType);
+            HOSTS.put(id, reference);
+            LOGGER.debug("Freaky Friday registered native AI host {} ({})", id, entityType);
+        }
+
+        AI_PHASES_BY_TYPE.merge(reference.entityType(), 1L, Long::sum);
     }
 
     /** Resolves an original controller host while it remains strongly reachable elsewhere. */
     public static Mob resolve(UUID hostId) {
-        WeakReference<Mob> reference = HOSTS.get(hostId);
-        Mob host = reference == null ? null : reference.get();
+        HostRef reference = HOSTS.get(hostId);
+        Mob host = reference == null ? null : reference.mob().get();
         if (host == null && reference != null) HOSTS.remove(hostId, reference);
         return host;
     }
@@ -58,16 +67,16 @@ public final class MindHostRegistry {
     /** Lightweight diagnostic snapshot; no live entity objects escape. */
     public static List<TypeObservation> observedTypes() {
         List<TypeObservation> result = new ArrayList<>(AI_PHASES_BY_TYPE.size());
-        AI_PHASES_BY_TYPE.forEach((type, ticks) ->
-            result.add(new TypeObservation(type, ticks.get())));
+        AI_PHASES_BY_TYPE.forEach((type, ticks) -> result.add(new TypeObservation(type, ticks)));
         result.sort(Comparator.comparing(TypeObservation::entityType));
         return List.copyOf(result);
     }
 
     public static int liveHostCount() {
         int count = 0;
-        for (Map.Entry<UUID, WeakReference<Mob>> entry : HOSTS.entrySet()) {
-            if (entry.getValue().get() == null) HOSTS.remove(entry.getKey(), entry.getValue());
+        var iterator = HOSTS.entrySet().iterator();
+        while (iterator.hasNext()) {
+            if (iterator.next().getValue().mob().get() == null) iterator.remove();
             else count++;
         }
         return count;
