@@ -19,13 +19,13 @@ abstract class LivingEntityBodyContextMixin {
     @Inject(method = "getHealth", at = @At("HEAD"), cancellable = true)
     private void freakyfriday$bodyHealth(CallbackInfoReturnable<Float> callback) {
         LivingEntity body = freakyfriday$body();
-        if (body != this) callback.setReturnValue(body.getHealth());
+        if (body != (LivingEntity) (Object) this) callback.setReturnValue(body.getHealth());
     }
 
     @Inject(method = "setHealth", at = @At("HEAD"), cancellable = true)
     private void freakyfriday$setBodyHealth(float health, CallbackInfo callback) {
         LivingEntity body = freakyfriday$body();
-        if (body != this) {
+        if (body != (LivingEntity) (Object) this) {
             body.setHealth(health);
             callback.cancel();
         }
@@ -34,12 +34,12 @@ abstract class LivingEntityBodyContextMixin {
     @Inject(method = "getMaxHealth", at = @At("HEAD"), cancellable = true)
     private void freakyfriday$bodyMaxHealth(CallbackInfoReturnable<Float> callback) {
         LivingEntity body = freakyfriday$body();
-        if (body != this) callback.setReturnValue(body.getMaxHealth());
+        if (body != (LivingEntity) (Object) this) callback.setReturnValue(body.getMaxHealth());
     }
 
     @Inject(method = "getAttributes", at = @At("HEAD"), cancellable = true)
     private void freakyfriday$bodyAttributes(CallbackInfoReturnable<AttributeMap> callback) {
         LivingEntity body = freakyfriday$body();
-        if (body != this) callback.setReturnValue(body.getAttributes());
+        if (body != (LivingEntity) (Object) this) callback.setReturnValue(body.getAttributes());
     }
 }
