@@ -28,6 +28,10 @@ for mixin in ('ServerLevelMobTickDispatchMixin','MobTickBodyBridgeMixin',
               'EntityBodyContextMixin','LivingEntityBodyContextMixin'):
     assert mixin in mixin_config['mixins'], f'mixin not registered: {mixin}'
 assert (root/'src/main/java/dev/freakyfriday/mind/MindHostRegistry.java').exists()
+assert 'debug-exchange' in (root/'src/main/java/dev/freakyfriday/FFCommands.java').read_text()
+assert 'debug-tick' in (root/'src/main/java/dev/freakyfriday/FFCommands.java').read_text()
+assert 'debugExchangeControllers' in (root/'src/main/java/dev/freakyfriday/mind/MindHostRegistry.java').read_text()
+assert 'debugTickBody' in (root/'src/main/java/dev/freakyfriday/mind/MindHostRegistry.java').read_text()
 assert (root/'src/main/java/dev/freakyfriday/mind/MindBodyBindings.java').exists()
 assert (root/'src/test/java/dev/freakyfriday/mind/MindBodyBindingsSelfTest.java').exists()
 assert (root/'src/main/java/dev/freakyfriday/mind/MindBodyContext.java').exists()
