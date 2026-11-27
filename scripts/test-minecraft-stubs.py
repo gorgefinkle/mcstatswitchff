@@ -483,6 +483,23 @@ public class PanicGoal extends Goal {
  public boolean canUse(){return true;}
 }
 ''',
+'net/minecraft/world/entity/ai/goal/MoveThroughVillageGoal.java':'''package net.minecraft.world.entity.ai.goal;
+import java.util.EnumSet;
+import java.util.function.BooleanSupplier;
+import net.minecraft.world.entity.PathfinderMob;
+public class MoveThroughVillageGoal extends Goal {
+ public final PathfinderMob mob;
+ public final double speedModifier;
+ public final boolean onlyAtNight;
+ public final int distanceToPoi;
+ public final BooleanSupplier canDealWithDoors;
+ public MoveThroughVillageGoal(PathfinderMob mob,double speed,boolean night,int distance,BooleanSupplier doors){
+   this.mob=mob;this.speedModifier=speed;this.onlyAtNight=night;this.distanceToPoi=distance;this.canDealWithDoors=doors;
+   setFlags(EnumSet.of(Flag.MOVE));
+ }
+ public boolean canUse(){return true;}
+}
+''',
 'net/minecraft/world/entity/ai/goal/AvoidEntityGoal.java':'''package net.minecraft.world.entity.ai.goal;
 import java.util.EnumSet;
 import java.util.function.Predicate;
@@ -656,6 +673,7 @@ public final class GoalPortHarness {
  static void ok(boolean value,String message){checks++;if(!value)throw new AssertionError(message);}
  static final class ZombieLike extends PathfinderMob {
    ZombieLike(ServerLevel level){super("Zombie",level);}
+   public boolean canBreakDoors(){return true;}
    final class ZombieAttackTurtleEggGoal extends RemoveBlockGoal {
      ZombieAttackTurtleEggGoal(Block block){super(block,ZombieLike.this,1.15,2);setFlags(java.util.EnumSet.of(Flag.MOVE));}
    }
@@ -687,6 +705,21 @@ public final class GoalPortHarness {
    ok(remover.blockToRemove==block && remover.speedModifier==1.15 && remover.verticalSearchRange==2,
       "block target, speed and search range survive translation");
    ok(remover.getFlags().contains(Goal.Flag.MOVE),"scheduler control flags survive translation");
+
+   var villageSource=new MoveThroughVillageGoal(
+      zombie,1.0,true,4,zombie::canBreakDoors);
+   Goal translatedVillage=GoalTransferAdapters.adapt(villageSource,skeleton);
+   ok(translatedVillage instanceof MoveThroughVillageGoal,
+      "village traversal is reconstructed instead of retaining Zombie-bound method reference");
+   var village=(MoveThroughVillageGoal)translatedVillage;
+   ok(village.mob==skeleton && village.speedModifier==1.0
+       && village.onlyAtNight && village.distanceToPoi==4,
+      "village movement config is retained on recipient body");
+   ok(!village.canDealWithDoors.getAsBoolean(),
+      "recipient without door-breaking capability does not inherit donor privilege");
+   Goal translatedVillageToZombie=GoalTransferAdapters.adapt(villageSource,zombie);
+   ok(((MoveThroughVillageGoal)translatedVillageToZombie).canDealWithDoors.getAsBoolean(),
+      "recipient's own door-breaking capability is queried dynamically");
 
    java.util.function.Predicate<net.minecraft.world.entity.LivingEntity> acceptAll = entity -> true;
    java.util.function.Predicate<net.minecraft.world.entity.LivingEntity> visibleOnly = entity -> entity.isAlive();
