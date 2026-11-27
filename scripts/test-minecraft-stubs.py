@@ -411,7 +411,7 @@ public class Mob extends LivingEntity {
 ''',
 'net/minecraft/world/level/Level.java':'''package net.minecraft.world.level; public class Level { public boolean isClientSide(){return false;} }
 ''',
-'net/minecraft/world/phys/Vec3.java':'''package net.minecraft.world.phys; public record Vec3(double x,double y,double z) {}
+'net/minecraft/world/phys/Vec3.java':'''package net.minecraft.world.phys; public class Vec3 {public final double x,y,z;public Vec3(double x,double y,double z){this.x=x;this.y=y;this.z=z;}}
 ''',
 'net/minecraft/world/phys/AABB.java':'''package net.minecraft.world.phys; public record AABB(double minX,double minY,double minZ,double maxX,double maxY,double maxZ) {}
 ''',
