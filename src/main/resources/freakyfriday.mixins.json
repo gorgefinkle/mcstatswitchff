@@ -6,7 +6,6 @@
   "mixins": [
     "ServerLevelMobTickDispatchMixin",
     "MobTickBodyBridgeMixin",
-    "LivingEntityTickInvoker",
     "LivingEntityAiStepBodyBridgeMixin",
     "MobBodyServicesMixin",
     "MobServerAiStepMixin",
