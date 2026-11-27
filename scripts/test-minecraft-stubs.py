@@ -298,6 +298,11 @@ import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME) @Target(ElementType.TYPE)
 public @interface Mixin { Class<?>[] value() default {}; }
 ''',
+'org/spongepowered/asm/mixin/Unique.java':'''package org.spongepowered.asm.mixin;
+import java.lang.annotation.*;
+@Retention(RetentionPolicy.RUNTIME) @Target({ElementType.FIELD,ElementType.METHOD})
+public @interface Unique {}
+''',
 'org/spongepowered/asm/mixin/injection/At.java':'''package org.spongepowered.asm.mixin.injection;
 import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME) @Target({ElementType.METHOD,ElementType.ANNOTATION_TYPE})
@@ -350,10 +355,12 @@ public float getYRot(){return yaw;}public void setYRot(float v){yaw=v;}public fl
 public Vec3 getDeltaMovement(){return movement;}public void setDeltaMovement(Vec3 v){movement=v;}public void setDeltaMovement(double x,double y,double z){movement=new Vec3(x,y,z);}
 public Component getDisplayName(){return Component.literal(name);} }''',
 'net/minecraft/world/entity/LivingEntity.java':'''package net.minecraft.world.entity;
-import net.minecraft.server.level.ServerLevel;import net.minecraft.world.entity.ai.attributes.*;import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.server.level.ServerLevel;import net.minecraft.world.level.Level;import net.minecraft.world.entity.ai.attributes.*;import net.minecraft.core.registries.BuiltInRegistries;
 public class LivingEntity extends Entity{private final AttributeMap attrs=new AttributeMap();private float health=20, absorption=0; private boolean alive=true; public float maxHealthPenalty=0;
 public boolean isAlive(){return alive;}public void kill(){alive=false;} public void revive(){alive=true;}
-public LivingEntity(String name,ServerLevel l){super(name,l);} public AttributeMap getAttributes(){return attrs;}
+public LivingEntity(String name,ServerLevel l){super(name,l);}
+protected LivingEntity(EntityType<? extends LivingEntity> type,Level level){super("mixin", (ServerLevel)level);}
+public AttributeMap getAttributes(){return attrs;}
 public void tick(){super.tick();aiStep();} public void aiStep(){}
 public float getHealth(){return health;}public void setHealth(float value){health=Math.max(0,Math.min(value,getMaxHealth()));}
 public float getMaxHealth(){var h=attrs.getInstance(BuiltInRegistries.ATTRIBUTE.register("minecraft:max_health"));return h==null?20:(float)h.getValue()-maxHealthPenalty;}
