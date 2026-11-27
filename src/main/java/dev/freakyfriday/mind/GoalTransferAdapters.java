@@ -10,13 +10,13 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.ai.goal.AvoidEntityGoal;
-import net.minecraft.world.entity.ai.goal.PanicGoal;
 import net.minecraft.world.entity.ai.goal.MeleeAttackGoal;
 import net.minecraft.world.entity.ai.goal.MoveThroughVillageGoal;
 import net.minecraft.world.entity.ai.goal.MoveToBlockGoal;
 import net.minecraft.world.entity.ai.goal.RangedBowAttackGoal;
 import net.minecraft.world.entity.ai.goal.RemoveBlockGoal;
 import net.minecraft.world.entity.ai.goal.SwellGoal;
+import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
 import net.minecraft.world.entity.monster.RangedAttackMob;
 import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.level.block.Block;
@@ -41,6 +41,13 @@ public final class GoalTransferAdapters {
      */
     public static Goal adapt(Goal source, Mob recipient)
             throws DynamicObjectGraph.Uncapturable {
+        // NearestAttackableTargetGoal owns mutable TargetingConditions built
+        // from recipient follow range. Recreate that helper using the original
+        // target class, cadence, visibility/reach settings and validated selector.
+        if (source.getClass() == NearestAttackableTargetGoal.class) {
+            return adaptNearestAttackable((NearestAttackableTargetGoal<?>) source, recipient);
+        }
+
         // MoveThroughVillageGoal accepts a BooleanSupplier for whether
         // the body can deal with doors. Vanilla Zombie passes this::canBreakDoors,
         // which is an owner-bound lambda. Recreate that capability query for the
@@ -118,6 +125,29 @@ public final class GoalTransferAdapters {
             }
         }
         return false;
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static Goal adaptNearestAttackable(
+            NearestAttackableTargetGoal<?> source, Mob recipient)
+            throws DynamicObjectGraph.Uncapturable {
+        DynamicObjectGraph.requireShareableDependency(
+            source.targetConditions.selector, "NearestAttackableTargetGoal.targetSelector");
+
+        // The native goal stores reducedTickDelay(input) in randomInterval.
+        // Doubling this normalized value lets the constructor's reduction
+        // reproduce the same tick cadence exactly for non-negative intervals.
+        int constructorInterval = source.randomInterval * 2;
+        NearestAttackableTargetGoal replacement = new NearestAttackableTargetGoal(
+            recipient,
+            source.targetType,
+            constructorInterval,
+            source.mustSee,
+            source.mustReach,
+            source.targetConditions.selector);
+        replacement.setUnseenMemoryTicks(source.unseenMemoryTicks);
+        replacement.setFlags(source.getFlags().clone());
+        return replacement;
     }
 
     private static Goal adaptMoveThroughVillage(
