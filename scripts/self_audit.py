@@ -26,7 +26,7 @@ assert (root/'src/main/java/dev/freakyfriday/mind/DynamicObjectGraph.java').exis
 assert (root/'src/main/java/dev/freakyfriday/mind/GoalSelectorState.java').exists()
 assert (root/'src/main/java/dev/freakyfriday/mind/GoalTransferAdapters.java').exists()
 assert (root/'src/main/java/dev/freakyfriday/mind/RecipientAttackIntentGoal.java').exists()
-assert 'GoalTransferAdapters.adapt(original, recipient)' in (root/'src/main/java/dev/freakyfriday/mind/GoalMindRuntime.java').read_text()
+assert 'GoalTransferAdapters.adapt(sourceGoal, recipient)' in (root/'src/main/java/dev/freakyfriday/mind/GoalMindRuntime.java').read_text()
 scheduler_at=(resources/'META-INF/accesstransformer.cfg').read_text()
 for scheduler_field in (
     'GoalSelector lockedFlags','GoalSelector disabledFlags','WrappedGoal isRunning',
