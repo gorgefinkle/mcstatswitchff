@@ -470,7 +470,7 @@ public static class Context{public Source getSource(){return new Source();}}
 public static class Source {public ServerPlayer getPlayerOrException(){return null;}public PermissionSet permissions(){return p->true;}
 public net.minecraft.world.phys.Vec3 getPosition(){return new net.minecraft.world.phys.Vec3(0,0,0);}
 public net.minecraft.server.level.ServerLevel getLevel(){return new net.minecraft.server.level.ServerLevel("minecraft:overworld");}
-public void sendFailure(Component message){}public void sendSuccess(Supplier<Component> message,boolean broadcast){}}}
+public void sendFailure(Component message){}public void sendSuccess(Supplier<Component> message,boolean broadcast){}}
 @FunctionalInterface public interface Action{int run(Context ctx) throws Exception;}
 public static class Builder{public Builder then(Builder child){return this;}public Builder executes(Action action){return this;}
 public Builder requires(Predicate<Source> predicate){return this;}}}''',
