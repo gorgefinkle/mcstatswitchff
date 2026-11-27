@@ -18,6 +18,8 @@ assert (root/'src/main/java/dev/freakyfriday/mixin/MobServerAiStepMixin.java').e
 assert (root/'src/main/java/dev/freakyfriday/mind/MindHostRegistry.java').exists()
 assert (root/'src/main/java/dev/freakyfriday/mind/MindBodyBindings.java').exists()
 assert (root/'src/test/java/dev/freakyfriday/mind/MindBodyBindingsSelfTest.java').exists()
+assert (root/'src/main/java/dev/freakyfriday/mind/MindBodyContext.java').exists()
+assert (root/'src/test/java/dev/freakyfriday/mind/MindBodyContextSelfTest.java').exists()
 assert "version = '0.13.2-alpha'" in (root/'build.gradle').read_text()
 assert (root/'src/platform/minecraft-26.2/java/dev/freakyfriday/compat/PlatformHooks.java').exists()
 assert 'src/platform/minecraft-26.2/java' in (root/'build.gradle').read_text()
