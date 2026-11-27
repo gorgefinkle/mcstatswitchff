@@ -94,7 +94,10 @@ import net.minecraft.world.entity.Entity;import net.minecraft.resources.Identifi
 public final class ServerLevel {public record Dimension(Identifier identifier){} private final Dimension dim;private final Map<UUID,Entity> entities=new HashMap<>();
 private long time=0; public long getGameTime(){return time;} public void tick(){++time;}
 public ServerLevel(String id){dim=new Dimension(new Identifier(id));}public Dimension dimension(){return dim;}public boolean isClientSide(){return false;}public void add(Entity e){entities.put(e.getUUID(),e);}
-public Entity getEntity(UUID id){return entities.get(id);} }''',
+public Entity getEntity(UUID id){return entities.get(id);}
+public java.util.List<Entity> getEntities(Entity except,net.minecraft.world.phys.AABB bounds,java.util.function.Predicate<? super Entity> selector){
+return entities.values().stream().filter(e->e!=except).filter(selector).toList();
+} }''',
 'net/minecraft/world/entity/Entity.java':'''package net.minecraft.world.entity;
 import java.util.UUID;import net.minecraft.server.level.ServerLevel;import net.minecraft.network.chat.Component;
 public class Entity {private final UUID uuid=UUID.randomUUID();private final ServerLevel level;public final String name;
@@ -465,7 +468,9 @@ public class Commands{public static Builder literal(String name){return new Buil
 public static Builder argument(String name,Object type){return new Builder();}
 public static class Context{public Source getSource(){return new Source();}}
 public static class Source {public ServerPlayer getPlayerOrException(){return null;}public PermissionSet permissions(){return p->true;}
-public void sendFailure(Component message){}public void sendSuccess(Supplier<Component> message,boolean broadcast){}}
+public net.minecraft.world.phys.Vec3 getPosition(){return new net.minecraft.world.phys.Vec3(0,0,0);}
+public net.minecraft.server.level.ServerLevel getLevel(){return new net.minecraft.server.level.ServerLevel("minecraft:overworld");}
+public void sendFailure(Component message){}public void sendSuccess(Supplier<Component> message,boolean broadcast){}}}
 @FunctionalInterface public interface Action{int run(Context ctx) throws Exception;}
 public static class Builder{public Builder then(Builder child){return this;}public Builder executes(Action action){return this;}
 public Builder requires(Predicate<Source> predicate){return this;}}}''',
