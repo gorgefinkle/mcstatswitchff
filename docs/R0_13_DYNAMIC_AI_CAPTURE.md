@@ -71,6 +71,21 @@ complete exchange.
     `RangedAttackMob` and holding a bow uses `RangedBowAttackGoal`; remaining
     `PathfinderMob` bodies use `MeleeAttackGoal`. Attack cooldown/path state
     restarts because the underlying driver changes.
+  - Base `AvoidEntityGoal` instances are reconstructed with the
+    receiving body's navigation and a fresh `TargetingConditions`. Their
+    target class, distance, walk/sprint speeds and both predicates are kept;
+    captured predicates are reused only when their dependency graph is safe.
+    Subclasses with extra body-specific semantics are not flattened to the base
+    goal.
+  - Base `MoveThroughVillageGoal` instances are reconstructed with the
+    recipient's body, speed, night restriction and POI distance. Their
+    donor-bound `this::canBreakDoors` callback is replaced with a dynamic
+    query for the recipient's own public `canBreakDoors()` capability; bodies
+    without that capability do not inherit the donor's door-breaking ability.
+  - The default `PanicGoal` function captures only its immutable panic damage
+    tag and passes the strict lambda validation path. Its original mobility
+    state and scheduler flags are copied while its `PathfinderMob` owner is
+    rebound.
   - A translated goal is installed inactive, with its old selector lock
     released, so the newly constructed driver receives a normal
     `start()` lifecycle. Untranslated goals keep their captured scheduler
