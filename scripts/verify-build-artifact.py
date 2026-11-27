@@ -19,9 +19,12 @@ def main():
     required = {
         "META-INF/neoforge.mods.toml",
         "META-INF/accesstransformer.cfg",
+        "freakyfriday.mixins.json",
         "dev/freakyfriday/FreakyFriday.class",
         "dev/freakyfriday/AttributeCategorySwapper.class",
         "dev/freakyfriday/mind/MindLedger.class",
+        "dev/freakyfriday/mind/MindHostRegistry.class",
+        "dev/freakyfriday/mixin/MobServerAiStepMixin.class",
         "dev/freakyfriday/mind/NativeBrainSwap.class",
         "dev/freakyfriday/mind/GoalMindRuntime.class",
         "dev/freakyfriday/mind/GoalSelectorState.class",
