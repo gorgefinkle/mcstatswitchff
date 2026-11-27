@@ -25,6 +25,7 @@ def main():
         "dev/freakyfriday/mind/MindLedger.class",
         "dev/freakyfriday/mind/MindHostRegistry.class",
         "dev/freakyfriday/mind/MindBodyBindings.class",
+        "dev/freakyfriday/mind/MindBodyContext.class",
         "dev/freakyfriday/mixin/MobServerAiStepMixin.class",
         "dev/freakyfriday/mind/NativeBrainSwap.class",
         "dev/freakyfriday/mind/GoalMindRuntime.class",
