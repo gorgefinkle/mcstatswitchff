@@ -77,6 +77,20 @@ public final class MindHostRegistry {
             return;
         }
 
+        // ServerLevel has already incremented the physical body's tickCount
+        // before it calls Entity.tick(). The original controller host is not
+        // being ticked by Level anymore, so advance its AI clock exactly once
+        // to preserve native timers and interval-based decisions.
+        controller.tickCount++;
+        controller.xo = physicalBody.xo;
+        controller.yo = physicalBody.yo;
+        controller.zo = physicalBody.zo;
+        controller.xOld = physicalBody.xOld;
+        controller.yOld = physicalBody.yOld;
+        controller.zOld = physicalBody.zOld;
+        controller.yRotO = physicalBody.yRotO;
+        controller.xRotO = physicalBody.xRotO;
+
         try (MindBodyContext.Scope ignored = MindBodyContext.bind(controller, physicalBody)) {
             controller.tick();
         }
