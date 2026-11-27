@@ -1,15 +1,24 @@
-# Minecraft version profiles — R0.10
+# Later Minecraft versions — deferred until 26.2 is complete
 
-Build the same shared source for Minecraft 26.2 (first release target) or 26.3 (future target).
-Version matching is strict. Never install a 26.3 binary into a 26.2 server or vice versa.
+This document is retained as a historical note for future ports. It is **not** the active build plan.
 
-- `gradle clean build -PtargetMinecraft=26.2` selects NeoForge 26.2.0.95; output has `mc26.2` in the JAR name.
-- `gradle clean build -PtargetMinecraft=26.3` selects NeoForge 26.3.0.115; output has `mc26.3` in the JAR name.
-- `gradle showTarget -PtargetMinecraft=26.2` previews resolution.
-- `gradle showTarget -PtargetMinecraft=26.3` previews resolution.
+## Current rule
 
-The single `src/main/java` tree contains all generic category transaction and Minecraft-facing logic. Version-specific source is limited to `src/platform/minecraft-26.2/java` and `src/platform/minecraft-26.3/java` and must be expanded only when a real version-specific API difference is verified. We do not duplicate or fork the category engine. Matching version metadata is expanded at build time into `neoforge.mods.toml`.
+Freaky Friday development is pinned exclusively to **Minecraft 26.2 / NeoForge 26.2.0.95 / Java 25**. The Gradle build, CI workflow, artifact verifier, and current source audit compile and test only 26.2.
 
-**Verification status at R0.11:** Minecraft 26.2 passed real Mojang server-side library checks with NeoForge API stubs. The full 26.2 NeoForge build and game testing were blocked in the assistant's offline environment. Neither target is certified playable by this historical audit. GitHub Actions is configured to attempt both profiles from an internet-connected runner.
+The build intentionally rejects a different `-PtargetMinecraft` value. Do not add a second CI matrix entry or maintain another active platform source tree while the universal mind exchange is still being built.
 
-Do not bundle the user-provided vanilla Mojang JAR, NeoForge universal JAR or the Java 25 installer into release source/JAR distributions.
+## When later-version work may begin
+
+Start a port only after Minecraft 26.2 passes all real acceptance gates:
+
+- Creeper ↔ Zombie in both directions.
+- Skeleton ↔ Zombie, including avoidance and panic behavior.
+- Ender Dragon ↔ Chicken in both directions.
+- Repeated exchanges and reversals without losing mind state.
+- At least one vanilla ↔ modded and one modded ↔ modded pairing without mob-specific Freaky Friday code.
+- Player participation only after its separate identity and input-bridge tests pass.
+
+At that point, re-check the target version's mappings and NeoForge API changes, create the new platform hooks, add a separate build verification path, and run the full same acceptance suite on the new target. Do not assume the 26.2 injection points or mixin descriptors are valid on another version.
+
+Any retained later-version profiles or platform files are dormant reference material only. They are not promised to compile, are not packaged, and are not currently tested.
