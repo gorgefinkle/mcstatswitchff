@@ -50,6 +50,7 @@ public final class MindHostRegistry {
             String entityType = host.getType().toString();
             reference = new HostRef(new WeakReference<>(host), entityType);
             HOSTS.put(id, reference);
+            MindBodyBindings.ensureOriginalBinding(id);
             LOGGER.debug("Freaky Friday registered native AI host {} ({})", id, entityType);
         }
 
