@@ -41,7 +41,9 @@ for scheduler_field in (
     'MoveThroughVillageGoal distanceToPoi',
     'NearestAttackableTargetGoal targetType','NearestAttackableTargetGoal randomInterval',
     'NearestAttackableTargetGoal targetConditions','TargetGoal mustSee','TargetGoal mustReach',
-    'TargetGoal unseenMemoryTicks','TargetingConditions selector'
+    'TargetGoal unseenMemoryTicks','TargetingConditions selector',
+    'LookAtPlayerGoal lookAtType','LookAtPlayerGoal lookDistance',
+    'LookAtPlayerGoal probability','LookAtPlayerGoal onlyHorizontal'
 ):
     assert scheduler_field in scheduler_at, f'missing scheduler access transformer: {scheduler_field}'
 dynamic_runtime=(root/'src/main/java/dev/freakyfriday/mind/GoalMindRuntime.java').read_text()
