@@ -345,6 +345,7 @@ public final class LogUtils { private static final Logger LOGGER=new Logger(){};
 import java.util.UUID;import net.minecraft.server.level.ServerLevel;import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.Level;import net.minecraft.world.phys.*;import net.minecraft.core.BlockPos;
 public class Entity {private final UUID uuid=UUID.randomUUID();private final ServerLevel level;public final String name;
+public int tickCount;public double xo,yo,zo,xOld,yOld,zOld;public float yRotO,xRotO;
 private Vec3 position=new Vec3(0,0,0), movement=new Vec3(0,0,0);private float yaw=0,pitch=0;private boolean removed;
 public Entity(String name,ServerLevel l){this.name=name;level=l;l.add(this);}public UUID getUUID(){return uuid;}public ServerLevel level(){return level;}
 public void tick(){} public boolean isRemoved(){return removed;} public void discard(){removed=true;}
