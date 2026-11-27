@@ -491,6 +491,7 @@ public final class TargetingConditions {
  public Selector selector;
  private double range;
  public static TargetingConditions forCombat(){return new TargetingConditions();}
+ public static TargetingConditions forNonCombat(){return new TargetingConditions();}
  public TargetingConditions range(double range){this.range=range;return this;}
  public TargetingConditions selector(Selector selector){this.selector=selector;return this;}
 }
@@ -516,6 +517,40 @@ public class NearestAttackableTargetGoal<T extends LivingEntity> extends TargetG
    TargetingConditions.Selector selector){
    super(mob,mustSee,mustReach);this.targetType=type;this.randomInterval=(interval+1)/2;
    this.targetConditions=TargetingConditions.forCombat().range(32).selector(selector);
+ }
+ public boolean canUse(){return true;}
+}
+''',
+'net/minecraft/world/entity/EntitySelector.java':'''package net.minecraft.world.entity;
+import java.util.function.Predicate;
+public final class EntitySelector {
+ public static Predicate<Entity> notRiding(Entity owner){return candidate -> candidate!=owner;}
+}
+''',
+'net/minecraft/world/entity/ai/goal/LookAtPlayerGoal.java':'''package net.minecraft.world.entity.ai.goal;
+import java.util.EnumSet;
+import java.util.function.Predicate;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntitySelector;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.targeting.TargetingConditions;
+import net.minecraft.world.entity.player.Player;
+public class LookAtPlayerGoal extends Goal {
+ public final Mob mob;
+ public final Class<? extends LivingEntity> lookAtType;
+ public final float lookDistance;
+ public final float probability;
+ public final boolean onlyHorizontal;
+ public final TargetingConditions lookAtContext;
+ public LookAtPlayerGoal(Mob mob,Class<? extends LivingEntity> type,float distance,float probability,boolean onlyHorizontal){
+   this.mob=mob;this.lookAtType=type;this.lookDistance=distance;this.probability=probability;this.onlyHorizontal=onlyHorizontal;
+   setFlags(EnumSet.of(Flag.LOOK));
+   if(type==Player.class){
+     Predicate<Entity> selector=EntitySelector.notRiding(mob);
+     this.lookAtContext=TargetingConditions.forNonCombat().range(distance).selector((target,level)->selector.test(target));
+   } else this.lookAtContext=TargetingConditions.forNonCombat().range(distance);
  }
  public boolean canUse(){return true;}
 }
@@ -742,6 +777,21 @@ public final class GoalPortHarness {
    ok(remover.blockToRemove==block && remover.speedModifier==1.15 && remover.verticalSearchRange==2,
       "block target, speed and search range survive translation");
    ok(remover.getFlags().contains(Goal.Flag.MOVE),"scheduler control flags survive translation");
+
+   var lookAtSource=new net.minecraft.world.entity.ai.goal.LookAtPlayerGoal(
+      zombie,net.minecraft.world.entity.player.Player.class,8.0F,0.05F,true);
+   Goal translatedLookAt=GoalTransferAdapters.adapt(lookAtSource,skeleton);
+   ok(translatedLookAt instanceof net.minecraft.world.entity.ai.goal.LookAtPlayerGoal,
+      "look-at-player goal is reconstructed with a fresh recipient selector");
+   var lookAt=(net.minecraft.world.entity.ai.goal.LookAtPlayerGoal)translatedLookAt;
+   ok(lookAt.mob==skeleton && lookAt.lookAtType==lookAtSource.lookAtType
+       && lookAt.lookDistance==8.0F && lookAt.probability==0.05F && lookAt.onlyHorizontal,
+      "look target class, distance, probability and horizontal-only setting survive");
+   ok(lookAt.lookAtContext!=lookAtSource.lookAtContext,
+      "look-at targeting conditions are recreated, not shared");
+   ok(lookAt.lookAtContext.selector.test(skeleton,level)==false
+       && lookAt.lookAtContext.selector.test(zombie,level),
+      "not-riding selector is rebound from donor mob to recipient mob");
 
    net.minecraft.world.entity.ai.targeting.TargetingConditions.Selector turtleSelector =
       (entity,serverLevel) -> entity.isAlive();
