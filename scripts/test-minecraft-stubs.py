@@ -458,15 +458,24 @@ public class DeferredRegister{public static Items createItems(String modid){retu
 public static class Items{public <T extends Item> DeferredItem<T> registerItem(String name,Function<Item.Properties,T> factory){return new DeferredItem<>(factory.apply(new Item.Properties()));}
 public void register(IEventBus bus){}}}''',
 'net/minecraft/commands/Commands.java':'''package net.minecraft.commands;
-import java.util.function.*;import net.minecraft.server.level.ServerPlayer;import net.minecraft.network.chat.Component;
+import java.util.function.*;import net.minecraft.server.level.ServerPlayer;import net.minecraft.network.chat.Component;import net.minecraft.server.permissions.PermissionSet;
 public class Commands{public static Builder literal(String name){return new Builder();}
 public static Builder argument(String name,Object type){return new Builder();}
 public static class Context{public Source getSource(){return new Source();}}
-public static class Source {public ServerPlayer getPlayerOrException(){return null;}public boolean hasPermission(int level){return true;}
+public static class Source {public ServerPlayer getPlayerOrException(){return null;}public PermissionSet permissions(){return p->true;}
 public void sendFailure(Component message){}public void sendSuccess(Supplier<Component> message,boolean broadcast){}}
 @FunctionalInterface public interface Action{int run(Context ctx) throws Exception;}
 public static class Builder{public Builder then(Builder child){return this;}public Builder executes(Action action){return this;}
 public Builder requires(Predicate<Source> predicate){return this;}}}''',
+'net/minecraft/server/permissions/Permission.java':'''package net.minecraft.server.permissions;
+public interface Permission { record HasCommandLevel(PermissionLevel level) implements Permission {} }
+''',
+'net/minecraft/server/permissions/PermissionLevel.java':'''package net.minecraft.server.permissions;
+public enum PermissionLevel { ALL, MODERATORS, GAMEMASTERS, ADMINS, OWNERS }
+''',
+'net/minecraft/server/permissions/PermissionSet.java':'''package net.minecraft.server.permissions;
+public interface PermissionSet { boolean hasPermission(Permission permission); }
+''',
 'net/minecraft/commands/arguments/EntityArgument.java':'''package net.minecraft.commands.arguments;
 import net.minecraft.commands.Commands;import net.minecraft.world.entity.Entity;
 public final class EntityArgument {public static Object entity(){return new Object();}
