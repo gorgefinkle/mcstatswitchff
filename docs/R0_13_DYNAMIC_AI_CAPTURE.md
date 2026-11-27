@@ -82,6 +82,11 @@ complete exchange.
     donor-bound `this::canBreakDoors` callback is replaced with a dynamic
     query for the recipient's own public `canBreakDoors()` capability; bodies
     without that capability do not inherit the donor's door-breaking ability.
+  - Base `NearestAttackableTargetGoal` instances are recreated with
+    recipient-specific `TargetingConditions`, retaining target class,
+    normalized search cadence, must-see/must-reach settings, unseen memory and
+    any selector whose captured dependencies pass the strict sharing check.
+    Specialized target-goal subclasses are not flattened to the base class.
   - The default `PanicGoal` function captures only its immutable panic damage
     tag and passes the strict lambda validation path. Its original mobility
     state and scheduler flags are copied while its `PathfinderMob` owner is
