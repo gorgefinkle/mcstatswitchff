@@ -36,7 +36,9 @@ for scheduler_field in (
     'MoveToBlockGoal verticalSearchRange',
     'AvoidEntityGoal avoidClass','AvoidEntityGoal avoidPredicate','AvoidEntityGoal maxDist',
     'AvoidEntityGoal predicateOnAvoidEntity','AvoidEntityGoal walkSpeedModifier',
-    'AvoidEntityGoal sprintSpeedModifier'
+    'AvoidEntityGoal sprintSpeedModifier',
+    'MoveThroughVillageGoal speedModifier','MoveThroughVillageGoal onlyAtNight',
+    'MoveThroughVillageGoal distanceToPoi'
 ):
     assert scheduler_field in scheduler_at, f'missing scheduler access transformer: {scheduler_field}'
 dynamic_runtime=(root/'src/main/java/dev/freakyfriday/mind/GoalMindRuntime.java').read_text()
