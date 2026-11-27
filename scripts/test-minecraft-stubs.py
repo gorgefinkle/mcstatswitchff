@@ -97,24 +97,14 @@ public ServerLevel(String id){dim=new Dimension(new Identifier(id));}public Dime
 public Entity getEntity(UUID id){return entities.get(id);} }''',
 'net/minecraft/world/entity/Entity.java':'''package net.minecraft.world.entity;
 import java.util.UUID;import net.minecraft.server.level.ServerLevel;import net.minecraft.network.chat.Component;
-import net.minecraft.world.level.Level;import net.minecraft.world.phys.*;import net.minecraft.core.BlockPos;
 public class Entity {private final UUID uuid=UUID.randomUUID();private final ServerLevel level;public final String name;
-private Vec3 position=new Vec3(0,0,0), movement=new Vec3(0,0,0);private float yaw=0,pitch=0;private boolean removed;
 public Entity(String name,ServerLevel l){this.name=name;level=l;l.add(this);}public UUID getUUID(){return uuid;}public ServerLevel level(){return level;}
-public void tick(){} public boolean isRemoved(){return removed;} public void discard(){removed=true;}
-public Vec3 position(){return position;} public BlockPos blockPosition(){return new BlockPos((int)position.x(),(int)position.y(),(int)position.z());}
-public AABB getBoundingBox(){return new AABB(position.x()-.3,position.y(),position.z()-.3,position.x()+.3,position.y()+1.8,position.z()+.3);}
-public double getX(){return position.x();}public double getY(){return position.y();}public double getZ(){return position.z();}
-public double getEyeY(){return getY()+1.6;}public float getEyeHeight(){return 1.6f;}public float getBbWidth(){return .6f;}public float getBbHeight(){return 1.8f;}
-public float getYRot(){return yaw;}public void setYRot(float v){yaw=v;}public float getXRot(){return pitch;}public void setXRot(float v){pitch=v;}
-public Vec3 getDeltaMovement(){return movement;}public void setDeltaMovement(Vec3 v){movement=v;}public void setDeltaMovement(double x,double y,double z){movement=new Vec3(x,y,z);}
 public Component getDisplayName(){return Component.literal(name);} }''',
 'net/minecraft/world/entity/LivingEntity.java':'''package net.minecraft.world.entity;
 import net.minecraft.server.level.ServerLevel;import net.minecraft.world.entity.ai.attributes.*;import net.minecraft.core.registries.BuiltInRegistries;
 public class LivingEntity extends Entity{private final AttributeMap attrs=new AttributeMap();private float health=20, absorption=0; private boolean alive=true; public float maxHealthPenalty=0;
 public boolean isAlive(){return alive;}public void kill(){alive=false;} public void revive(){alive=true;}
 public LivingEntity(String name,ServerLevel l){super(name,l);} public AttributeMap getAttributes(){return attrs;}
-public void tick(){super.tick();aiStep();} public void aiStep(){}
 public float getHealth(){return health;}public void setHealth(float value){health=Math.max(0,Math.min(value,getMaxHealth()));}
 public float getMaxHealth(){var h=attrs.getInstance(BuiltInRegistries.ATTRIBUTE.register("minecraft:max_health"));return h==null?20:(float)h.getValue()-maxHealthPenalty;}
 public float getAbsorptionAmount(){return absorption;}public void setAbsorptionAmount(float value){absorption=value;}
@@ -345,6 +335,36 @@ public interface Logger { default void debug(String message,Object... args) {} d
 import org.slf4j.Logger;
 public final class LogUtils { private static final Logger LOGGER=new Logger(){}; public static Logger getLogger(){return LOGGER;} }
 ''',
+'net/minecraft/world/entity/Entity.java':'''package net.minecraft.world.entity;
+import java.util.UUID;import net.minecraft.server.level.ServerLevel;import net.minecraft.network.chat.Component;
+import net.minecraft.world.level.Level;import net.minecraft.world.phys.*;import net.minecraft.core.BlockPos;
+public class Entity {private final UUID uuid=UUID.randomUUID();private final ServerLevel level;public final String name;
+private Vec3 position=new Vec3(0,0,0), movement=new Vec3(0,0,0);private float yaw=0,pitch=0;private boolean removed;
+public Entity(String name,ServerLevel l){this.name=name;level=l;l.add(this);}public UUID getUUID(){return uuid;}public ServerLevel level(){return level;}
+public void tick(){} public boolean isRemoved(){return removed;} public void discard(){removed=true;}
+public Vec3 position(){return position;} public BlockPos blockPosition(){return new BlockPos((int)position.x(),(int)position.y(),(int)position.z());}
+public AABB getBoundingBox(){return new AABB(position.x()-.3,position.y(),position.z()-.3,position.x()+.3,position.y()+1.8,position.z()+.3);}
+public double getX(){return position.x();}public double getY(){return position.y();}public double getZ(){return position.z();}
+public double getEyeY(){return getY()+1.6;}public float getEyeHeight(){return 1.6f;}public float getBbWidth(){return .6f;}public float getBbHeight(){return 1.8f;}
+public float getYRot(){return yaw;}public void setYRot(float v){yaw=v;}public float getXRot(){return pitch;}public void setXRot(float v){pitch=v;}
+public Vec3 getDeltaMovement(){return movement;}public void setDeltaMovement(Vec3 v){movement=v;}public void setDeltaMovement(double x,double y,double z){movement=new Vec3(x,y,z);}
+public Component getDisplayName(){return Component.literal(name);} }''',
+'net/minecraft/world/entity/LivingEntity.java':'''package net.minecraft.world.entity;
+import net.minecraft.server.level.ServerLevel;import net.minecraft.world.entity.ai.attributes.*;import net.minecraft.core.registries.BuiltInRegistries;
+public class LivingEntity extends Entity{private final AttributeMap attrs=new AttributeMap();private float health=20, absorption=0; private boolean alive=true; public float maxHealthPenalty=0;
+public boolean isAlive(){return alive;}public void kill(){alive=false;} public void revive(){alive=true;}
+public LivingEntity(String name,ServerLevel l){super(name,l);} public AttributeMap getAttributes(){return attrs;}
+public void tick(){super.tick();aiStep();} public void aiStep(){}
+public float getHealth(){return health;}public void setHealth(float value){health=Math.max(0,Math.min(value,getMaxHealth()));}
+public float getMaxHealth(){var h=attrs.getInstance(BuiltInRegistries.ATTRIBUTE.register("minecraft:max_health"));return h==null?20:(float)h.getValue()-maxHealthPenalty;}
+public float getAbsorptionAmount(){return absorption;}public void setAbsorptionAmount(float value){absorption=value;}
+}''',
+'net/minecraft/server/level/ServerLevel.java':'''package net.minecraft.server.level;
+import net.minecraft.world.entity.Entity;import net.minecraft.resources.Identifier;import java.util.*;import net.minecraft.world.level.Level;
+public final class ServerLevel extends Level {public record Dimension(Identifier identifier){} private final Dimension dim;private final Map<UUID,Entity> entities=new HashMap<>();
+private long time=0; public long getGameTime(){return time;}public void tick(){++time;}
+public ServerLevel(String id){dim=new Dimension(new Identifier(id));}public Dimension dimension(){return dim;}public boolean isClientSide(){return false;}public void add(Entity e){entities.put(e.getUUID(),e);}
+public Entity getEntity(UUID id){return entities.get(id);} }''',
 'net/minecraft/world/entity/Mob.java':'''package net.minecraft.world.entity;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.ai.control.*;
