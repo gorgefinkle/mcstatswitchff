@@ -27,9 +27,13 @@ with the **recipient's corresponding live instances**, and copies every
 remaining accessible field. All goals and targeting goals are captured
 **before either entity's native selectors are touched**.
 
-The core does **not** contain a whitelist of mob species, predefined
-goal recipes, or special cow/pig paths. Cross-species admissibility depends
-on observed runtime object graph compatibility, not mob IDs.
+The generic capturer is not a species-pair table: it attempts complete
+runtime graph rebinding for unrecognized goals. A narrow semantic adapter
+registry handles cases where a vanilla goal's implementation is inseparable
+from its original species. These adapters translate a behavior intent to a
+recipient-native implementation; they are not a claim that every goal or
+species pair is portable. Unknown incompatible goals still reject the
+complete exchange.
 
 ## Safety contract
 
@@ -55,6 +59,21 @@ on observed runtime object graph compatibility, not mob IDs.
   reported and never called success.
 - A full cross-species exchange may still be rejected because arbitrary
   Minecraft goals and mods are not required to be portable.
+- The semantic adapter registry currently covers a narrow hostile-mob path:
+  - Zombie turtle-egg removal is reconstructed as a recipient-owned
+    `RemoveBlockGoal`, retaining the target block, speed, vertical search
+    range, accepted distance and control flags. The species-specific sound
+    overrides are not retained by this port.
+  - Zombie melee and Skeleton bow/melee attack goals are converted to an
+    `RecipientAttackIntentGoal`. The physical recipient decides the action:
+    a body implementing `RangedAttackMob` and holding a bow uses
+    `RangedBowAttackGoal`; otherwise a `PathfinderMob` uses
+    `MeleeAttackGoal`. Attack cooldown/path state is restarted because the
+    underlying driver changes.
+  - A translated goal is installed inactive, with its old selector lock
+    released, so the newly constructed driver receives a normal
+    `start()` lifecycle. Untranslated goals keep their captured scheduler
+    state.
 
 ## Independent implementation audit — collection and scheduler state
 
@@ -76,10 +95,11 @@ This closes the source-level scheduler bookkeeping gap, but it does not prove be
 - Active Mojang `Brain` graphs (sensors, memories, schedule/activity
   handlers) are not yet rebound across different classes; the legacy
   native Brain exchange remains limited to compatible same-class mobs.
-- The reflective clone has not been behaviorally verified in a running
-  26.2 server. Generic class/field compatibility cannot prove that a
+- The reflective clone and new semantic adapters have not been behaviorally
+  verified in a running 26.2 server. Compilation cannot prove that a
   transferred goal's later `canUse`, `tick`, or `stop` methods work on
-  the new body. Runtime acceptance is essential.
+  the new body, nor that a semantic port reproduces all visible side effects.
+  Runtime acceptance is essential.
 - Player ↔ player, player ↔ mob control and save/restart persistence
   are still not implemented.
 - GoalSelector running bits, disabled controls, and arbitration locks are now
@@ -97,12 +117,14 @@ This closes the source-level scheduler bookkeeping gap, but it does not prove be
    that captures the original body.
 2. **Minecraft source/CI:** The real NeoForge 26.2 and 26.3 compilers
    must accept the capture/runtime hooks, and both artifacts must contain
-   `GoalMindRuntime` and `DynamicObjectGraph` bytecode.
-3. **In-game basic cross-species:** Try cow↔pig and cow↔sheep first,
-   but **not** because those classes are whitelisted. Confirm behavior
-   changed, both donors stopped their outgoing goals, and reversal
-   restores their original goals. A refusal with a concrete field name is
-   valid evidence of a portability boundary, not a successful swap.
+   `GoalMindRuntime`, `DynamicObjectGraph`, `GoalTransferAdapters`, and
+   `RecipientAttackIntentGoal`, plus the adapter's access transformers.
+3. **In-game targeted pair:** Test Skeleton↔Zombie in both selection orders.
+   Confirm that melee/ranged decisions execute through each physical body's
+   available action, that the zombie egg-removal goal operates on the
+   receiving body, and that both directions reverse cleanly. Also test with
+   a Skeleton that does not hold a bow. This pair is not proven by CI or
+   source-level tests; only an actual 26.2 server test can establish it.
 4. **Hostile and modded AI:** Introduce a mob with targeting goals and
    a modded `Goal`; confirm every observed goal moves or the entire
    swap refuses—never silent partial success.
