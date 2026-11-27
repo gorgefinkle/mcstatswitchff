@@ -36,8 +36,12 @@ on observed runtime object graph compatibility, not mob IDs.
 - An owner field whose declared type cannot accept the new body rejects
   the **entire** swap with a field-level reason (e.g., a goal requiring
   `Creeper` cannot be rebound to a `Cow`).
-- Opaque stateful captured lambdas and unknown mutable owner-bound
-  dependencies reject the whole swap; they are never silently reused.
+- A lambda is shared only when its captured graph is limited to immutable
+  values, stateless nested lambdas, or references proven to be static-final
+  singletons. A closure that captures a mob, goal, navigation service, or
+  other mutable runtime owner rejects the whole swap with the capture path.
+  This is a narrow allowance for vanilla shared predicates and method
+  references, not permission to reuse arbitrary captured callbacks.
 - This prototype relies on JDK `sun.misc.Unsafe.allocateInstance` for
   reproducing actual goal instances without invoking constructors. Its
   availability is verified when planning the capture. Failure is an
@@ -86,8 +90,9 @@ This closes the source-level scheduler bookkeeping gap, but it does not prove be
 
 1. **Pure Java:** `DynamicObjectGraphSelfTest` must prove real field
    capture, copied mutable flags, nested references, cross-root alias
-   preservation, state retention, subclass-incompatible recipient
-   rejection and rejection of opaque captured callbacks.
+   preservation, state retention, safe reuse of a method reference to a
+   static shared predicate, subclass-incompatible recipient rejection, and
+   rejection of a callback that captures the original body.
 2. **Minecraft source/CI:** The real NeoForge 26.2 and 26.3 compilers
    must accept the capture/runtime hooks, and both artifacts must contain
    `GoalMindRuntime` and `DynamicObjectGraph` bytecode.
