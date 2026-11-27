@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.freakyfriday.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "MobServerAiStepMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
