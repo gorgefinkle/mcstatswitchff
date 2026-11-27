@@ -88,11 +88,11 @@ import net.minecraft.world.*;import net.minecraft.world.entity.*;import net.mine
 public class Item {public static class Properties{public Properties stacksTo(int n){return this;}}public Item(Properties p){}
 public InteractionResult interactLivingEntity(ItemStack stack,Player player,LivingEntity target, InteractionHand hand){return InteractionResult.SUCCESS;}}''',
 'net/minecraft/server/level/ServerLevel.java':'''package net.minecraft.server.level;
-import net.minecraft.world.entity.Entity;import net.minecraft.resources.Identifier;import java.util.*;
+import net.minecraft.world.entity.Entity;import net.minecraft.resources.Identifier;import java.util.*;import net.minecraft.world.Difficulty;
 public final class ServerLevel {public record Dimension(Identifier identifier){} private final Dimension dim;private final Map<UUID,Entity> entities=new HashMap<>();
 private long time=0; public long getGameTime(){return time;} public void tick(){++time;}
 public ServerLevel(String id){dim=new Dimension(new Identifier(id));}public Dimension dimension(){return dim;}public void add(Entity e){entities.put(e.getUUID(),e);}
-public Entity getEntity(UUID id){return entities.get(id);} }''',
+public Entity getEntity(UUID id){return entities.get(id);} public Difficulty getDifficulty(){return Difficulty.NORMAL;} }''',
 'net/minecraft/world/entity/Entity.java':'''package net.minecraft.world.entity;
 import java.util.UUID;import net.minecraft.server.level.ServerLevel;import net.minecraft.network.chat.Component;
 public class Entity {private final UUID uuid=UUID.randomUUID();private final ServerLevel level;public final String name;
