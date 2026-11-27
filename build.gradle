@@ -5,25 +5,35 @@ plugins {
     id 'net.neoforged.moddev' version '2.0.148'
 }
 
-def selectedMinecraft = providers.gradleProperty('targetMinecraft').orElse('26.2').get()
-def selectedProfile = file("versions/minecraft-${selectedMinecraft}.properties")
+// The project is intentionally pinned to Minecraft 26.2 until universal
+// mind exchange is complete and passes its live acceptance suite.
+// Later-version source/profile files may remain as dormant porting references,
+// but are not compiled, packaged, or tested by this build.
+def selectedMinecraft = '26.2'
+def requestedMinecraft = providers.gradleProperty('targetMinecraft').orNull
+if (requestedMinecraft != null && requestedMinecraft != selectedMinecraft) {
+    throw new GradleException(
+        "Freaky Friday development is currently pinned to Minecraft 26.2; " +
+        "requested targetMinecraft=" + requestedMinecraft + " is deferred."
+    )
+}
+def selectedProfile = file('versions/minecraft-26.2.properties')
 if (!selectedProfile.isFile()) {
-    throw new GradleException("Unsupported targetMinecraft=${selectedMinecraft}. Available profiles: 26.2, 26.3")
+    throw new GradleException('Missing Minecraft 26.2 version profile')
 }
 def profile = new Properties()
 selectedProfile.withInputStream { profile.load(it) }
 if (profile.getProperty('minecraft_version') != selectedMinecraft) {
-    throw new GradleException('Selected version does not match profile metadata')
+    throw new GradleException('Selected version does not match the 26.2 profile metadata')
 }
 
 group = 'dev.freakyfriday'
 version = '0.13.2-alpha'
-base { archivesName = "freakyfriday-mc${selectedMinecraft}-neoforge" }
+base { archivesName = 'freakyfriday-mc26.2-neoforge' }
 java.toolchain.languageVersion = JavaLanguageVersion.of(25)
 
-// Both targets compile the exact same generic engine and adapters.
-// Isolate version-specific hooks here; do not maintain separate forks of the mod.
-sourceSets.main.java.srcDir("src/platform/minecraft-${selectedMinecraft}/java")
+// Only the 26.2 platform integration is part of this build.
+sourceSets.main.java.srcDir('src/platform/minecraft-26.2/java')
 
 neoForge {
     version = profile.getProperty('neo_version')
@@ -52,28 +62,27 @@ tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
 tasks.register('showTarget') {
     group = 'verification'
     doLast {
-        println "FreakyFriday ${version} targets Minecraft ${selectedMinecraft} / NeoForge ${profile.getProperty('neo_version')}"
+        println "FreakyFriday " + version + " targets Minecraft " + selectedMinecraft +
+            " / NeoForge " + profile.getProperty('neo_version')
     }
 }
 
 // The R0.11 regression sources are self-executing main classes, not JUnit tests.
-// Gradle's ordinary Test discovery therefore has zero JUnit methods by design.
-// Execute all three assertions under `check` so a successful build is contingent
-// on passing them, rather than silently skipping the actual regression suite.
+// Execute all assertions under check so a successful build runs the regression suite.
 tasks.named('test', Test) { failOnNoDiscoveredTests = false }
 def coreChecks = ['CategoryExchangeSelfTest', 'CategoryDefinitionsSelfTest', 'CategorySchemaSelfTest', 'CategoryOffersSelfTest']
 coreChecks.each { checkName ->
     tasks.register("run${checkName}", JavaExec) {
         group = 'verification'
-        description = "Run ${checkName} executable assertions"
+        description = "Run " + checkName + " executable assertions"
         dependsOn tasks.named('testClasses')
         classpath = sourceSets.test.runtimeClasspath
-        mainClass = "dev.freakyfriday.core.${checkName}"
+        mainClass = "dev.freakyfriday.core." + checkName
         enableAssertions = true
     }
 }
 tasks.named('check') {
-    dependsOn(coreChecks.collect { tasks.named("run${it}") })
+    dependsOn(coreChecks.collect { tasks.named("run" + it) })
 }
 
 tasks.register("runMindLedgerSelfTest", JavaExec) {
@@ -88,7 +97,7 @@ tasks.named('check') { dependsOn tasks.named('runMindLedgerSelfTest') }
 
 tasks.register("runDynamicObjectGraphSelfTest", JavaExec) {
     group = 'verification'
-    description = "Prove species-independent dynamic AI graph capture and owner rebinding"
+    description = "Diagnostic only: exercise reflective object-graph capture against synthetic fixtures"
     dependsOn tasks.named('testClasses')
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'dev.freakyfriday.mind.DynamicObjectGraphSelfTest'
