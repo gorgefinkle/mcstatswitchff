@@ -200,14 +200,17 @@ public final class DynamicObjectGraph {
                 return result;
             }
 
-            // Stateless lambdas (e.g. a static ItemTags food predicate) can be
-            // shared. Capturing lambdas have hidden private state that cannot
-            // reliably be rebound and are ALWAYS refused instead.
-            if (type.isHidden() || type.isSynthetic() && type.getName().contains("$$Lambda")) {
-                for (Field field : type.getDeclaredFields()) {
-                    if (!Modifier.isStatic(field.getModifiers()))
-                        throw new Uncapturable("Opaque captured lambda cannot be rebound: " + type.getName());
-                }
+            // A lambda may capture a static, shared predicate (for example a
+            // bound method reference to a vanilla static final selector). Such a
+            // closure is safe to reuse when every captured value is provably
+            // immutable, itself a stateless lambda, or a static-final singleton.
+            // A closure that captures a mob, goal, navigation or other mutable
+            // runtime object remains unportable and is rejected.
+            if (isLambdaType(type)) {
+                String unsafeCapture = unsafeLambdaCapture(source, 0, new IdentityHashMap<>());
+                if (unsafeCapture != null)
+                    throw new Uncapturable("Captured lambda depends on non-shareable state at "
+                        + unsafeCapture + ": " + type.getName());
                 return source;
             }
 
@@ -257,6 +260,89 @@ public final class DynamicObjectGraph {
             try { Array.set(array, index, item); }
             catch (IllegalArgumentException err) { throw new Uncapturable("Invalid AI array", err); }
         }
+    }
+
+    private static boolean isLambdaType(Class<?> type) {
+        return type.isHidden() || type.isSynthetic() && type.getName().contains("$Lambda");
+    }
+
+    /**
+     * Returns the first unsafe capture path, or null when sharing the lambda
+     * instance cannot retain a donor-body or mutable owner reference.
+     */
+    private static String unsafeLambdaCapture(
+            Object lambda, int depth, IdentityHashMap<Object, Boolean> visited) {
+        if (lambda == null) return null;
+        if (depth > 12) return "capture graph exceeds safety depth";
+        if (visited.put(lambda, Boolean.TRUE) != null) return "cyclic capture graph";
+        Class<?> type = lambda.getClass();
+        if (!isLambdaType(type)) return null;
+
+        for (Field field : type.getDeclaredFields()) {
+            if (Modifier.isStatic(field.getModifiers())) continue;
+            if (!field.trySetAccessible()) return type.getName() + "." + field.getName()
+                + " (inaccessible capture)";
+            try {
+                Object value = field.get(lambda);
+                if (value == null || primitiveLike(value.getClass())) continue;
+
+                Class<?> capturedType = value.getClass();
+                if (isLambdaType(capturedType)) {
+                    String nested = unsafeLambdaCapture(value, depth + 1, visited);
+                    if (nested != null) return type.getName() + "." + field.getName() + " -> " + nested;
+                    continue;
+                }
+
+                if (!isKnownImmutableCapture(capturedType) && !isStaticFinalSingleton(value))
+                    return type.getName() + "." + field.getName() + " (" + capturedType.getName() + ")";
+            } catch (IllegalAccessException failure) {
+                return type.getName() + "." + field.getName() + " (capture read failed)";
+            }
+        }
+        return null;
+    }
+
+    private static boolean isKnownImmutableCapture(Class<?> type) {
+        String name = type.getName();
+        return type.isEnum()
+            || name.equals("net.minecraft.resources.Identifier")
+            || name.equals("net.minecraft.tags.TagKey")
+            || name.equals("net.minecraft.world.item.Item");
+    }
+
+    /**
+     * A captured singleton is shareable only when it is literally held by a
+     * static final field in its nest or enclosing class. This avoids treating
+     * arbitrary mutable service instances as constants just because their
+     * reference happens to be captured by a lambda.
+     */
+    private static boolean isStaticFinalSingleton(Object value) {
+        Class<?> type = value.getClass();
+        IdentityHashMap<Class<?>, Boolean> checked = new IdentityHashMap<>();
+        Class<?> nest = type.getNestHost();
+        for (Class<?> owner = nest; owner != null && checked.put(owner, Boolean.TRUE) == null;
+             owner = owner.getEnclosingClass()) {
+            if (declaresStaticFinalReference(owner, value)) return true;
+        }
+        for (Class<?> owner = type; owner != null && checked.put(owner, Boolean.TRUE) == null;
+             owner = owner.getEnclosingClass()) {
+            if (declaresStaticFinalReference(owner, value)) return true;
+        }
+        return false;
+    }
+
+    private static boolean declaresStaticFinalReference(Class<?> owner, Object value) {
+        for (Field field : owner.getDeclaredFields()) {
+            int modifiers = field.getModifiers();
+            if (!Modifier.isStatic(modifiers) || !Modifier.isFinal(modifiers)
+                    || !field.getType().isInstance(value) || !field.trySetAccessible()) continue;
+            try {
+                if (field.get(null) == value) return true;
+            } catch (IllegalAccessException ignored) {
+                // An inaccessible static holder is not proof of a singleton.
+            }
+        }
+        return false;
     }
 
     private static boolean primitiveLike(Class<?> type) {
