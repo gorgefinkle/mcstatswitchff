@@ -60,6 +60,9 @@ def main():
             "public net.minecraft.world.entity.ai.goal.AvoidEntityGoal predicateOnAvoidEntity",
             "public net.minecraft.world.entity.ai.goal.AvoidEntityGoal walkSpeedModifier",
             "public net.minecraft.world.entity.ai.goal.AvoidEntityGoal sprintSpeedModifier",
+            "public net.minecraft.world.entity.ai.goal.MoveThroughVillageGoal speedModifier",
+            "public net.minecraft.world.entity.ai.goal.MoveThroughVillageGoal onlyAtNight",
+            "public net.minecraft.world.entity.ai.goal.MoveThroughVillageGoal distanceToPoi",
         )
         missing_scheduler_access = [entry for entry in required_scheduler_access if entry not in access]
         if missing_scheduler_access:
