@@ -107,6 +107,18 @@ public final class DynamicObjectGraphSelfTest {
             predicate = item -> item == body; // Captures the original body.
         }
     }
+
+    private static final class SharedPredicates {
+        // Models vanilla's static shared entity-selector predicates.
+        static final Predicate<Body> HAS_NAME = body -> body.name != null;
+    }
+    private static final class SharedPredicateGoal extends DynamicGoal {
+        final Predicate<Body> predicate;
+        SharedPredicateGoal(Body body) {
+            super(body, 4.0);
+            predicate = SharedPredicates.HAS_NAME::test;
+        }
+    }
     private static DynamicObjectGraph.Rebinding binding(Body from, Body to) {
         IdentityHashMap<Object, Object> replacements = new IdentityHashMap<>();
         replacements.put(from, to);
@@ -212,6 +224,15 @@ public final class DynamicObjectGraphSelfTest {
             check(expected.getMessage().contains("requiresSpecificSubclass"),
                 "field-level diagnostics for incompatible subclass requirement");
         }
+
+        SharedPredicateGoal sharedPredicate = new SharedPredicateGoal(cow);
+        SharedPredicateGoal sharedCopy = DynamicObjectGraph.capture(
+            sharedPredicate, SharedPredicateGoal.class, binding(cow, pig));
+        check(sharedCopy != sharedPredicate && sharedCopy.mob == pig,
+            "goal containing a shared vanilla-style predicate is rebound normally");
+        check(sharedCopy.predicate == sharedPredicate.predicate
+                && sharedCopy.predicate.test(pig),
+            "bound method reference to a stateless shared predicate is safely reused");
 
         try {
             DynamicObjectGraph.capture(new ClosedGoal(cow), ClosedGoal.class, binding(cow, pig));
