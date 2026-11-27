@@ -1,7 +1,7 @@
 # Dynamic AI Capture Study — Universal Mind Exchange
 
 Status: engineering study and architecture recommendation  
-Target: NeoForge 26.2 first; shared engine with version-isolated hooks  
+Target: NeoForge 26.2 only; later-version ports are deferred until 26.2 passes live acceptance tests  
 Scope: any living mob body ↔ any other living mob body, including unknown modded entities
 
 ## Executive conclusion
@@ -33,21 +33,19 @@ The architecture therefore has incompatible native implementation paths. Relaxin
 
 ## What Minecraft gives us to hook
 
-The current 26.3 source anatomy (a map, not a substitute for checking exact 26.2 signatures) shows a common server-side mob AI tick with distinct subsystems:
+The active development target is Minecraft 26.2 / NeoForge 26.2.0.95. The implementation plan is based on the exact 26.2 mappings and API surfaces below, not on a cross-version abstraction:
 
-- Mob.serverAiStep: common effective server AI entry point.
-- Mob.goalSelector and Mob.targetSelector: goal arbitration and running-task lifecycle.
-- Mob.getBrain() and Brain.tick: behavior/memory AI used by a subset of mobs.
-- Mob.customServerAiStep: extension point for Brain-driven and custom mob logic.
-- PathNavigation.tick: path progression and repathing.
-- MoveControl, LookControl, JumpControl: physical command execution.
-- Sensing: cached perception and line-of-sight.
-- Mob target assignment/getTarget: target state boundary.
-- LivingEntity damage/attack and interaction boundaries: action outcomes, but not sufficient alone to reconstruct decisions.
+- Mob.serverAiStep is the shared server-side mob AI envelope and is protected final; inject at the head/tail rather than override it.
+- Mob.customServerAiStep(ServerLevel) is the important extension boundary for Brain-driven and custom mob AI.
+- Mob exposes getGoalSelector, getLookControl, getMoveControl, getJumpControl, getNavigation, and getSensing accessors. The target selector's visibility must be handled with a 26.2-specific accessor only if necessary.
+- GoalSelector exposes add/remove/clear, tick, tickRunningGoals, getAvailableGoals, and control-flag operations. Observe lifecycle transitions rather than serialize its private locks.
+- Brain is generic over the owning LivingEntity. Brain.State/pack captures its memory map, not the sensors and behavior/task machinery; it is not a complete brain export.
+- Mob exposes target assignment and movement intent/control boundaries. Navigation and the movement/look/jump controls are useful common points to observe enacted commands and results.
+- LivingEntity damage/attack and interaction boundaries provide outcomes, but cannot reconstruct decisions on their own.
 
-Goal and Brain are materially different. GoalSelector arbitrates registered wrapped goals, priorities, running state, and control locks. Brain tracks memories, sensors, activities, and behavior controls. A mob can also run custom logic outside either system. Universal observation must cover both pipelines and shared perception/action boundaries; it cannot assume every mob is Goal-only or Brain-only.
+Goal and Brain are materially different pipelines. GoalSelector arbitrates registered wrapped goals, priorities, running state, and control locks. Brain tracks memories, sensors, activities, and behavior controls. Some mobs also run custom logic outside either system. The observer must cover both native pipelines and the shared perception/action boundaries; it cannot assume every mob is Goal-only or Brain-only.
 
-The documented AI pipeline runs on the logical server thread. Keep live observation and transfer work on that same thread. Do not asynchronously inspect live entities.
+Keep live observation and transfer work on the logical server thread. Do not asynchronously inspect live entities. The first implementation and every hook descriptor will be verified against 26.2 only. Later-version source files are dormant references and are excluded from the build, CI, and acceptance testing until 26.2 works.
 
 ## Methodologies compared
 
