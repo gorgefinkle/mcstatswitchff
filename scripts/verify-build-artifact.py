@@ -7,7 +7,7 @@ import zipfile
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--minecraft", required=True, choices=("26.2", "26.3"))
+    parser.add_argument("--minecraft", required=True, choices=("26.2",))
     parser.add_argument("--output", default="build/reports/freakyfriday")
     args = parser.parse_args()
     jars = sorted(p for p in Path("build/libs").glob("*.jar") if not p.name.endswith(("-sources.jar", "-javadoc.jar")))
