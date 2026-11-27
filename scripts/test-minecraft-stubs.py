@@ -451,6 +451,38 @@ public class SwellGoal extends Goal {
  public boolean canUse(){canUseCalls++;return true;}
 }
 ''',
+'net/minecraft/world/damagesource/DamageType.java':'''package net.minecraft.world.damagesource;
+public final class DamageType {}
+''',
+'net/minecraft/tags/TagKey.java':'''package net.minecraft.tags;
+public final class TagKey<T> { public final String value; public TagKey(String value){this.value=value;} }
+''',
+'net/minecraft/tags/DamageTypeTags.java':'''package net.minecraft.tags;
+import net.minecraft.world.damagesource.DamageType;
+public final class DamageTypeTags {public static final TagKey<DamageType> PANIC_CAUSES=new TagKey<>("panic_causes");}
+''',
+'net/minecraft/world/entity/ai/goal/PanicGoal.java':'''package net.minecraft.world.entity.ai.goal;
+import java.util.EnumSet;
+import java.util.function.Function;
+import net.minecraft.tags.DamageTypeTags;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.damagesource.DamageType;
+import net.minecraft.world.entity.PathfinderMob;
+public class PanicGoal extends Goal {
+ public final PathfinderMob mob;
+ public final double speedModifier;
+ public double posX,posY,posZ;
+ public boolean isRunning;
+ private final Function<PathfinderMob,TagKey<DamageType>> panicCausingDamageTypes;
+ public PanicGoal(PathfinderMob mob,double speed) {
+   this.mob=mob;this.speedModifier=speed;
+   TagKey<DamageType> tag=DamageTypeTags.PANIC_CAUSES;
+   this.panicCausingDamageTypes=entity -> tag;
+   setFlags(EnumSet.of(Flag.MOVE));
+ }
+ public boolean canUse(){return true;}
+}
+''',
 'net/minecraft/world/entity/ai/goal/AvoidEntityGoal.java':'''package net.minecraft.world.entity.ai.goal;
 import java.util.EnumSet;
 import java.util.function.Predicate;
@@ -683,6 +715,24 @@ public final class GoalPortHarness {
      ok(expected.getMessage().contains("avoidPredicate"),
         "owner-bound avoid predicate fails closed with a useful field path");
    }
+
+   PanicGoal donorPanic=new PanicGoal(zombie,1.25);
+   var panicBinding=new DynamicObjectGraph.Rebinding() {
+     public Object substitute(Object value){return value==zombie?skeleton:value;}
+     public boolean shared(Object value){return false;}
+     public boolean cloneable(Class<?> type){return Goal.class.isAssignableFrom(type);}
+   };
+   PanicGoal copiedPanic=DynamicObjectGraph.capture(donorPanic,PanicGoal.class,panicBinding);
+   ok(copiedPanic!=donorPanic && copiedPanic.mob==skeleton,
+      "PanicGoal is reconstructed with recipient body");
+   ok(copiedPanic.speedModifier==1.25 && copiedPanic.getFlags().contains(Goal.Flag.MOVE),
+      "PanicGoal speed and scheduler flags survive graph capture");
+   java.lang.reflect.Field panicFunctionField=PanicGoal.class.getDeclaredField("panicCausingDamageTypes");
+   panicFunctionField.setAccessible(true);
+   Object originalPanicFunction=panicFunctionField.get(donorPanic);
+   Object copiedPanicFunction=panicFunctionField.get(copiedPanic);
+   ok(originalPanicFunction==copiedPanicFunction,
+      "default PanicGoal damage-tag function is safely retained");
 
    Goal translatedAttack=GoalTransferAdapters.adapt(new ZombieAttackGoal(zombie),skeleton);
    ok(translatedAttack instanceof RecipientAttackIntentGoal,"owner-bound melee goal becomes portable attack intent");
