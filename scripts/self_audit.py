@@ -24,8 +24,17 @@ assert 'CategoryExchange.exchange(first,second,port)' in (root/'src/main/java/de
 assert not (root/'src/main/java/dev/freakyfriday/core/ExchangeEngine.java').exists()
 assert (root/'src/main/java/dev/freakyfriday/mind/DynamicObjectGraph.java').exists()
 assert (root/'src/main/java/dev/freakyfriday/mind/GoalSelectorState.java').exists()
+assert (root/'src/main/java/dev/freakyfriday/mind/GoalTransferAdapters.java').exists()
+assert (root/'src/main/java/dev/freakyfriday/mind/RecipientAttackIntentGoal.java').exists()
+assert 'GoalTransferAdapters.adapt(original, recipient)' in (root/'src/main/java/dev/freakyfriday/mind/GoalMindRuntime.java').read_text()
 scheduler_at=(resources/'META-INF/accesstransformer.cfg').read_text()
-for scheduler_field in ('GoalSelector lockedFlags','GoalSelector disabledFlags','WrappedGoal isRunning'):
+for scheduler_field in (
+    'GoalSelector lockedFlags','GoalSelector disabledFlags','WrappedGoal isRunning',
+    'MeleeAttackGoal speedModifier','MeleeAttackGoal followingTargetEvenIfNotSeen',
+    'RangedBowAttackGoal speedModifier','RangedBowAttackGoal attackIntervalMin',
+    'RangedBowAttackGoal attackRadiusSqr','RemoveBlockGoal blockToRemove',
+    'MoveToBlockGoal verticalSearchRange'
+):
     assert scheduler_field in scheduler_at, f'missing scheduler access transformer: {scheduler_field}'
 dynamic_runtime=(root/'src/main/java/dev/freakyfriday/mind/GoalMindRuntime.java').read_text()
 assert 'DynamicObjectGraph.capture(roots, Goal[].class' in dynamic_runtime
