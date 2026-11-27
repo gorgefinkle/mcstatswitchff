@@ -22,91 +22,91 @@ abstract class EntityBodyContextMixin {
     @Inject(method = "level", at = @At("HEAD"), cancellable = true)
     private void freakyfriday$bodyLevel(CallbackInfoReturnable<Level> callback) {
         Entity body = freakyfriday$body();
-        if (body != this) callback.setReturnValue(body.level());
+        if (body != (Entity) (Object) this) callback.setReturnValue(body.level());
     }
 
     @Inject(method = "position", at = @At("HEAD"), cancellable = true)
     private void freakyfriday$bodyPosition(CallbackInfoReturnable<Vec3> callback) {
         Entity body = freakyfriday$body();
-        if (body != this) callback.setReturnValue(body.position());
+        if (body != (Entity) (Object) this) callback.setReturnValue(body.position());
     }
 
     @Inject(method = "blockPosition", at = @At("HEAD"), cancellable = true)
     private void freakyfriday$bodyBlockPosition(CallbackInfoReturnable<BlockPos> callback) {
         Entity body = freakyfriday$body();
-        if (body != this) callback.setReturnValue(body.blockPosition());
+        if (body != (Entity) (Object) this) callback.setReturnValue(body.blockPosition());
     }
 
     @Inject(method = "getBoundingBox", at = @At("HEAD"), cancellable = true)
     private void freakyfriday$bodyBoundingBox(CallbackInfoReturnable<AABB> callback) {
         Entity body = freakyfriday$body();
-        if (body != this) callback.setReturnValue(body.getBoundingBox());
+        if (body != (Entity) (Object) this) callback.setReturnValue(body.getBoundingBox());
     }
 
     @Inject(method = "getX", at = @At("HEAD"), cancellable = true)
     private void freakyfriday$bodyX(CallbackInfoReturnable<Double> callback) {
         Entity body = freakyfriday$body();
-        if (body != this) callback.setReturnValue(body.getX());
+        if (body != (Entity) (Object) this) callback.setReturnValue(body.getX());
     }
 
     @Inject(method = "getY", at = @At("HEAD"), cancellable = true)
     private void freakyfriday$bodyY(CallbackInfoReturnable<Double> callback) {
         Entity body = freakyfriday$body();
-        if (body != this) callback.setReturnValue(body.getY());
+        if (body != (Entity) (Object) this) callback.setReturnValue(body.getY());
     }
 
     @Inject(method = "getZ", at = @At("HEAD"), cancellable = true)
     private void freakyfriday$bodyZ(CallbackInfoReturnable<Double> callback) {
         Entity body = freakyfriday$body();
-        if (body != this) callback.setReturnValue(body.getZ());
+        if (body != (Entity) (Object) this) callback.setReturnValue(body.getZ());
     }
 
     @Inject(method = "getEyeY", at = @At("HEAD"), cancellable = true)
     private void freakyfriday$bodyEyeY(CallbackInfoReturnable<Double> callback) {
         Entity body = freakyfriday$body();
-        if (body != this) callback.setReturnValue(body.getEyeY());
+        if (body != (Entity) (Object) this) callback.setReturnValue(body.getEyeY());
     }
 
     @Inject(method = "getEyeHeight", at = @At("HEAD"), cancellable = true)
     private void freakyfriday$bodyEyeHeight(CallbackInfoReturnable<Float> callback) {
         Entity body = freakyfriday$body();
-        if (body != this) callback.setReturnValue(body.getEyeHeight());
+        if (body != (Entity) (Object) this) callback.setReturnValue(body.getEyeHeight());
     }
 
     @Inject(method = "getBbWidth", at = @At("HEAD"), cancellable = true)
     private void freakyfriday$bodyWidth(CallbackInfoReturnable<Float> callback) {
         Entity body = freakyfriday$body();
-        if (body != this) callback.setReturnValue(body.getBbWidth());
+        if (body != (Entity) (Object) this) callback.setReturnValue(body.getBbWidth());
     }
 
     @Inject(method = "getBbHeight", at = @At("HEAD"), cancellable = true)
     private void freakyfriday$bodyHeight(CallbackInfoReturnable<Float> callback) {
         Entity body = freakyfriday$body();
-        if (body != this) callback.setReturnValue(body.getBbHeight());
+        if (body != (Entity) (Object) this) callback.setReturnValue(body.getBbHeight());
     }
 
     @Inject(method = "getYRot", at = @At("HEAD"), cancellable = true)
     private void freakyfriday$bodyYaw(CallbackInfoReturnable<Float> callback) {
         Entity body = freakyfriday$body();
-        if (body != this) callback.setReturnValue(body.getYRot());
+        if (body != (Entity) (Object) this) callback.setReturnValue(body.getYRot());
     }
 
     @Inject(method = "getXRot", at = @At("HEAD"), cancellable = true)
     private void freakyfriday$bodyPitch(CallbackInfoReturnable<Float> callback) {
         Entity body = freakyfriday$body();
-        if (body != this) callback.setReturnValue(body.getXRot());
+        if (body != (Entity) (Object) this) callback.setReturnValue(body.getXRot());
     }
 
     @Inject(method = "getDeltaMovement", at = @At("HEAD"), cancellable = true)
     private void freakyfriday$bodyVelocity(CallbackInfoReturnable<Vec3> callback) {
         Entity body = freakyfriday$body();
-        if (body != this) callback.setReturnValue(body.getDeltaMovement());
+        if (body != (Entity) (Object) this) callback.setReturnValue(body.getDeltaMovement());
     }
 
     @Inject(method = "setDeltaMovement(Lnet/minecraft/world/phys/Vec3;)V", at = @At("HEAD"), cancellable = true)
     private void freakyfriday$setBodyVelocity(Vec3 movement, CallbackInfo callback) {
         Entity body = freakyfriday$body();
-        if (body != this) {
+        if (body != (Entity) (Object) this) {
             body.setDeltaMovement(movement);
             callback.cancel();
         }
@@ -115,7 +115,7 @@ abstract class EntityBodyContextMixin {
     @Inject(method = "setDeltaMovement(DDD)V", at = @At("HEAD"), cancellable = true)
     private void freakyfriday$setBodyVelocity(double x, double y, double z, CallbackInfo callback) {
         Entity body = freakyfriday$body();
-        if (body != this) {
+        if (body != (Entity) (Object) this) {
             body.setDeltaMovement(x, y, z);
             callback.cancel();
         }
@@ -124,7 +124,7 @@ abstract class EntityBodyContextMixin {
     @Inject(method = "setYRot", at = @At("HEAD"), cancellable = true)
     private void freakyfriday$setBodyYaw(float rotation, CallbackInfo callback) {
         Entity body = freakyfriday$body();
-        if (body != this) {
+        if (body != (Entity) (Object) this) {
             body.setYRot(rotation);
             callback.cancel();
         }
@@ -133,7 +133,7 @@ abstract class EntityBodyContextMixin {
     @Inject(method = "setXRot", at = @At("HEAD"), cancellable = true)
     private void freakyfriday$setBodyPitch(float rotation, CallbackInfo callback) {
         Entity body = freakyfriday$body();
-        if (body != this) {
+        if (body != (Entity) (Object) this) {
             body.setXRot(rotation);
             callback.cancel();
         }
