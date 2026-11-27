@@ -488,7 +488,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.server.level.ServerLevel;
 public final class TargetingConditions {
  @FunctionalInterface public interface Selector {boolean test(LivingEntity target,ServerLevel level);}
- private Selector selector;
+ public Selector selector;
  private double range;
  public static TargetingConditions forCombat(){return new TargetingConditions();}
  public TargetingConditions range(double range){this.range=range;return this;}
