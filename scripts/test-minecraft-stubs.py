@@ -93,7 +93,7 @@ public InteractionResult interactLivingEntity(ItemStack stack,Player player,Livi
 import net.minecraft.world.entity.Entity;import net.minecraft.resources.Identifier;import java.util.*;
 public final class ServerLevel {public record Dimension(Identifier identifier){} private final Dimension dim;private final Map<UUID,Entity> entities=new HashMap<>();
 private long time=0; public long getGameTime(){return time;} public void tick(){++time;}
-public ServerLevel(String id){dim=new Dimension(new Identifier(id));}public Dimension dimension(){return dim;}public void add(Entity e){entities.put(e.getUUID(),e);}
+public ServerLevel(String id){dim=new Dimension(new Identifier(id));}public Dimension dimension(){return dim;}public boolean isClientSide(){return false;}public void add(Entity e){entities.put(e.getUUID(),e);}
 public Entity getEntity(UUID id){return entities.get(id);} }''',
 'net/minecraft/world/entity/Entity.java':'''package net.minecraft.world.entity;
 import java.util.UUID;import net.minecraft.server.level.ServerLevel;import net.minecraft.network.chat.Component;
@@ -293,6 +293,39 @@ subprocess.run(['java','-ea','-cp',str(OUT),'dev.freakyfriday.BridgeHarness'],ch
 # This catches missing internal references and most Java source errors, but API signatures
 # are synthetic and must NOT be represented as a real NeoForge compile.
 FULL={
+'org/spongepowered/asm/mixin/Mixin.java':'''package org.spongepowered.asm.mixin;
+import java.lang.annotation.*;
+@Retention(RetentionPolicy.RUNTIME) @Target(ElementType.TYPE)
+public @interface Mixin { Class<?>[] value() default {}; }
+''',
+'org/spongepowered/asm/mixin/injection/At.java':'''package org.spongepowered.asm.mixin.injection;
+import java.lang.annotation.*;
+@Retention(RetentionPolicy.RUNTIME) @Target({ElementType.METHOD,ElementType.ANNOTATION_TYPE})
+public @interface At { String value(); }
+''',
+'org/spongepowered/asm/mixin/injection/Inject.java':'''package org.spongepowered.asm.mixin.injection;
+import java.lang.annotation.*;
+@Retention(RetentionPolicy.RUNTIME) @Target(ElementType.METHOD)
+public @interface Inject { String[] method(); At at(); }
+''',
+'org/spongepowered/asm/mixin/injection/callback/CallbackInfo.java':'''package org.spongepowered.asm.mixin.injection.callback;
+public class CallbackInfo {}
+''',
+'org/slf4j/Logger.java':'''package org.slf4j;
+public interface Logger { default void debug(String message,Object... args) {} }
+''',
+'com/mojang/logging/LogUtils.java':'''package com.mojang.logging;
+import org.slf4j.Logger;
+public final class LogUtils { private static final Logger LOGGER=new Logger(){}; public static Logger getLogger(){return LOGGER;} }
+''',
+'net/minecraft/world/entity/Mob.java':'''package net.minecraft.world.entity;
+import net.minecraft.server.level.ServerLevel;
+public class Mob extends LivingEntity {
+ private final EntityType<Mob> type=new EntityType<>("test:mob");
+ public Mob(String name,ServerLevel level){super(name,level);}
+ public EntityType<Mob> getType(){return type;}
+}
+''',
 'net/minecraft/world/entity/EntityType.java':'''package net.minecraft.world.entity;
 public final class EntityType<T extends LivingEntity>{public final String name;public EntityType(String name){this.name=name;}}
 ''',
