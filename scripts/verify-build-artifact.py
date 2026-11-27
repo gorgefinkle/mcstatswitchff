@@ -63,6 +63,13 @@ def main():
             "public net.minecraft.world.entity.ai.goal.MoveThroughVillageGoal speedModifier",
             "public net.minecraft.world.entity.ai.goal.MoveThroughVillageGoal onlyAtNight",
             "public net.minecraft.world.entity.ai.goal.MoveThroughVillageGoal distanceToPoi",
+            "public net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal targetType",
+            "public net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal randomInterval",
+            "public net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal targetConditions",
+            "public net.minecraft.world.entity.ai.goal.target.TargetGoal mustSee",
+            "public net.minecraft.world.entity.ai.goal.target.TargetGoal mustReach",
+            "public net.minecraft.world.entity.ai.goal.target.TargetGoal unseenMemoryTicks",
+            "public net.minecraft.world.entity.ai.targeting.TargetingConditions selector",
         )
         missing_scheduler_access = [entry for entry in required_scheduler_access if entry not in access]
         if missing_scheduler_access:
