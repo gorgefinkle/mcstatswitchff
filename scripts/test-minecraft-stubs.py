@@ -483,6 +483,43 @@ public class PanicGoal extends Goal {
  public boolean canUse(){return true;}
 }
 ''',
+'net/minecraft/world/entity/ai/targeting/TargetingConditions.java':'''package net.minecraft.world.entity.ai.targeting;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.server.level.ServerLevel;
+public final class TargetingConditions {
+ @FunctionalInterface public interface Selector {boolean test(LivingEntity target,ServerLevel level);}
+ private Selector selector;
+ private double range;
+ public static TargetingConditions forCombat(){return new TargetingConditions();}
+ public TargetingConditions range(double range){this.range=range;return this;}
+ public TargetingConditions selector(Selector selector){this.selector=selector;return this;}
+}
+''',
+'net/minecraft/world/entity/ai/goal/target/TargetGoal.java':'''package net.minecraft.world.entity.ai.goal.target;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.goal.Goal;
+public class TargetGoal extends Goal {
+ public final Mob mob; public final boolean mustSee,mustReach; public int unseenMemoryTicks=60;
+ public TargetGoal(Mob mob,boolean mustSee,boolean mustReach){this.mob=mob;this.mustSee=mustSee;this.mustReach=mustReach;}
+ public void setUnseenMemoryTicks(int ticks){unseenMemoryTicks=ticks;}
+ public boolean canUse(){return true;}
+}
+''',
+'net/minecraft/world/entity/ai/goal/target/NearestAttackableTargetGoal.java':'''package net.minecraft.world.entity.ai.goal.target;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.targeting.TargetingConditions;
+public class NearestAttackableTargetGoal<T extends LivingEntity> extends TargetGoal {
+ public final Class<T> targetType; public final int randomInterval;
+ public final TargetingConditions targetConditions;
+ public NearestAttackableTargetGoal(Mob mob,Class<T> type,int interval,boolean mustSee,boolean mustReach,
+   TargetingConditions.Selector selector){
+   super(mob,mustSee,mustReach);this.targetType=type;this.randomInterval=(interval+1)/2;
+   this.targetConditions=TargetingConditions.forCombat().range(32).selector(selector);
+ }
+ public boolean canUse(){return true;}
+}
+''',
 'net/minecraft/world/entity/ai/goal/MoveThroughVillageGoal.java':'''package net.minecraft.world.entity.ai.goal;
 import java.util.EnumSet;
 import java.util.function.BooleanSupplier;
@@ -705,6 +742,37 @@ public final class GoalPortHarness {
    ok(remover.blockToRemove==block && remover.speedModifier==1.15 && remover.verticalSearchRange==2,
       "block target, speed and search range survive translation");
    ok(remover.getFlags().contains(Goal.Flag.MOVE),"scheduler control flags survive translation");
+
+   net.minecraft.world.entity.ai.targeting.TargetingConditions.Selector turtleSelector =
+      (entity,serverLevel) -> entity.isAlive();
+   var nearestSource=new net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal<>(
+      zombie,net.minecraft.world.entity.LivingEntity.class,12,false,true,turtleSelector);
+   nearestSource.setUnseenMemoryTicks(90);
+   Object oldTargetConditions=nearestSource.targetConditions;
+   Goal translatedNearest=GoalTransferAdapters.adapt(nearestSource,skeleton);
+   ok(translatedNearest instanceof net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal<?>,
+      "nearest-target goal is reconstructed with fresh targeting conditions");
+   var nearest=(net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal<?>)translatedNearest;
+   ok(nearest.mob==skeleton && nearest.targetType==nearestSource.targetType,
+      "target acquisition is rebound to recipient and retains target class");
+   ok(nearest.randomInterval==nearestSource.randomInterval && !nearest.mustSee && nearest.mustReach,
+      "target search cadence, visibility and reach policy survive reconstruction");
+   ok(nearest.unseenMemoryTicks==90,
+      "target goal unseen-memory setting is retained");
+   ok(nearest.targetConditions!=oldTargetConditions
+       && nearest.targetConditions.selector==turtleSelector,
+      "targeting conditions are recreated while preserving safe custom selector");
+   try {
+     net.minecraft.world.entity.ai.targeting.TargetingConditions.Selector unsafeSelector =
+        (entity,serverLevel) -> entity != zombie;
+     var unsafeNearest=new net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal<>(
+        zombie,net.minecraft.world.entity.LivingEntity.class,10,true,false,unsafeSelector);
+     GoalTransferAdapters.adapt(unsafeNearest,skeleton);
+     throw new AssertionError("captured donor in target selector must be rejected");
+   } catch(DynamicObjectGraph.Uncapturable expected) {
+     ok(expected.getMessage().contains("targetSelector"),
+        "owner-bound target selector fails closed with useful path");
+   }
 
    var villageSource=new MoveThroughVillageGoal(
       zombie,1.0,true,4,zombie::canBreakDoors);
