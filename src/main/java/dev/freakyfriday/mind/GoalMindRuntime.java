@@ -15,6 +15,7 @@ import net.minecraft.world.entity.ai.goal.GoalSelector;
 import net.minecraft.world.entity.ai.goal.WrappedGoal;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -85,7 +86,7 @@ public final class GoalMindRuntime {
                     || value.getClass() == BlockPos.class
                     || value.getClass() == Vec3.class
                     || value instanceof Identifier || value instanceof TagKey<?>
-                    || value instanceof Item;
+                    || value instanceof Item || value instanceof Block;
             }
 
             @Override
