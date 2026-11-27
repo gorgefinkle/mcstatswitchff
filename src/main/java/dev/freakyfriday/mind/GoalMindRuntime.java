@@ -176,6 +176,7 @@ public final class GoalMindRuntime {
             return "Native goal scheduler state is inconsistent or inaccessible; no swap performed: "
                 + invalidScheduler.getMessage();
         }
+        MobMindTargetState.Snapshot originalTargets = MobMindTargetState.capture(first, second);
         if (originalFirst.goals().entries().isEmpty() && originalFirst.targets().entries().isEmpty())
             return "The first mob has no goal AI to capture.";
         if (originalSecond.goals().entries().isEmpty() && originalSecond.targets().entries().isEmpty())
@@ -208,12 +209,14 @@ public final class GoalMindRuntime {
         if (!identical(first.goalSelector, originalFirst.goals())
                 || !identical(first.targetSelector, originalFirst.targets())
                 || !identical(second.goalSelector, originalSecond.goals())
-                || !identical(second.targetSelector, originalSecond.targets()))
-            return "One mob's AI changed during capture; no swap performed.";
+                || !identical(second.targetSelector, originalSecond.targets())
+                || !MobMindTargetState.matches(first, second, originalTargets))
+            return "One mob's AI or active target changed during capture; no swap performed.";
 
         try {
             apply(first, firstReceiving);
             apply(second, secondReceiving);
+            MobMindTargetState.exchange(first, second, originalTargets);
             OWNERS.exchange(firstId, secondId, (body, incoming) -> {
                 if (incoming.kind() != MindLedger.Kind.NPC)
                     throw new IllegalArgumentException("Incoming mind is not a complete NPC controller");
@@ -226,6 +229,8 @@ public final class GoalMindRuntime {
             try { apply(first, firstRollback); }
             catch (Exception rollback) { failure.addSuppressed(rollback); }
             try { apply(second, secondRollback); }
+            catch (Exception rollback) { failure.addSuppressed(rollback); }
+            try { MobMindTargetState.restore(first, second, originalTargets); }
             catch (Exception rollback) { failure.addSuppressed(rollback); }
             if (failure.getSuppressed().length != 0)
                 return "Dynamic AI exchange FAILED; rollback could not be verified: "
