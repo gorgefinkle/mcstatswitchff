@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Compile and exercise the REAL Minecraft-facing R0.9 classes against synthetic API mocks.
+"""Compile session/UI wiring against synthetic API mocks.
+The fake NativeBrainSwap ALWAYS reports that AI execution is not simulated.
+This harness is NOT evidence of any successful or failed native AI transfer.
 Not a substitute for NeoForge binary linkage or a live game run.
 """
 from pathlib import Path
@@ -12,10 +14,10 @@ STUB.mkdir(parents=True,exist_ok=True); OUT.mkdir(parents=True,exist_ok=True)
 S={
 'dev/freakyfriday/mind/NativeBrainSwap.java':'''package dev.freakyfriday.mind;
 import net.minecraft.world.entity.LivingEntity;
-/** Headless stand-in ONLY. The actual native Brain is compiled by NeoForge CI. */
+/** Session-harness sentinel ONLY. Never simulates a successful AI exchange. */
 public final class NativeBrainSwap {
  public static String exchange(LivingEntity a,LivingEntity b){
-  return (a.name.equals("OpaqueGoal") || b.name.equals("OpaqueGoal"))\n      ? "Dynamic AI capture rejected the COMPLETE exchange: unsupported goal" : null;
+  return "HARNESS ONLY: native AI transfer is not executed by this test";
  }
 }''',
 'dev/freakyfriday/CategoryPickerNetworking.java':'''package dev.freakyfriday;
@@ -510,24 +512,20 @@ public class BookInteractionHarness {
   var second=new PlayerInteractEvent.EntityInteract(p,cow);
   BookInteractions.onInteract(second);
   ok(second.isCanceled(),"second click consumes normal interaction");
-  ok(received(p,"Exchanged complete supported AI mind controllers"),
-     "cross-species first/second inputs reach dynamic swap without categories");
+  ok(received(p,"HARNESS ONLY: native AI transfer is not executed"),
+     "session harness reaches the explicit non-AI sentinel, not fake success");
   ok(villager.getAttributes().getInstance(armor).getBaseValue()==8
       && cow.getAttributes().getInstance(armor).getBaseValue()==2,
      "body stats are not silently exchanged alongside minds");
 
-  // The synthetic driver only tests book/session decisions. Real Goal capture
-  // is tested by DynamicObjectGraphSelfTest and actual NeoForge compilation.
+  // This harness cannot validate native AI. It only verifies that a rejected
+  // test sentinel leaves the two-click selection available for another target.
   w.tick();
-  LivingEntity unportable=new LivingEntity("OpaqueGoal",w);
-  BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,villager));
-  BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,unportable));
-  ok(received(p,"Dynamic AI capture rejected the COMPLETE exchange"),
-     "opaque AI rejects the entire transaction without pretending success");
   LivingEntity anotherVillager=new LivingEntity("Villager",w);
+  BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,villager));
   BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,anotherVillager));
-  ok(received(p,"Exchanged complete supported AI mind controllers"),
-     "after rejection, second-target replacement still works");
+  ok(received(p,"HARNESS ONLY: native AI transfer is not executed"),
+     "session remains usable after the explicit harness-only sentinel");
 
   p.setMainHand(new Object());
   var noBook=new PlayerInteractEvent.EntityInteract(p,villager);
