@@ -622,7 +622,16 @@ public final class GoalPortHarness {
    var creeper=new CreeperLike(level);
    var block=new Block();
 
-   Goal translatedEgg=GoalTransferAdapters.adapt(zombie.new ZombieAttackTurtleEggGoal(block),skeleton);
+   Goal sourceEgg=zombie.new ZombieAttackTurtleEggGoal(block);
+   for (java.lang.reflect.Field field:sourceEgg.getClass().getDeclaredFields()) {
+     field.setAccessible(true);
+     Object value=field.get(sourceEgg);
+     System.out.println("GOAL-FIELD "+field.getName()+" type="+field.getType().getName()
+       +" mobType="+net.minecraft.world.entity.Mob.class.isAssignableFrom(field.getType())
+       +" value="+(value==null?"null":value.getClass().getName())
+       +" recipientCompatible="+(value==null || field.getType().isInstance(skeleton)));
+   }
+   Goal translatedEgg=GoalTransferAdapters.adapt(sourceEgg,skeleton);
    ok(translatedEgg instanceof RemoveBlockGoal,"species-bound block removal becomes a generic recipient-owned remover");
    var remover=(RemoveBlockGoal)translatedEgg;
    ok(remover.mob==skeleton,"block-removal behavior executes on recipient body");
