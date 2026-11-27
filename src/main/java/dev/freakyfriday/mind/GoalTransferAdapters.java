@@ -10,6 +10,7 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.ai.goal.AvoidEntityGoal;
+import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
 import net.minecraft.world.entity.ai.goal.MeleeAttackGoal;
 import net.minecraft.world.entity.ai.goal.MoveThroughVillageGoal;
 import net.minecraft.world.entity.ai.goal.MoveToBlockGoal;
@@ -41,6 +42,13 @@ public final class GoalTransferAdapters {
      */
     public static Goal adapt(Goal source, Mob recipient)
             throws DynamicObjectGraph.Uncapturable {
+        // LookAtPlayerGoal's Player selector is constructed from
+        // EntitySelector.notRiding(mob), a closure bound to the original body.
+        // Rebuild it so the "not riding" check points at the recipient.
+        if (source.getClass() == LookAtPlayerGoal.class) {
+            return adaptLookAtPlayer((LookAtPlayerGoal) source, recipient);
+        }
+
         // NearestAttackableTargetGoal owns mutable TargetingConditions built
         // from recipient follow range. Recreate that helper using the original
         // target class, cadence, visibility/reach settings and validated selector.
@@ -125,6 +133,18 @@ public final class GoalTransferAdapters {
             }
         }
         return false;
+    }
+
+    private static Goal adaptLookAtPlayer(LookAtPlayerGoal source, Mob recipient)
+            throws DynamicObjectGraph.Uncapturable {
+        LookAtPlayerGoal replacement = new LookAtPlayerGoal(
+            recipient,
+            source.lookAtType,
+            source.lookDistance,
+            source.probability,
+            source.onlyHorizontal);
+        replacement.setFlags(source.getFlags().clone());
+        return replacement;
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
