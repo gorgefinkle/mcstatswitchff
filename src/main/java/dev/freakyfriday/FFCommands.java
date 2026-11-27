@@ -1,12 +1,13 @@
 package dev.freakyfriday;
 
-import com.mojang.brigadier.arguments.StringArgumentType;
 import dev.freakyfriday.mind.MindHostRegistry;
 import dev.freakyfriday.mind.MindSwapSessions;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.permissions.Permission;
+import net.minecraft.server.permissions.PermissionLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -36,7 +37,7 @@ public final class FFCommands {
                 return 1;
             }))
             .then(Commands.literal("debug-exchange")
-                .requires(source -> source.hasPermission(2))
+                .requires(source -> source.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.GAMEMASTERS)))
                 .then(Commands.argument("first", EntityArgument.entity())
                     .then(Commands.argument("second", EntityArgument.entity()).executes(ctx -> {
                         Entity firstEntity = EntityArgument.getEntity(ctx, "first");
