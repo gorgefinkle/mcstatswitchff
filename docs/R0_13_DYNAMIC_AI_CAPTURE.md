@@ -82,6 +82,10 @@ complete exchange.
     donor-bound `this::canBreakDoors` callback is replaced with a dynamic
     query for the recipient's own public `canBreakDoors()` capability; bodies
     without that capability do not inherit the donor's door-breaking ability.
+  - Base `LookAtPlayerGoal` instances are reconstructed so the
+    Player-targeting `notRiding` callback is rebound to the recipient. Target
+    class, look distance, probability, horizontal-only mode and control flags
+    are retained.
   - Base `NearestAttackableTargetGoal` instances are recreated with
     recipient-specific `TargetingConditions`, retaining target class,
     normalized search cadence, must-see/must-reach settings, unseen memory and
