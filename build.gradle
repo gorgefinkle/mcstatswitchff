@@ -114,3 +114,13 @@ tasks.register("runMindBodyBindingsSelfTest", JavaExec) {
     enableAssertions = true
 }
 tasks.named('check') { dependsOn tasks.named('runMindBodyBindingsSelfTest') }
+
+tasks.register("runMindBodyContextSelfTest", JavaExec) {
+    group = 'verification'
+    description = "Verify nested, exception-safe controller to physical body context"
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.freakyfriday.mind.MindBodyContextSelfTest'
+    enableAssertions = true
+}
+tasks.named('check') { dependsOn tasks.named('runMindBodyContextSelfTest') }
