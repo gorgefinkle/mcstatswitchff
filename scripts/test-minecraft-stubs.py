@@ -402,6 +402,87 @@ public final List<String> hints=new ArrayList<>();public ItemStack getMainHandIt
 public void displayClientMessage(Component msg,boolean actionbar){hints.add(msg.getString());}}
 public static class Connection{public final List<String> commands=new ArrayList<>();public void sendCommand(String command){commands.add(command);}}
 }''',
+
+'net/minecraft/world/Difficulty.java':'''package net.minecraft.world;
+public enum Difficulty {PEACEFUL,EASY,NORMAL,HARD}
+''',
+'net/minecraft/world/level/block/Block.java':'''package net.minecraft.world.level.block;
+public class Block {}
+''',
+'net/minecraft/world/entity/Mob.java':'''package net.minecraft.world.entity;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.item.ItemStack;
+public class Mob extends LivingEntity {
+ public Mob(String name,ServerLevel level){super(name,level);}
+ public ItemStack getMainHandItem(){return super.getMainHandItem();}
+ public ItemStack getOffhandItem(){return super.getOffhandItem();}
+}
+''',
+'net/minecraft/world/entity/PathfinderMob.java':'''package net.minecraft.world.entity;
+import net.minecraft.server.level.ServerLevel;
+public class PathfinderMob extends Mob {
+ public PathfinderMob(String name,ServerLevel level){super(name,level);}
+}
+''',
+'net/minecraft/world/entity/monster/RangedAttackMob.java':'''package net.minecraft.world.entity.monster;
+public interface RangedAttackMob {}
+''',
+'net/minecraft/world/item/Items.java':'''package net.minecraft.world.item;
+public final class Items { public static final Item BOW=new Item(new Item.Properties()); }
+''',
+'net/minecraft/world/entity/ai/goal/Goal.java':'''package net.minecraft.world.entity.ai.goal;
+import java.util.EnumSet;
+public abstract class Goal {
+ public enum Flag {MOVE,LOOK,JUMP,TARGET}
+ private EnumSet<Flag> flags=EnumSet.noneOf(Flag.class);
+ public void setFlags(EnumSet<Flag> values){flags=values.clone();}
+ public EnumSet<Flag> getFlags(){return flags.clone();}
+ public abstract boolean canUse();
+ public boolean canContinueToUse(){return canUse();}
+ public void start(){}
+ public void stop(){}
+ public void tick(){}
+ public boolean requiresUpdateEveryTick(){return false;}
+ public boolean isInterruptable(){return true;}
+}
+''',
+'net/minecraft/world/entity/ai/goal/MeleeAttackGoal.java':'''package net.minecraft.world.entity.ai.goal;
+import net.minecraft.world.entity.PathfinderMob;
+public class MeleeAttackGoal extends Goal {
+ public final double speedModifier;
+ public final boolean followingTargetEvenIfNotSeen;
+ public MeleeAttackGoal(PathfinderMob mob,double speed,boolean follow){speedModifier=speed;followingTargetEvenIfNotSeen=follow;}
+ public boolean canUse(){return true;}
+}
+''',
+'net/minecraft/world/entity/ai/goal/RangedBowAttackGoal.java':'''package net.minecraft.world.entity.ai.goal;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.monster.RangedAttackMob;
+public class RangedBowAttackGoal<T extends Mob & RangedAttackMob> extends Goal {
+ public final double speedModifier;
+ public final int attackIntervalMin;
+ public final float attackRadiusSqr;
+ public RangedBowAttackGoal(T mob,double speed,int interval,float radius){speedModifier=speed;attackIntervalMin=interval;attackRadiusSqr=radius*radius;}
+ public boolean canUse(){return true;}
+}
+''',
+'net/minecraft/world/entity/ai/goal/MoveToBlockGoal.java':'''package net.minecraft.world.entity.ai.goal;
+import net.minecraft.world.entity.PathfinderMob;
+public class MoveToBlockGoal extends Goal {
+ public final PathfinderMob mob; public final double speedModifier; public final int verticalSearchRange;
+ public MoveToBlockGoal(PathfinderMob mob,double speed,int range){this.mob=mob;speedModifier=speed;verticalSearchRange=range;}
+ public double acceptedDistance(){return 1.0;}
+ public boolean canUse(){return true;}
+}
+''',
+'net/minecraft/world/entity/ai/goal/RemoveBlockGoal.java':'''package net.minecraft.world.entity.ai.goal;
+import net.minecraft.world.entity.PathfinderMob;
+import net.minecraft.world.level.block.Block;
+public class RemoveBlockGoal extends MoveToBlockGoal {
+ public final Block blockToRemove;
+ public RemoveBlockGoal(Block block,PathfinderMob mob,double speed,int range){super(mob,speed,range);blockToRemove=block;}
+}
+''',
 }
 for n,txt in FULL.items():
     file=STUB/n;file.parent.mkdir(parents=True,exist_ok=True);file.write_text(txt+'\n')
