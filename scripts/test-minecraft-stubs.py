@@ -349,9 +349,9 @@ public int tickCount;public double xo,yo,zo,xOld,yOld,zOld;public float yRotO,xR
 private Vec3 position=new Vec3(0,0,0), movement=new Vec3(0,0,0);private float yaw=0,pitch=0;private boolean removed;
 public Entity(String name,ServerLevel l){this.name=name;level=l;l.add(this);}public UUID getUUID(){return uuid;}public ServerLevel level(){return level;}
 public void tick(){} public boolean isRemoved(){return removed;} public void discard(){removed=true;}
-public Vec3 position(){return position;} public BlockPos blockPosition(){return new BlockPos((int)position.x(),(int)position.y(),(int)position.z());}
-public AABB getBoundingBox(){return new AABB(position.x()-.3,position.y(),position.z()-.3,position.x()+.3,position.y()+1.8,position.z()+.3);}
-public double getX(){return position.x();}public double getY(){return position.y();}public double getZ(){return position.z();}
+public Vec3 position(){return position;} public BlockPos blockPosition(){return new BlockPos((int)position.x,(int)position.y,(int)position.z);}
+public AABB getBoundingBox(){return new AABB(position.x-.3,position.y,position.z-.3,position.x+.3,position.y+1.8,position.z+.3);}
+public double getX(){return position.x;}public double getY(){return position.y;}public double getZ(){return position.z;}
 public double getEyeY(){return getY()+1.6;}public float getEyeHeight(){return 1.6f;}public float getBbWidth(){return .6f;}public float getBbHeight(){return 1.8f;}
 public float getYRot(){return yaw;}public void setYRot(float v){yaw=v;}public float getXRot(){return pitch;}public void setXRot(float v){pitch=v;}
 public Vec3 getDeltaMovement(){return movement;}public void setDeltaMovement(Vec3 v){movement=v;}public void setDeltaMovement(double x,double y,double z){movement=new Vec3(x,y,z);}
