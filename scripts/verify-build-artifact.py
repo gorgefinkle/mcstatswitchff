@@ -54,6 +54,12 @@ def main():
             "public net.minecraft.world.entity.ai.goal.RangedBowAttackGoal attackRadiusSqr",
             "public net.minecraft.world.entity.ai.goal.RemoveBlockGoal blockToRemove",
             "public net.minecraft.world.entity.ai.goal.MoveToBlockGoal verticalSearchRange",
+            "public net.minecraft.world.entity.ai.goal.AvoidEntityGoal avoidClass",
+            "public net.minecraft.world.entity.ai.goal.AvoidEntityGoal avoidPredicate",
+            "public net.minecraft.world.entity.ai.goal.AvoidEntityGoal maxDist",
+            "public net.minecraft.world.entity.ai.goal.AvoidEntityGoal predicateOnAvoidEntity",
+            "public net.minecraft.world.entity.ai.goal.AvoidEntityGoal walkSpeedModifier",
+            "public net.minecraft.world.entity.ai.goal.AvoidEntityGoal sprintSpeedModifier",
         )
         missing_scheduler_access = [entry for entry in required_scheduler_access if entry not in access]
         if missing_scheduler_access:
