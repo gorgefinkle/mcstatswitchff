@@ -104,3 +104,13 @@ tasks.register("runDynamicObjectGraphSelfTest", JavaExec) {
     enableAssertions = true
 }
 tasks.named('check') { dependsOn tasks.named('runDynamicObjectGraphSelfTest') }
+
+tasks.register("runMindBodyBindingsSelfTest", JavaExec) {
+    group = 'verification'
+    description = "Verify species-agnostic controller-to-body ownership and exact reversal"
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.freakyfriday.mind.MindBodyBindingsSelfTest'
+    enableAssertions = true
+}
+tasks.named('check') { dependsOn tasks.named('runMindBodyBindingsSelfTest') }
