@@ -65,6 +65,13 @@ public final class GoalTransferAdapters {
     }
 
     private static boolean hasIncompatibleMobOwner(Goal source, Mob recipient) {
+        // Non-static member goals carry their owning species in a synthetic
+        // this$0 field. Class metadata exposes that enclosing type directly,
+        // even when reflection policy hides the synthetic field itself.
+        Class<?> enclosing = source.getClass().getEnclosingClass();
+        if (enclosing != null && Mob.class.isAssignableFrom(enclosing)
+                && !enclosing.isInstance(recipient)) return true;
+
         for (Class<?> declaring = source.getClass();
              declaring != null && declaring != Object.class;
              declaring = declaring.getSuperclass()) {
