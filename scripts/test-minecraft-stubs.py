@@ -312,7 +312,7 @@ public @interface Inject { String[] method(); At at(); }
 public class CallbackInfo {}
 ''',
 'org/slf4j/Logger.java':'''package org.slf4j;
-public interface Logger { default void debug(String message,Object... args) {} }
+public interface Logger { default void debug(String message,Object... args) {} default void info(String message,Object... args) {} }
 ''',
 'com/mojang/logging/LogUtils.java':'''package com.mojang.logging;
 import org.slf4j.Logger;
