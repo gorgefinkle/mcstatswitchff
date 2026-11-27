@@ -90,8 +90,8 @@ import net.minecraft.world.*;import net.minecraft.world.entity.*;import net.mine
 public class Item {public static class Properties{public Properties stacksTo(int n){return this;}}public Item(Properties p){}
 public InteractionResult interactLivingEntity(ItemStack stack,Player player,LivingEntity target, InteractionHand hand){return InteractionResult.SUCCESS;}}''',
 'net/minecraft/server/level/ServerLevel.java':'''package net.minecraft.server.level;
-import net.minecraft.world.entity.Entity;import net.minecraft.resources.Identifier;import java.util.*;
-public final class ServerLevel {public record Dimension(Identifier identifier){} private final Dimension dim;private final Map<UUID,Entity> entities=new HashMap<>();
+import net.minecraft.world.entity.Entity;import net.minecraft.resources.Identifier;import java.util.*;import net.minecraft.world.level.Level;
+public final class ServerLevel extends Level {public record Dimension(Identifier identifier){} private final Dimension dim;private final Map<UUID,Entity> entities=new HashMap<>();
 private long time=0; public long getGameTime(){return time;} public void tick(){++time;}
 public ServerLevel(String id){dim=new Dimension(new Identifier(id));}public Dimension dimension(){return dim;}public boolean isClientSide(){return false;}public void add(Entity e){entities.put(e.getUUID(),e);}
 public Entity getEntity(UUID id){return entities.get(id);} }''',
@@ -311,7 +311,7 @@ public @interface Mixin { Class<?>[] value() default {}; }
 'org/spongepowered/asm/mixin/injection/At.java':'''package org.spongepowered.asm.mixin.injection;
 import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME) @Target({ElementType.METHOD,ElementType.ANNOTATION_TYPE})
-public @interface At { String value(); }
+public @interface At { String value(); String target() default ""; int opcode() default -1; }
 ''',
 'org/spongepowered/asm/mixin/injection/Inject.java':'''package org.spongepowered.asm.mixin.injection;
 import java.lang.annotation.*;
