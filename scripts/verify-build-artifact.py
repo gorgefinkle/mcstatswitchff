@@ -29,6 +29,7 @@ def main():
         "dev/freakyfriday/mind/GoalTransferAdapters.class",
         "dev/freakyfriday/mind/GoalTransferAdapters$RecipientRemoveBlockGoal.class",
         "dev/freakyfriday/mind/RecipientAttackIntentGoal.class",
+        "dev/freakyfriday/mind/MobMindTargetState.class",
         "dev/freakyfriday/mind/MindSwapSessions.class",
         "dev/freakyfriday/CategoryPickerPayload.class",
         "dev/freakyfriday/CategoryPickerNetworking.class",
