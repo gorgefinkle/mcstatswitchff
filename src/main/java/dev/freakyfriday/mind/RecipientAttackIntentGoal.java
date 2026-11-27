@@ -6,6 +6,8 @@ import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.ai.goal.MeleeAttackGoal;
 import net.minecraft.world.entity.ai.goal.RangedBowAttackGoal;
+import net.minecraft.world.entity.ai.goal.SwellGoal;
+import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.entity.monster.RangedAttackMob;
 import net.minecraft.world.item.Items;
 
@@ -55,6 +57,12 @@ public final class RecipientAttackIntentGoal extends Goal {
     }
 
     private Goal createDriver(boolean ranged) {
+        // Explosive attack is a physical capability unique to Creeper bodies.
+        // A transferred attack intention should use this body's native action
+        // instead of attempting to install the donor's species-bound SwellGoal.
+        if (body instanceof Creeper creeper) {
+            return new SwellGoal(creeper);
+        }
         if (ranged) {
             @SuppressWarnings("unchecked")
             Mob rangedBody = (Mob) body;
