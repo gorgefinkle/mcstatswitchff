@@ -222,6 +222,33 @@ Limitations:
 
 Verdict: use targeted instrumentation at shared Minecraft boundaries first. Do not promise complete interception of arbitrary bytecode.
 
+## First Minecraft 26.2 implementation probe
+
+The first 26.2 Mixin is intentionally passive: it injects at the head of Mob.serverAiStep and registers the original Mob as a native controller host. This proves the common entry hook can be compiled and is configured for the 26.2 target; the dedicated-server smoke test is being added to verify that the configuration actually applies at runtime.
+
+The 26.2 controller-to-body binding ledger has also been added. It maps physical body UUID to controller-host UUID and has executable tests for arbitrary pairings, reverse exchange, bijection, idempotent registration, and repeated exchanges. This is only ownership bookkeeping; it does not yet make live AI execute on another body and is not exposed as a successful gameplay swap.
+
+The next dispatch spike must treat the fields differently:
+
+| Mob AI state/service | Ownership during exchange | First redirection rule |
+|---|---|---|
+| goalSelector / targetSelector | Native controller host | Keep on original host; this is the actual decision scheduler and its live task state |
+| Brain, memories, sensors, activities, Behaviors | Native controller host | Keep on original host; never install it on an incompatible body |
+| sensing | Physical body | Run perception against the new body's location and senses |
+| navigation | Physical body | Use the recipient body's PathNavigation instance, whose owner is already the physical body |
+| moveControl / lookControl / jumpControl | Physical body | Apply AI output through the recipient body's controls |
+| level/world context | Physical body for world queries | A controller tick must observe the recipient body's current level |
+| Goal/Brain task-local fields and captured callbacks | Native controller host | Keep untouched and preserve their owner references |
+| target/attention memory | Native controller host | The target belongs to the mind, but revalidate it against the new body's world/perception |
+| entity identity/type and subclass-specific AI state | Native controller host | Keep the original controller class; missing recipient actions are body limitations, never a pairing rejection |
+| position, bounds, eye position, rotation, movement state | Physical body when read/written by AI | Mediate common Entity/Mob accessors while MindBodyContext is active |
+
+The server AI envelope touches some controller state through direct field accesses rather than public getters. A getter-only adapter is therefore insufficient. The Mixin must redirect the exact field reads for body-bound services while leaving the two selectors with the host. It must also redirect the level lookup used when the host calls customServerAiStep. The public Mob getters then need a context-aware path for Goals and Brain tasks that call them outside serverAiStep itself.
+
+MindBodyContext must be re-entrant and scoped with try/finally; a nested entity AI call must not accidentally inherit the wrong body. It must map both directions for a pair, not just host → body. Avoid changing global Mob fields outside the active AI call. Each physical body's collision, health, entity tick, animation, and network replication must continue once; each mind's native decision scheduler must execute once. A paired-tick test must catch double navigation/control ticks, selector double-running, and body movement driven by the wrong mind.
+
+Do not wire the book to the new ownership ledger until the dispatch bridge passes in-game. A mapping swap without AI dispatch is not an AI exchange and must never produce a success message.
+
 ## Recommended architecture
 
 ### 1. MindRecord: body-independent audit mirror
