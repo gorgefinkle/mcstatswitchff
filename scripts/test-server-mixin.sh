@@ -91,12 +91,10 @@ for request_id, command in (
     (42, "forceload add 0 0"),
     (43, "summon minecraft:zombie 0 80 0"),
     (44, "summon minecraft:creeper 3 80 0"),
-    (45, "freakyfriday debug-exchange @e[type=minecraft:zombie,limit=1,sort=nearest] @e[type=minecraft:creeper,limit=1,sort=nearest]"),
-    (46, "freakyfriday debug-tick @e[type=minecraft:creeper,limit=1,sort=nearest]"),
-    (47, "freakyfriday debug-tick @e[type=minecraft:zombie,limit=1,sort=nearest]"),
-    (48, "freakyfriday debug-exchange @e[type=minecraft:zombie,limit=1,sort=nearest] @e[type=minecraft:creeper,limit=1,sort=nearest]"),
-    (49, "freakyfriday debug-tick @e[type=minecraft:zombie,limit=1,sort=nearest]"),
-    (50, "freakyfriday debug-tick @e[type=minecraft:creeper,limit=1,sort=nearest]"),
+    (45, "freakyfriday debug-exchange-loaded"),
+    (46, "freakyfriday debug-tick-loaded"),
+    (47, "freakyfriday debug-exchange-loaded"),
+    (48, "freakyfriday debug-tick-loaded"),
 ):
     send_packet(sock, request_id, 2, command)
     response_id, _, response = read_packet(sock)
