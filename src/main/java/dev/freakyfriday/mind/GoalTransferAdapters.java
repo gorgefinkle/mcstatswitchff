@@ -1,6 +1,5 @@
 package dev.freakyfriday.mind;
 
-import java.util.EnumSet;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.PathfinderMob;
@@ -43,12 +42,12 @@ public final class GoalTransferAdapters {
         if (simpleName.equals("ZombieAttackGoal")) {
             Class<?> zombieOwner = fieldType(source, "zombie");
             if (zombieOwner != null && zombieOwner.isInstance(recipient)) return null;
-            return adaptAttack(source, recipient, false);
+            return adaptAttack(source, recipient);
         }
 
         if (source instanceof RangedBowAttackGoal<?> ranged
                 && (!(recipient instanceof RangedAttackMob) || !holdsBow(recipient))) {
-            return adaptAttack(ranged, recipient, true);
+            return adaptAttack(ranged, recipient);
         }
 
         // AbstractSkeleton stores its fallback melee goal as an anonymous
@@ -58,7 +57,7 @@ public final class GoalTransferAdapters {
         if (source instanceof MeleeAttackGoal
                 && source.getClass().getName().contains("AbstractSkeleton$")
                 && !source.getClass().getEnclosingClass().isInstance(recipient)) {
-            return adaptAttack(source, recipient, true);
+            return adaptAttack(source, recipient);
         }
 
         return null;
@@ -83,7 +82,7 @@ public final class GoalTransferAdapters {
         return replacement;
     }
 
-    private static Goal adaptAttack(Goal source, Mob recipient, boolean sourceWasRanged)
+    private static Goal adaptAttack(Goal source, Mob recipient)
             throws DynamicObjectGraph.Uncapturable {
         if (!(recipient instanceof PathfinderMob pathfinder)) {
             throw new DynamicObjectGraph.Uncapturable(
