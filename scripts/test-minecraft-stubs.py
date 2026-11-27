@@ -98,6 +98,7 @@ public Entity getEntity(UUID id){return entities.get(id);} }''',
 'net/minecraft/world/entity/Entity.java':'''package net.minecraft.world.entity;
 import java.util.UUID;import net.minecraft.server.level.ServerLevel;import net.minecraft.network.chat.Component;
 public class Entity {private final UUID uuid=UUID.randomUUID();private final ServerLevel level;public final String name;
+public int tickCount;public double xo,yo,zo,xOld,yOld,zOld;public float yRotO,xRotO;
 public Entity(String name,ServerLevel l){this.name=name;level=l;l.add(this);}public UUID getUUID(){return uuid;}public ServerLevel level(){return level;}
 public Component getDisplayName(){return Component.literal(name);} }''',
 'net/minecraft/world/entity/LivingEntity.java':'''package net.minecraft.world.entity;
