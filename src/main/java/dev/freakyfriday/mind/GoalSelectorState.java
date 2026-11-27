@@ -68,7 +68,9 @@ public final class GoalSelectorState {
             }
         }
 
-        return new Snapshot(entries, selector.disabledFlags, locks);
+        EnumSet<Goal.Flag> disabled = EnumSet.noneOf(Goal.Flag.class);
+        disabled.addAll(selector.disabledFlags);
+        return new Snapshot(entries, disabled, locks);
     }
 
     public static boolean matches(GoalSelector selector, Snapshot expected) {
