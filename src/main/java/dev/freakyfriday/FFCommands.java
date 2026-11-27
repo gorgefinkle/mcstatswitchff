@@ -57,7 +57,7 @@ public final class FFCommands {
                         }
                     }))))
             .then(Commands.literal("debug-tick")
-                .requires(source -> source.hasPermission(2))
+                .requires(source -> source.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.GAMEMASTERS)))
                 .then(Commands.argument("body", EntityArgument.entity()).executes(ctx -> {
                     Entity entity = EntityArgument.getEntity(ctx, "body");
                     if (!(entity instanceof Mob body)) {
