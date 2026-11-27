@@ -462,12 +462,20 @@ import java.util.function.Function;import net.neoforged.bus.api.IEventBus;import
 public class DeferredRegister{public static Items createItems(String modid){return new Items();}
 public static class Items{public <T extends Item> DeferredItem<T> registerItem(String name,Function<Item.Properties,T> factory){return new DeferredItem<>(factory.apply(new Item.Properties()));}
 public void register(IEventBus bus){}}}''',
+'net/minecraft/commands/CommandSourceStack.java':'''package net.minecraft.commands;
+import net.minecraft.server.level.ServerLevel;import net.minecraft.world.phys.Vec3;import net.minecraft.server.permissions.PermissionSet;
+public class CommandSourceStack {
+ public Vec3 getPosition(){return new Vec3(0,0,0);}
+ public ServerLevel getLevel(){return new ServerLevel("minecraft:overworld");}
+ public PermissionSet permissions(){return permission->true;}
+}
+''',
 'net/minecraft/commands/Commands.java':'''package net.minecraft.commands;
 import java.util.function.*;import net.minecraft.server.level.ServerPlayer;import net.minecraft.network.chat.Component;import net.minecraft.server.permissions.PermissionSet;
 public class Commands{public static Builder literal(String name){return new Builder();}
 public static Builder argument(String name,Object type){return new Builder();}
 public static class Context{public Source getSource(){return new Source();}}
-public static class Source {public ServerPlayer getPlayerOrException(){return null;}public PermissionSet permissions(){return p->true;}
+public static class Source extends CommandSourceStack {public ServerPlayer getPlayerOrException(){return null;}public PermissionSet permissions(){return p->true;}
 public net.minecraft.world.phys.Vec3 getPosition(){return new net.minecraft.world.phys.Vec3(0,0,0);}
 public net.minecraft.server.level.ServerLevel getLevel(){return new net.minecraft.server.level.ServerLevel("minecraft:overworld");}
 public void sendFailure(Component message){}public void sendSuccess(Supplier<Component> message,boolean broadcast){}}
