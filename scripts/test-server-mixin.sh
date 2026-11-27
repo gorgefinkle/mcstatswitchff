@@ -103,7 +103,7 @@ for request_id, command in (
 
 time.sleep(6)
 # Stop the server cleanly over its authenticated control channel.
-send_packet(sock, 45, 2, "stop")
+send_packet(sock, 48, 2, "stop")
 sock.close()
 PY
 
@@ -119,7 +119,7 @@ if [[ "$SERVER_STATUS" -ne 0 ]]; then
 fi
 
 if ! grep -Fq 'Freaky Friday 26.2 native Mob AI observer is active' "$CONSOLE_LOG" "$LOG_FILE" 2>/dev/null; then
-  echo "The 26.2 server started and accepted a Zombie summon, but the Mob.serverAiStep observer did not report an active AI tick."
+  echo "The 26.2 server accepted the debug exchange/tick commands, but the Mob.serverAiStep observer did not report an active AI tick."
   tail -n 160 "$CONSOLE_LOG" || true
   tail -n 160 "$LOG_FILE" || true
   exit 1
