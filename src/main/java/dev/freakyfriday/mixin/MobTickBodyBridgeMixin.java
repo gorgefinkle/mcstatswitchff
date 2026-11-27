@@ -1,6 +1,7 @@
 package dev.freakyfriday.mixin;
 
 import dev.freakyfriday.mind.MindBodyContext;
+import dev.freakyfriday.mind.LivingEntityTickInvoker;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
