@@ -36,14 +36,8 @@ public final class MindHostRegistry {
      * Called at the start of Mob.serverAiStep on the logical server.
      * Hot path is O(1), performs no reflection, and allocates only on first sight.
      */
-    public static void observeServerAiPhase(Mob host) {
+    private static void registerHost(Mob host) {
         if (host == null || host.level().isClientSide()) return;
-
-        if (!hookActivationLogged) {
-            hookActivationLogged = true;
-            LOGGER.info("Freaky Friday 26.2 native Mob AI observer is active");
-        }
-
         UUID id = host.getUUID();
         HostRef reference = HOSTS.get(id);
         if (reference == null || reference.mob().get() != host) {
@@ -53,8 +47,54 @@ public final class MindHostRegistry {
             MindBodyBindings.ensureOriginalBinding(id);
             LOGGER.debug("Freaky Friday registered native AI host {} ({})", id, entityType);
         }
+    }
 
-        AI_PHASES_BY_TYPE.merge(reference.entityType(), 1L, Long::sum);
+    /**
+     * Called from ServerLevel.tickNonPassenger before the Mob's concrete tick.
+     * The original controller's subclass tick executes under a scoped context;
+     * Mob.tick/LivingEntity.tick mixins route its superclass physical tick to
+     * the recipient body.
+     */
+    public static void tickAssignedController(Mob physicalBody) {
+        if (physicalBody == null || physicalBody.level().isClientSide()) return;
+        registerHost(physicalBody);
+
+        UUID bodyId = physicalBody.getUUID();
+        UUID controllerId = MindBodyBindings.controllerForBody(bodyId);
+        if (bodyId.equals(controllerId)) {
+            physicalBody.tick();
+            return;
+        }
+
+        Mob controller = resolve(controllerId);
+        if (controller == null || controller.isRemoved()) {
+            // Keep the body ticking safely. The missing host is logged and
+            // the ownership mapping is retained for recovery; never reset it
+            // or reject the pair because the controller is temporarily absent.
+            LOGGER.error("Freaky Friday cannot currently resolve controller {} for body {}; native body tick is used as a temporary fallback",
+                controllerId, bodyId);
+            physicalBody.tick();
+            return;
+        }
+
+        try (MindBodyContext.Scope ignored = MindBodyContext.bind(controller, physicalBody)) {
+            controller.tick();
+        }
+    }
+
+    public static void observeServerAiPhase(Mob host) {
+        if (host == null || host.level().isClientSide()) return;
+        registerHost(host);
+
+        if (!hookActivationLogged) {
+            hookActivationLogged = true;
+            LOGGER.info("Freaky Friday 26.2 native Mob AI observer is active");
+        }
+
+        HostRef reference = HOSTS.get(host.getUUID());
+        if (reference != null) {
+            AI_PHASES_BY_TYPE.merge(reference.entityType(), 1L, Long::sum);
+        }
     }
 
     /** Resolves an original controller host while it remains strongly reachable elsewhere. */
