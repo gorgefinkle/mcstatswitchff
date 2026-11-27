@@ -70,6 +70,10 @@ def main():
             "public net.minecraft.world.entity.ai.goal.target.TargetGoal mustReach",
             "public net.minecraft.world.entity.ai.goal.target.TargetGoal unseenMemoryTicks",
             "public net.minecraft.world.entity.ai.targeting.TargetingConditions selector",
+            "public net.minecraft.world.entity.ai.goal.LookAtPlayerGoal lookAtType",
+            "public net.minecraft.world.entity.ai.goal.LookAtPlayerGoal lookDistance",
+            "public net.minecraft.world.entity.ai.goal.LookAtPlayerGoal probability",
+            "public net.minecraft.world.entity.ai.goal.LookAtPlayerGoal onlyHorizontal",
         )
         missing_scheduler_access = [entry for entry in required_scheduler_access if entry not in access]
         if missing_scheduler_access:
