@@ -19,8 +19,9 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Dynamic whole-goal AI capturer. No hardcoded species names, goal subclasses,
- * recipe tables, food lists or per-species pairing exceptions.
+ * Dynamic goal-AI exchange with strict whole-graph rebinding and a small
+ * semantic adapter layer for behavior whose native implementation is tied
+ * to a body capability or incompatible species owner.
  *
  * Captures EVERY goal and targeting goal at the instant of selection, including
  * priority, concrete class and reflected object state. Each captured Goal is
@@ -109,10 +110,9 @@ public final class GoalMindRuntime {
         for (GoalSelectorState.Snapshot source : sources)
             for (GoalSelectorState.Entry entry : source.entries()) sourceRoots[index++] = entry.goal();
 
-        // First translate only the known species-bound goal families whose
-        // intent has a well-defined recipient-native implementation. Every
-        // other goal still passes through the strict whole-graph rebind and
-        // will reject if it cannot be made safe.
+        // Translate only goals with a defined recipient-native semantic
+        // action. Every other goal passes through strict whole-graph rebinding
+        // and rejects the complete exchange if it cannot be made safe.
         Goal[] roots = sourceRoots.clone();
         IdentityHashMap<Goal, Goal> portedRoots = new IdentityHashMap<>();
         for (int i = 0; i < sourceRoots.length; i++) {
