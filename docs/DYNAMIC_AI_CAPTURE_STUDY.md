@@ -8,13 +8,13 @@ Scope: any living mob body ↔ any other living mob body, including unknown modd
 
 Retire native AI object-graph copying as the transfer foundation. A Minecraft Goal, Brain, Sensor, Behavior, navigation object, control object, or captured callback is executable machinery built around a particular entity instance and often a concrete class. Copying its fields does not make it a body-independent mind.
 
-The strongest practical direction is a **continuous server-thread mind mirror, generic decision-boundary instrumentation, and runtime body-capability mediation**:
+The target is **complete native AI-runtime exchange through controller-host preservation and body virtualization**, supported by continuous server-thread observation and runtime body-capability mediation. A mind mirror is diagnostics and latency preparation; it is not a substitute for the donor's actual AI runtime:
 
-1. Maintain a body-independent mind record for every participating entity and update it continuously during ordinary AI ticks.
-2. Observe AI lifecycle and intent at shared runtime boundaries rather than cloning native AI graphs.
-3. Separate durable intent, attention, priority, and observable task continuity from physical body controls.
-4. Discover the recipient body's available actions dynamically and route intent through a generic bridge.
-5. Commit ownership changes atomically at a server tick boundary.
+1. Preserve each donor's actual native controller host in place: GoalSelector, Brain, Sensors, Behaviors, Goal instances, active task state, callbacks, and custom AI-owned state are not cloned or discarded.
+2. Exchange the controller-to-body bindings at a safe server tick boundary, so original owner-bound AI continues to execute while its body-facing reads and outputs are mediated to the newly assigned physical body.
+3. Instrument shared decision, perception, navigation, control, and action boundaries continuously so the runtime can diagnose incomplete mediation.
+4. Discover the recipient body's available actions dynamically. Translate only at the physical body boundary; retain controller state and intent even when the current body cannot express a particular action.
+5. Maintain a compact MindRecord as an audit/continuity mirror, not as a replacement for the real native controller.
 6. Never reject a pair because of species, class, AI framework, missing capability, or unknown modded code.
 
 This is the best balance of dynamic coverage, low swap latency, and safety. It does not magically make arbitrary private mod AI portable. No external observer can infer every hidden decision variable or reproduce arbitrary code that directly mutates private fields, casts its owner to a custom class, or performs side effects outside common APIs. That is a fundamental boundary. The product contract can still guarantee universal exchange acceptance: every pair exchanges; observed intent remains with the mind; a recipient body expresses what it can; unexpressible intent remains pending rather than causing rejection.
@@ -46,6 +46,65 @@ The active development target is Minecraft 26.2 / NeoForge 26.2.0.95. The implem
 Goal and Brain are materially different pipelines. GoalSelector arbitrates registered wrapped goals, priorities, running state, and control locks. Brain tracks memories, sensors, activities, and behavior controls. Some mobs also run custom logic outside either system. The observer must cover both native pipelines and the shared perception/action boundaries; it cannot assume every mob is Goal-only or Brain-only.
 
 Keep live observation and transfer work on the logical server thread. Do not asynchronously inspect live entities. The first implementation and every hook descriptor will be verified against 26.2 only. Later-version source files are dormant references and are excluded from the build, CI, and acceptance testing until 26.2 works.
+
+## Primary complete-exchange candidate: preserve native controller hosts
+
+The most promising route to complete exchange is not cloning or reserializing native AI. It is to preserve the original controller host and change which physical body its body-facing operations address.
+
+Each original Mob remains the owner of its own native runtime:
+- its concrete Java class and subclass state;
+- its GoalSelector and targetSelector;
+- all native Goal and WrappedGoal instances and scheduler state;
+- Brain, memory map, sensors, activities, behavior/task instances;
+- captured lambdas, callbacks, and references to its original owner;
+- mod-added fields and runtime objects that belong to that controller.
+
+A swap exchanges the two controller-to-body bindings. It does not move Goal objects or Brain objects into another concrete class.
+
+### Runtime shape
+
+Conceptually maintain a pair of references:
+
+- **controller host:** the original Mob instance whose concrete class and native AI machinery remain intact;
+- **physical body:** the entity whose location, dimensions, perception, movement, equipment, and physical interactions are currently controlled by that mind.
+
+At the normal body AI phase, the runtime identifies the mind host assigned to that body and runs the host's native AI phase under a scoped binding context. Shared body-facing APIs are mediated to the assigned physical body. The native GoalSelector/Brain stays on the host. The body still runs its own physical tick, collision, health, animation, and network synchronization.
+
+A 26.2 implementation spike should investigate a Mixin at Mob.serverAiStep:
+1. Intercept the body's normal AI phase.
+2. Resolve the controller host assigned to that body.
+3. Execute that host's original server AI phase under a re-entrancy-safe MindBodyContext.
+4. Keep host-owned selectors, Brain, customServerAiStep, Goal instances, and private controller state attached to the host.
+5. Mediate body-facing reads and action requests to the recipient body.
+6. Ensure every physical body's navigation/control/physics phase runs exactly once.
+
+This is a candidate to prove, not a claim that the repository already implements it. The critical spike is whether a host's native AI phase can be executed while shared Entity/Mob API calls are safely rebound without corrupting either host's physical tick.
+
+### Why this is stronger than cloning
+
+- Owner-typed Goal fields remain valid because the owner object never changes.
+- Captured lambdas remain attached to the object and owner they originally captured.
+- Brain generic type constraints remain valid because a Brain stays with its original host.
+- Scheduler running state, task-local fields, custom mod fields, and callback state remain in place.
+- A swap can be a binding-map exchange rather than a deep graph copy.
+
+This is the first approach to prototype for complete AI exchange. A successful binding swap alone is not enough: the body-facing API mediation must be verified for position, dimensions, level, perception, targets, navigation, move/look/jump controls, equipment, attributes, interaction, and special actions.
+
+### Critical split: mind state versus body state
+
+Do not blindly redirect every method. Some state is mind-owned and must stay with the controller host (for example, active goal state, Brain memories, and controller attention state). Other state is body-owned (physical position, dimensions, collision, health, equipment, attributes, and control execution). A third set is an action boundary that must be translated from controller intent into a body capability.
+
+The first 26.2 spike must classify and test these boundaries. In particular:
+- target/attention state must follow the mind, but perception must query from the new body's position and senses;
+- navigation decisions belong to the native controller, while movement and collision belong to the body;
+- a subclass-specific action such as a Creeper fuse must remain part of the Creeper mind, while the recipient body executes the closest capability it has;
+- missing recipient capabilities never cancel the exchange and never erase the donor's latent intent.
+
+### Limit of generic host virtualization
+
+A modded Goal that uses common Minecraft Mob/Entity APIs can benefit from the shared mediation hooks automatically. A modded Goal that reads its owner's private fields directly, casts to its concrete class, or produces world side effects without passing through a mediated boundary may bypass the bridge. Host preservation keeps its hidden state intact, but it cannot make arbitrary direct field access behave as though it referenced a different physical body.
+
+We should instrument and mediate shared APIs first, then test real modded examples. Optional extension contracts may improve fidelity, but must never be required for an exchange. Do not claim perfect execution of arbitrary opaque third-party bytecode without proving it.
 
 ## Methodologies compared
 
@@ -127,9 +186,9 @@ Limitations:
 
 Verdict: best foundation for low-latency exchange. It mirrors transferable decision state; it is not a replacement AI implementation.
 
-### E. Virtualize the native AI owner / keep an original-species mind shell
+### E. Preserve the native AI host and virtualize its body binding
 
-Mechanism: keep the original native AI host alive as a hidden logical controller and redirect its perception and actions to the visible recipient body.
+Mechanism: keep the original native AI host and all its native AI instances intact; at the server AI phase, run that controller host against the opposite physical body through a scoped mediation context.
 
 Advantages:
 - Could preserve opaque modded decision code and task-local fields because the original class and AI objects continue to execute.
@@ -144,7 +203,7 @@ Problems:
 - Shells add ticking/lifecycle complexity and risk duplicate world side effects.
 - A shell cannot impersonate a different concrete subclass while retaining donor subclass logic.
 
-Verdict: research prototype only. Potential optional bridge for selected opaque behaviors, not the universal foundation.
+Verdict: primary complete-exchange candidate. Prototype it before falling back to a reduced intent-only design. It still needs proof that shared reads, commands, and tick ordering can be mediated safely.
 
 ### F. Bytecode-level instrumentation of arbitrary mod AI
 
@@ -165,9 +224,9 @@ Verdict: use targeted instrumentation at shared Minecraft boundaries first. Do n
 
 ## Recommended architecture
 
-### 1. MindRecord: body-independent and continuously updated
+### 1. MindRecord: body-independent audit mirror
 
-One logical mind record per body identity, created when a living entity enters the server. Suggested fields:
+One logical record per controller host, created when a living entity enters the server. The actual native controller remains authoritative; this record is a cheap mirror used for transaction ownership, diagnostics, persistence metadata, and latency measurement. Suggested fields:
 
 - Stable mind UUID and schema version.
 - Current body UUID; ownership is explicit and one-to-one.
@@ -394,12 +453,13 @@ Performance:
 
 ## Immediate recommendation
 
-1. Stop extending DynamicObjectGraph as the transfer engine.
-2. Keep MindLedger only after it becomes the authoritative owner map for a real MindRecord; it must not certify a native AI swap by itself.
-3. Replace NativeBrainSwap and GoalMindRuntime with observer + mirror + bridge.
-4. Add hooks in stages and prove they are passive before enabling exchange.
-5. Make the transaction universally accepting; report behavioral fidelity separately.
-6. Do not ship a test JAR until live vanilla-pair and modded-pair tests pass.
+1. Stop extending DynamicObjectGraph as the transfer engine; keep the reflective copier only as a diagnostic experiment.
+2. Prototype native controller-host preservation with a 26.2 Mob.serverAiStep binding-context spike. Preserve original Goal/Brain instances rather than transplanting them.
+3. Prove that body-facing accessors, perception, navigation, control outputs, and action boundaries are mediated while each body's physical tick runs exactly once.
+4. Keep MindLedger as the ownership map and add a compact audit mirror; neither may report complete exchange until the native runtime actually runs through the recipient body.
+5. After universal NPC-to-NPC exchange works, extend the same host/body separation to NPC-to-player control.
+6. Make capability mismatch affect enactment only, never exchange acceptance.
+7. Do not ship a test JAR until live cross-species and modded-pair tests pass.
 
 ## Source basis
 
