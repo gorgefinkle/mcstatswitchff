@@ -458,13 +458,19 @@ public class DeferredRegister{public static Items createItems(String modid){retu
 public static class Items{public <T extends Item> DeferredItem<T> registerItem(String name,Function<Item.Properties,T> factory){return new DeferredItem<>(factory.apply(new Item.Properties()));}
 public void register(IEventBus bus){}}}''',
 'net/minecraft/commands/Commands.java':'''package net.minecraft.commands;
-import net.minecraft.server.level.ServerPlayer;
+import java.util.function.*;import net.minecraft.server.level.ServerPlayer;import net.minecraft.network.chat.Component;
 public class Commands{public static Builder literal(String name){return new Builder();}
 public static Builder argument(String name,Object type){return new Builder();}
 public static class Context{public Source getSource(){return new Source();}}
-public static class Source {public ServerPlayer getPlayerOrException(){return null;}}
+public static class Source {public ServerPlayer getPlayerOrException(){return null;}public boolean hasPermission(int level){return true;}
+public void sendFailure(Component message){}public void sendSuccess(Supplier<Component> message,boolean broadcast){}}
 @FunctionalInterface public interface Action{int run(Context ctx) throws Exception;}
-public static class Builder{public Builder then(Builder child){return this;}public Builder executes(Action action){return this;}}}''',
+public static class Builder{public Builder then(Builder child){return this;}public Builder executes(Action action){return this;}
+public Builder requires(Predicate<Source> predicate){return this;}}}''',
+'net/minecraft/commands/arguments/EntityArgument.java':'''package net.minecraft.commands.arguments;
+import net.minecraft.commands.Commands;import net.minecraft.world.entity.Entity;
+public final class EntityArgument {public static Object entity(){return new Object();}
+public static Entity getEntity(Commands.Context ctx,String name){return null;}}''',
 'com/mojang/brigadier/arguments/StringArgumentType.java':'''package com.mojang.brigadier.arguments;
 public final class StringArgumentType {public static Object word(){return new Object();}
 public static String getString(Object ctx,String name){return "mobility";}}''',
