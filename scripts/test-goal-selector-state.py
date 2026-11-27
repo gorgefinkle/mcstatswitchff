@@ -62,6 +62,8 @@ public class GoalSelectorStateHarness {
   source.lockedFlags.put(Goal.Flag.MOVE,activeWrap);source.lockedFlags.put(Goal.Flag.LOOK,activeWrap);
   source.disabledFlags.add(Goal.Flag.JUMP);
   GoalSelectorState.Snapshot captured=GoalSelectorState.capture(source);
+  captured.disabledFlags().clear();
+  ok(captured.disabledFlags().contains(Goal.Flag.JUMP),"snapshot disabled flags are defensively copied");
   Goal activeCopy=new Goal(Goal.Flag.MOVE,Goal.Flag.LOOK);
   Goal idleCopy=new Goal(Goal.Flag.JUMP);
   var entries=List.of(new GoalSelectorState.Entry(2,activeCopy,true),new GoalSelectorState.Entry(7,idleCopy,false));
