@@ -1,18 +1,17 @@
 package dev.freakyfriday.mind;
 
 import java.util.Objects;
-import net.minecraft.world.entity.Mob;
 
 /**
- * Scoped mapping used while a native Mob AI controller is executing for a
- * different physical Mob body.
+ * Re-entrant, thread-scoped mapping between an original controller host and
+ * the physical body it currently drives.
  *
- * Controller-owned native state stays on the controller Mob. Shared physical
- * state/control services can query the current body through this context.
- * This type is deliberately inert until the Mob AI dispatcher is enabled.
+ * The context stores identity tokens rather than Minecraft-specific objects,
+ * which lets the same mechanism serve NPC controllers and player controllers.
+ * Callers are responsible for casting a resolved body to the expected type.
  *
- * All use is confined to one logical server tick thread. Nested dispatches are
- * supported and must always close in strict LIFO order.
+ * All use is confined to a single logical server tick thread. Nested dispatches
+ * are supported and must close in strict LIFO order.
  */
 public final class MindBodyContext {
     private static final ThreadLocal<Frame> CURRENT = new ThreadLocal<>();
@@ -20,7 +19,7 @@ public final class MindBodyContext {
     private MindBodyContext() {}
 
     /** Pushes a controller → physical-body mapping for the current call stack. */
-    public static Scope bind(Mob controller, Mob physicalBody) {
+    public static Scope bind(Object controller, Object physicalBody) {
         Objects.requireNonNull(controller, "controller");
         Objects.requireNonNull(physicalBody, "physicalBody");
         Frame frame = new Frame(controller, physicalBody, CURRENT.get(), Thread.currentThread());
@@ -28,8 +27,8 @@ public final class MindBodyContext {
         return new Scope(frame);
     }
 
-    /** Resolve the physical body associated with this controller in the active nested context. */
-    public static Mob bodyFor(Mob controller) {
+    /** Resolves the physical body associated with this controller, or the input itself. */
+    public static Object bodyFor(Object controller) {
         Objects.requireNonNull(controller, "controller");
         for (Frame frame = CURRENT.get(); frame != null; frame = frame.parent) {
             if (frame.controller == controller) return frame.physicalBody;
@@ -37,8 +36,8 @@ public final class MindBodyContext {
         return controller;
     }
 
-    /** Resolve the active controller for a physical body in the current nested context. */
-    public static Mob controllerFor(Mob physicalBody) {
+    /** Resolves the active controller for a physical body, or the input itself. */
+    public static Object controllerFor(Object physicalBody) {
         Objects.requireNonNull(physicalBody, "physicalBody");
         for (Frame frame = CURRENT.get(); frame != null; frame = frame.parent) {
             if (frame.physicalBody == physicalBody) return frame.controller;
@@ -46,17 +45,17 @@ public final class MindBodyContext {
         return physicalBody;
     }
 
-    /** True only while this Mob's own native serverAiStep is being invoked as controller. */
-    public static boolean isExecutingController(Mob mob) {
+    /** True only while this object is the active native controller invocation. */
+    public static boolean isExecutingController(Object controller) {
         Frame current = CURRENT.get();
-        return current != null && current.controller == mob;
+        return current != null && current.controller == controller;
     }
 
     public static boolean isBound() {
         return CURRENT.get() != null;
     }
 
-    private record Frame(Mob controller, Mob physicalBody, Frame parent, Thread ownerThread) {}
+    private record Frame(Object controller, Object physicalBody, Frame parent, Thread ownerThread) {}
 
     public static final class Scope implements AutoCloseable {
         private final Frame frame;
