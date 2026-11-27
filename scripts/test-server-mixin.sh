@@ -12,40 +12,114 @@ online-mode=false
 difficulty=normal
 spawn-monsters=true
 spawn-animals=true
+enable-rcon=true
+rcon.password=ff-ci-mixin-smoke
+rcon.port=25575
+broadcast-console-to-ops=false
 EOF
 rm -f "$LOG_FILE" "$CONSOLE_LOG"
 
-# Feed a spawn command only after the dedicated server announces it is ready.
-# The server console is stdin for the Gradle runServer Java process.
-set +e
-(
-  ready=0
-  for _ in $(seq 1 120); do
-    if [[ -f "$LOG_FILE" ]] && grep -q 'Done (' "$LOG_FILE"; then
-      ready=1
-      break
-    fi
-    sleep 1
-  done
-  if [[ "$ready" -eq 1 ]]; then
-    printf 'forceload add 0 0\n'
-    printf 'summon minecraft:zombie 0 80 0\n'
-    sleep 6
+# Launch the real 26.2 dedicated server. RCON is used rather than Gradle stdin:
+# JavaExec does not reliably forward the workflow shell's pipe to runServer.
+timeout --signal=INT --kill-after=20s 180s ./gradlew runServer --no-daemon --console=plain >"$CONSOLE_LOG" 2>&1 &
+SERVER_PID=$!
+cleanup() {
+  if kill -0 "$SERVER_PID" 2>/dev/null; then
+    kill -INT "$SERVER_PID" 2>/dev/null || true
+    sleep 2
+    kill -KILL "$SERVER_PID" 2>/dev/null || true
   fi
-  printf 'stop\n'
-) | timeout --signal=INT --kill-after=15s 180s ./gradlew runServer --no-daemon --console=plain 2>&1 | tee "$CONSOLE_LOG"
-statuses=("${PIPESTATUS[@]}")
-set -e
-server_status="${statuses[1]:-1}"
-if [[ "$server_status" -ne 0 && "$server_status" -ne 124 && "$server_status" -ne 130 ]]; then
-  echo "runServer failed with status $server_status"
-  exit "$server_status"
-fi
+}
+trap cleanup EXIT
 
-if ! grep -Fq 'Freaky Friday 26.2 native Mob AI observer is active' "$CONSOLE_LOG" "$LOG_FILE" 2>/dev/null; then
-  echo "The 26.2 server started, but the Mob.serverAiStep observer did not report an active AI tick."
-  echo "Inspect $CONSOLE_LOG and $LOG_FILE"
+ready=0
+for _ in $(seq 1 150); do
+  if [[ -f "$LOG_FILE" ]] && grep -q 'Done (' "$LOG_FILE"; then
+    ready=1
+    break
+  fi
+  if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+    echo "runServer exited before startup completed."
+    tail -n 120 "$CONSOLE_LOG" || true
+    exit 1
+  fi
+  sleep 1
+done
+if [[ "$ready" -ne 1 ]]; then
+  echo "Timed out waiting for the 26.2 dedicated server to become ready."
+  tail -n 160 "$CONSOLE_LOG" || true
   exit 1
 fi
 
-echo "PASS dedicated 26.2 server loaded the Mixin config and executed the Mob.serverAiStep observer."
+python3 - <<'PY'
+import socket
+import struct
+import time
+
+HOST, PORT, PASSWORD = "127.0.0.1", 25575, "ff-ci-mixin-smoke"
+
+def exact(sock, size):
+    chunks = []
+    remaining = size
+    while remaining:
+        part = sock.recv(remaining)
+        if not part:
+            raise RuntimeError("RCON socket closed unexpectedly")
+        chunks.append(part)
+        remaining -= len(part)
+    return b"".join(chunks)
+
+def read_packet(sock):
+    size = struct.unpack("<i", exact(sock, 4))[0]
+    payload = exact(sock, size)
+    request_id, packet_type = struct.unpack("<ii", payload[:8])
+    return request_id, packet_type, payload[8:-2].decode("utf-8", "replace")
+
+def send_packet(sock, request_id, packet_type, body):
+    encoded = body.encode("utf-8") + b"\0\0"
+    payload = struct.pack("<ii", request_id, packet_type) + encoded
+    sock.sendall(struct.pack("<i", len(payload)) + payload)
+
+sock = socket.create_connection((HOST, PORT), timeout=4)
+sock.settimeout(4)
+send_packet(sock, 41, 3, PASSWORD)
+auth_id, _, _ = read_packet(sock)
+if auth_id != 41:
+    raise SystemExit("RCON authentication failed")
+
+for request_id, command in (
+    (42, "forceload add 0 0"),
+    (43, "summon minecraft:zombie 0 80 0"),
+    (44, "say Freaky Friday 26.2 AI mixin smoke test"),
+):
+    send_packet(sock, request_id, 2, command)
+    response_id, _, response = read_packet(sock)
+    if response_id != request_id:
+        raise SystemExit(f"RCON response mismatch for {command!r}: {response_id}")
+    print(f"RCON {command}: {response}")
+
+time.sleep(6)
+# Stop the server cleanly over its authenticated control channel.
+send_packet(sock, 45, 2, "stop")
+sock.close()
+PY
+
+set +e
+wait "$SERVER_PID"
+SERVER_STATUS=$?
+set -e
+trap - EXIT
+if [[ "$SERVER_STATUS" -ne 0 ]]; then
+  echo "runServer exited with status $SERVER_STATUS after the RCON stop command."
+  tail -n 160 "$CONSOLE_LOG" || true
+  exit "$SERVER_STATUS"
+fi
+
+if ! grep -Fq 'Freaky Friday 26.2 native Mob AI observer is active' "$CONSOLE_LOG" "$LOG_FILE" 2>/dev/null; then
+  echo "The 26.2 server started and accepted a Zombie summon, but the Mob.serverAiStep observer did not report an active AI tick."
+  tail -n 160 "$CONSOLE_LOG" || true
+  tail -n 160 "$LOG_FILE" || true
+  exit 1
+fi
+
+echo "PASS dedicated 26.2 server applied the Mixin config and executed the Mob.serverAiStep observer on a live Zombie."
