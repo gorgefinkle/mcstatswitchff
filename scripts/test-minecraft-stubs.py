@@ -94,10 +94,7 @@ import net.minecraft.world.entity.Entity;import net.minecraft.resources.Identifi
 public final class ServerLevel {public record Dimension(Identifier identifier){} private final Dimension dim;private final Map<UUID,Entity> entities=new HashMap<>();
 private long time=0; public long getGameTime(){return time;} public void tick(){++time;}
 public ServerLevel(String id){dim=new Dimension(new Identifier(id));}public Dimension dimension(){return dim;}public boolean isClientSide(){return false;}public void add(Entity e){entities.put(e.getUUID(),e);}
-public Entity getEntity(UUID id){return entities.get(id);}
-public java.util.List<Entity> getEntities(Entity except,net.minecraft.world.phys.AABB bounds,java.util.function.Predicate<? super Entity> selector){
-return entities.values().stream().filter(e->e!=except).filter(selector).toList();
-} }''',
+public Entity getEntity(UUID id){return entities.get(id);} }''',
 'net/minecraft/world/entity/Entity.java':'''package net.minecraft.world.entity;
 import java.util.UUID;import net.minecraft.server.level.ServerLevel;import net.minecraft.network.chat.Component;
 public class Entity {private final UUID uuid=UUID.randomUUID();private final ServerLevel level;public final String name;
@@ -376,7 +373,10 @@ import net.minecraft.world.entity.Entity;import net.minecraft.resources.Identifi
 public final class ServerLevel extends Level {public record Dimension(Identifier identifier){} private final Dimension dim;private final Map<UUID,Entity> entities=new HashMap<>();
 private long time=0; public long getGameTime(){return time;}public void tick(){++time;}
 public ServerLevel(String id){dim=new Dimension(new Identifier(id));}public Dimension dimension(){return dim;}public boolean isClientSide(){return false;}public void add(Entity e){entities.put(e.getUUID(),e);}
-public Entity getEntity(UUID id){return entities.get(id);} }''',
+public Entity getEntity(UUID id){return entities.get(id);}
+public java.util.List<Entity> getEntities(Entity except,net.minecraft.world.phys.AABB bounds,java.util.function.Predicate<? super Entity> selector){
+return entities.values().stream().filter(e->e!=except).filter(selector).toList();
+} }''',
 'net/minecraft/world/entity/Mob.java':'''package net.minecraft.world.entity;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.ai.control.*;
