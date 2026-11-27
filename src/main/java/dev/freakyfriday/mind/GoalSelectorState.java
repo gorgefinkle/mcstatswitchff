@@ -38,6 +38,11 @@ public final class GoalSelectorState {
             lockCopy.putAll(lockedGoals);
             lockedGoals = Map.copyOf(lockCopy);
         }
+
+        @Override
+        public EnumSet<Goal.Flag> disabledFlags() {
+            return disabledFlags.clone();
+        }
     }
 
     public static Snapshot capture(GoalSelector selector) {
