@@ -24,6 +24,7 @@ def main():
         "dev/freakyfriday/mind/MindLedger.class",
         "dev/freakyfriday/mind/NativeBrainSwap.class",
         "dev/freakyfriday/mind/GoalMindRuntime.class",
+        "dev/freakyfriday/mind/GoalSelectorState.class",
         "dev/freakyfriday/mind/DynamicObjectGraph.class",
         "dev/freakyfriday/mind/MindSwapSessions.class",
         "dev/freakyfriday/CategoryPickerPayload.class",
@@ -39,6 +40,14 @@ def main():
         if missing:
             raise SystemExit(f"Missing required mod entries: {sorted(missing)}")
         access = archive.read("META-INF/accesstransformer.cfg").decode("utf-8")
+        required_scheduler_access = (
+            "public net.minecraft.world.entity.ai.goal.GoalSelector lockedFlags",
+            "public net.minecraft.world.entity.ai.goal.GoalSelector disabledFlags",
+            "public net.minecraft.world.entity.ai.goal.WrappedGoal isRunning",
+        )
+        missing_scheduler_access = [entry for entry in required_scheduler_access if entry not in access]
+        if missing_scheduler_access:
+            raise SystemExit(f"GoalSelector scheduler access transformers missing: {missing_scheduler_access}")
         if "public net.minecraft.world.entity.LivingEntity brain" not in access:
             raise SystemExit("Whole-Brain access transformer missing or incorrect")
         metadata = archive.read("META-INF/neoforge.mods.toml").decode("utf-8")
