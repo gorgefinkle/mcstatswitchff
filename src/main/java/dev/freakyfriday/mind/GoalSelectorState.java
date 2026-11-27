@@ -111,7 +111,35 @@ public final class GoalSelectorState {
         return true;
     }
 
+    private static void validateSnapshot(Snapshot snapshot) {
+        IdentityHashMap<Goal, Boolean> uniqueGoals = new IdentityHashMap<>();
+        EnumMap<Goal.Flag, Goal> expectedLocks = new EnumMap<>(Goal.Flag.class);
+        for (Entry entry : snapshot.entries()) {
+            if (uniqueGoals.put(entry.goal(), Boolean.TRUE) != null)
+                throw new IllegalStateException("Snapshot contains the same Goal instance more than once");
+            if (!entry.running()) continue;
+            for (Goal.Flag flag : entry.goal().getFlags()) {
+                Goal previous = expectedLocks.put(flag, entry.goal());
+                if (previous != null)
+                    throw new IllegalStateException("Two running goals claim the same control flag: " + flag);
+            }
+        }
+        if (expectedLocks.size() != snapshot.lockedGoals().size())
+            throw new IllegalStateException("Snapshot control locks do not match running goals");
+        for (Map.Entry<Goal.Flag, Goal> lock : expectedLocks.entrySet()) {
+            if (snapshot.lockedGoals().get(lock.getKey()) != lock.getValue())
+                throw new IllegalStateException("Snapshot control lock owner does not match running goal");
+        }
+        for (Map.Entry<Goal.Flag, Goal> lock : snapshot.lockedGoals().entrySet()) {
+            if (expectedLocks.get(lock.getKey()) != lock.getValue())
+                throw new IllegalStateException("Snapshot contains an orphaned control lock");
+        }
+    }
+
     public static void install(GoalSelector selector, Snapshot incoming) {
+        // Validate the complete replacement before removeAllGoals can stop or
+        // discard any currently installed recipient goals.
+        validateSnapshot(incoming);
         selector.removeAllGoals(goal -> true);
         for (Entry entry : incoming.entries()) selector.addGoal(entry.priority(), entry.goal());
 
