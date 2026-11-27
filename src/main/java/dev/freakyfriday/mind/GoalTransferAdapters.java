@@ -2,10 +2,13 @@ package dev.freakyfriday.mind;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.util.function.Predicate;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.PathfinderMob;
 import net.minecraft.world.entity.ai.goal.Goal;
+import net.minecraft.world.entity.ai.goal.AvoidEntityGoal;
+import net.minecraft.world.entity.ai.goal.PanicGoal;
 import net.minecraft.world.entity.ai.goal.MeleeAttackGoal;
 import net.minecraft.world.entity.ai.goal.MoveToBlockGoal;
 import net.minecraft.world.entity.ai.goal.RangedBowAttackGoal;
@@ -35,6 +38,20 @@ public final class GoalTransferAdapters {
      */
     public static Goal adapt(Goal source, Mob recipient)
             throws DynamicObjectGraph.Uncapturable {
+        // The vanilla AvoidEntityGoal owns a TargetingConditions instance
+        // assembled from two predicates. Reconstruct that helper instead of
+        // cloning private TargetingConditions internals or keeping its old
+        // path/navigation objects. Only the base goal is translated here;
+        // specialized subclasses may add body-specific semantics.
+        if (source.getClass() == AvoidEntityGoal.class) {
+            return adaptAvoidEntity((AvoidEntityGoal<?>) source, recipient);
+        }
+
+        // PanicGoal's normal graph is portable: its default damage-tag
+        // function captures only a TagKey constant, which the graph copier
+        // now validates and safely shares. More specialized panic subclasses
+        // still use their full owner-field graph and fail closed if needed.
+
         // Generic block-removal goals can be reconstructed against any
         // pathfinding recipient when their concrete implementation carries
         // an incompatible species owner (for example an inner Zombie goal).
@@ -90,6 +107,29 @@ public final class GoalTransferAdapters {
             }
         }
         return false;
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static Goal adaptAvoidEntity(AvoidEntityGoal<?> source, Mob recipient)
+            throws DynamicObjectGraph.Uncapturable {
+        if (!(recipient instanceof PathfinderMob pathfinder)) {
+            throw new DynamicObjectGraph.Uncapturable(
+                "Avoid-entity behavior requires a PathfinderMob recipient.");
+        }
+        DynamicObjectGraph.requireShareableDependency(source.avoidPredicate, "AvoidEntityGoal.avoidPredicate");
+        DynamicObjectGraph.requireShareableDependency(
+            source.predicateOnAvoidEntity, "AvoidEntityGoal.predicateOnAvoidEntity");
+
+        AvoidEntityGoal replacement = new AvoidEntityGoal(
+            pathfinder,
+            source.avoidClass,
+            (Predicate) source.avoidPredicate,
+            source.maxDist,
+            source.walkSpeedModifier,
+            source.sprintSpeedModifier,
+            (Predicate) source.predicateOnAvoidEntity);
+        replacement.setFlags(source.getFlags().clone());
+        return replacement;
     }
 
     private static Goal adaptBlockRemoval(Goal source, Mob recipient)
