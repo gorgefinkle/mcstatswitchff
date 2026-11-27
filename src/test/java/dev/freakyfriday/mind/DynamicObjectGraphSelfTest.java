@@ -107,6 +107,32 @@ public final class DynamicObjectGraphSelfTest {
             predicate = item -> item == body; // Captures the original body.
         }
     }
+
+    private static final class SharedPredicates {
+        // Models vanilla's static shared entity-selector predicates.
+        static final Predicate<Body> HAS_NAME = body -> body.name != null;
+    }
+    private static final class SharedPredicateGoal extends DynamicGoal {
+        final Predicate<Body> predicate;
+        SharedPredicateGoal(Body body) {
+            super(body, 4.0);
+            predicate = SharedPredicates.HAS_NAME::test;
+        }
+    }
+
+    private static final class MutablePredicateHolder implements Predicate<Body> {
+        boolean enabled = true;
+        public boolean test(Body body) { return enabled && body.name != null; }
+    }
+    private static final MutablePredicateHolder MUTABLE_SHARED_PREDICATE =
+        new MutablePredicateHolder();
+    private static final class MutableCaptureGoal extends DynamicGoal {
+        final Predicate<Body> predicate;
+        MutableCaptureGoal(Body body) {
+            super(body, 4.5);
+            predicate = MUTABLE_SHARED_PREDICATE::test;
+        }
+    }
     private static DynamicObjectGraph.Rebinding binding(Body from, Body to) {
         IdentityHashMap<Object, Object> replacements = new IdentityHashMap<>();
         replacements.put(from, to);
@@ -211,6 +237,24 @@ public final class DynamicObjectGraphSelfTest {
         } catch (DynamicObjectGraph.Uncapturable expected) {
             check(expected.getMessage().contains("requiresSpecificSubclass"),
                 "field-level diagnostics for incompatible subclass requirement");
+        }
+
+        SharedPredicateGoal sharedPredicate = new SharedPredicateGoal(cow);
+        SharedPredicateGoal sharedCopy = DynamicObjectGraph.capture(
+            sharedPredicate, SharedPredicateGoal.class, binding(cow, pig));
+        check(sharedCopy != sharedPredicate && sharedCopy.mob == pig,
+            "goal containing a shared vanilla-style predicate is rebound normally");
+        check(sharedCopy.predicate == sharedPredicate.predicate
+                && sharedCopy.predicate.test(pig),
+            "bound method reference to a stateless shared predicate is safely reused");
+
+        try {
+            DynamicObjectGraph.capture(new MutableCaptureGoal(cow),
+                MutableCaptureGoal.class, binding(cow, pig));
+            throw new AssertionError("a static-final mutable predicate holder must not be shared");
+        } catch (DynamicObjectGraph.Uncapturable expected) {
+            check(expected.getMessage().contains("MutablePredicateHolder"),
+                "captured singleton objects with mutable instance state reject");
         }
 
         try {

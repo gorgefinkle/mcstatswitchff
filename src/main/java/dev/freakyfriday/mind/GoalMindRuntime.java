@@ -15,11 +15,13 @@ import net.minecraft.world.entity.ai.goal.GoalSelector;
 import net.minecraft.world.entity.ai.goal.WrappedGoal;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Dynamic whole-goal AI capturer. No hardcoded species names, goal subclasses,
- * recipe tables, food lists or per-species pairing exceptions.
+ * Dynamic goal-AI exchange with strict whole-graph rebinding and a small
+ * semantic adapter layer for behavior whose native implementation is tied
+ * to a body capability or incompatible species owner.
  *
  * Captures EVERY goal and targeting goal at the instant of selection, including
  * priority, concrete class and reflected object state. Each captured Goal is
@@ -85,7 +87,7 @@ public final class GoalMindRuntime {
                     || value.getClass() == BlockPos.class
                     || value.getClass() == Vec3.class
                     || value instanceof Identifier || value instanceof TagKey<?>
-                    || value instanceof Item;
+                    || value instanceof Item || value instanceof Block;
             }
 
             @Override
@@ -103,24 +105,47 @@ public final class GoalMindRuntime {
         // retain their original alias relationships across all goals.
         GoalSelectorState.Snapshot[] sources = { donor.goals(), donor.targets() };
         int goalCount = sources[0].entries().size();
-        Goal[] roots = new Goal[goalCount + sources[1].entries().size()];
+        Goal[] sourceRoots = new Goal[goalCount + sources[1].entries().size()];
         int index = 0;
         for (GoalSelectorState.Snapshot source : sources)
-            for (GoalSelectorState.Entry entry : source.entries()) roots[index++] = entry.goal();
+            for (GoalSelectorState.Entry entry : source.entries()) sourceRoots[index++] = entry.goal();
+
+        // Translate only goals with a defined recipient-native semantic
+        // action. Every other goal passes through strict whole-graph rebinding
+        // and rejects the complete exchange if it cannot be made safe.
+        Goal[] roots = sourceRoots.clone();
+        IdentityHashMap<Goal, Goal> portedRoots = new IdentityHashMap<>();
+        for (int i = 0; i < sourceRoots.length; i++) {
+            Goal sourceGoal = sourceRoots[i];
+            if (!portedRoots.containsKey(sourceGoal)) {
+                Goal replacement = GoalTransferAdapters.adapt(sourceGoal, recipient);
+                if (replacement != null) portedRoots.put(sourceGoal, replacement);
+            }
+            Goal replacement = portedRoots.get(sourceGoal);
+            if (replacement != null) roots[i] = replacement;
+        }
         Goal[] rebound = DynamicObjectGraph.capture(roots, Goal[].class, rebinder);
 
         IdentityHashMap<Goal, Goal> remapped = new IdentityHashMap<>();
-        for (int i = 0; i < roots.length; i++) remapped.put(roots[i], rebound[i]);
+        for (int i = 0; i < sourceRoots.length; i++) remapped.put(sourceRoots[i], rebound[i]);
         GoalSelectorState.Snapshot[] results = new GoalSelectorState.Snapshot[2];
         int offset = 0;
         for (int selectorIndex = 0; selectorIndex < sources.length; selectorIndex++) {
             GoalSelectorState.Snapshot source = sources[selectorIndex];
             List<GoalSelectorState.Entry> entries = new ArrayList<>(source.entries().size());
-            for (GoalSelectorState.Entry entry : source.entries())
-                entries.add(new GoalSelectorState.Entry(entry.priority(), rebound[offset++], entry.running()));
+            for (GoalSelectorState.Entry entry : source.entries()) {
+                boolean ported = portedRoots.containsKey(entry.goal());
+                // A translated driver has a different implementation and
+                // must run its own start() lifecycle. Do not restore the
+                // donor wrapper's active bit around a freshly-created driver.
+                entries.add(new GoalSelectorState.Entry(
+                    entry.priority(), rebound[offset++], entry.running() && !ported));
+            }
             java.util.EnumMap<Goal.Flag, Goal> locks = new java.util.EnumMap<>(Goal.Flag.class);
-            for (Map.Entry<Goal.Flag, Goal> lock : source.lockedGoals().entrySet())
-                locks.put(lock.getKey(), remapped.get(lock.getValue()));
+            for (Map.Entry<Goal.Flag, Goal> lock : source.lockedGoals().entrySet()) {
+                if (!portedRoots.containsKey(lock.getValue()))
+                    locks.put(lock.getKey(), remapped.get(lock.getValue()));
+            }
             results[selectorIndex] = new GoalSelectorState.Snapshot(entries, source.disabledFlags(), locks);
         }
         return new Snapshot(results[0], results[1]);
@@ -151,6 +176,7 @@ public final class GoalMindRuntime {
             return "Native goal scheduler state is inconsistent or inaccessible; no swap performed: "
                 + invalidScheduler.getMessage();
         }
+        MobMindTargetState.Snapshot originalTargets = MobMindTargetState.capture(first, second);
         if (originalFirst.goals().entries().isEmpty() && originalFirst.targets().entries().isEmpty())
             return "The first mob has no goal AI to capture.";
         if (originalSecond.goals().entries().isEmpty() && originalSecond.targets().entries().isEmpty())
@@ -183,12 +209,14 @@ public final class GoalMindRuntime {
         if (!identical(first.goalSelector, originalFirst.goals())
                 || !identical(first.targetSelector, originalFirst.targets())
                 || !identical(second.goalSelector, originalSecond.goals())
-                || !identical(second.targetSelector, originalSecond.targets()))
-            return "One mob's AI changed during capture; no swap performed.";
+                || !identical(second.targetSelector, originalSecond.targets())
+                || !MobMindTargetState.matches(first, second, originalTargets))
+            return "One mob's AI or active target changed during capture; no swap performed.";
 
         try {
             apply(first, firstReceiving);
             apply(second, secondReceiving);
+            MobMindTargetState.exchange(first, second, originalTargets);
             OWNERS.exchange(firstId, secondId, (body, incoming) -> {
                 if (incoming.kind() != MindLedger.Kind.NPC)
                     throw new IllegalArgumentException("Incoming mind is not a complete NPC controller");
@@ -201,6 +229,8 @@ public final class GoalMindRuntime {
             try { apply(first, firstRollback); }
             catch (Exception rollback) { failure.addSuppressed(rollback); }
             try { apply(second, secondRollback); }
+            catch (Exception rollback) { failure.addSuppressed(rollback); }
+            try { MobMindTargetState.restore(first, second, originalTargets); }
             catch (Exception rollback) { failure.addSuppressed(rollback); }
             if (failure.getSuppressed().length != 0)
                 return "Dynamic AI exchange FAILED; rollback could not be verified: "

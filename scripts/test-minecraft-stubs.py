@@ -99,8 +99,11 @@ public class Entity {private final UUID uuid=UUID.randomUUID();private final Ser
 public Entity(String name,ServerLevel l){this.name=name;level=l;l.add(this);}public UUID getUUID(){return uuid;}public ServerLevel level(){return level;}
 public Component getDisplayName(){return Component.literal(name);} }''',
 'net/minecraft/world/entity/LivingEntity.java':'''package net.minecraft.world.entity;
-import net.minecraft.server.level.ServerLevel;import net.minecraft.world.entity.ai.attributes.*;import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.server.level.ServerLevel;import net.minecraft.world.entity.ai.attributes.*;import net.minecraft.core.registries.BuiltInRegistries;import net.minecraft.world.item.ItemStack;
 public class LivingEntity extends Entity{private final AttributeMap attrs=new AttributeMap();private float health=20, absorption=0; private boolean alive=true; public float maxHealthPenalty=0;
+private ItemStack main=new ItemStack(new Object()),off=new ItemStack(new Object());
+public ItemStack getMainHandItem(){return main;} public ItemStack getOffhandItem(){return off;}
+public void setMainHandItem(Object item){main=new ItemStack(item);} public void setOffHandItem(Object item){off=new ItemStack(item);}
 public boolean isAlive(){return alive;}public void kill(){alive=false;} public void revive(){alive=true;}
 public LivingEntity(String name,ServerLevel l){super(name,l);} public AttributeMap getAttributes(){return attrs;}
 public float getHealth(){return health;}public void setHealth(float value){health=Math.max(0,Math.min(value,getMaxHealth()));}
@@ -402,6 +405,257 @@ public final List<String> hints=new ArrayList<>();public ItemStack getMainHandIt
 public void displayClientMessage(Component msg,boolean actionbar){hints.add(msg.getString());}}
 public static class Connection{public final List<String> commands=new ArrayList<>();public void sendCommand(String command){commands.add(command);}}
 }''',
+
+'net/minecraft/server/level/ServerLevel.java':'''package net.minecraft.server.level;
+import net.minecraft.world.entity.Entity;import net.minecraft.resources.Identifier;import java.util.*;import net.minecraft.world.Difficulty;
+public final class ServerLevel {public record Dimension(Identifier identifier){} private final Dimension dim;private final Map<UUID,Entity> entities=new HashMap<>();
+private long time=0; public long getGameTime(){return time;} public void tick(){++time;}
+public ServerLevel(String id){dim=new Dimension(new Identifier(id));}public Dimension dimension(){return dim;}public void add(Entity e){entities.put(e.getUUID(),e);}
+public Entity getEntity(UUID id){return entities.get(id);} public Difficulty getDifficulty(){return Difficulty.NORMAL;} }
+''',
+'net/minecraft/world/Difficulty.java':'''package net.minecraft.world;
+public enum Difficulty {PEACEFUL,EASY,NORMAL,HARD}
+''',
+'net/minecraft/world/level/block/Block.java':'''package net.minecraft.world.level.block;
+public class Block {}
+''',
+'net/minecraft/world/entity/Mob.java':'''package net.minecraft.world.entity;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.item.ItemStack;
+public class Mob extends LivingEntity {
+ private LivingEntity target;
+ public Mob(String name,ServerLevel level){super(name,level);}
+ public ItemStack getMainHandItem(){return super.getMainHandItem();}
+ public ItemStack getOffhandItem(){return super.getOffhandItem();}
+ public LivingEntity getTargetUnchecked(){return target;}
+ public void setTarget(LivingEntity target){this.target=target;}
+}
+''',
+'net/minecraft/world/entity/PathfinderMob.java':'''package net.minecraft.world.entity;
+import net.minecraft.server.level.ServerLevel;
+public class PathfinderMob extends Mob {
+ public PathfinderMob(String name,ServerLevel level){super(name,level);}
+}
+''',
+'net/minecraft/world/entity/monster/RangedAttackMob.java':'''package net.minecraft.world.entity.monster;
+public interface RangedAttackMob {}
+''',
+'net/minecraft/world/entity/monster/Creeper.java':'''package net.minecraft.world.entity.monster;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.PathfinderMob;
+public class Creeper extends PathfinderMob { public Creeper(String name,ServerLevel level){super(name,level);} }
+''',
+'net/minecraft/world/entity/ai/goal/SwellGoal.java':'''package net.minecraft.world.entity.ai.goal;
+import net.minecraft.world.entity.monster.Creeper;
+public class SwellGoal extends Goal {
+ public static int canUseCalls;
+ public final Creeper creeper;
+ public SwellGoal(Creeper creeper){this.creeper=creeper;setFlags(java.util.EnumSet.of(Flag.MOVE));}
+ public boolean canUse(){canUseCalls++;return true;}
+}
+''',
+'net/minecraft/world/damagesource/DamageType.java':'''package net.minecraft.world.damagesource;
+public final class DamageType {}
+''',
+'net/minecraft/tags/TagKey.java':'''package net.minecraft.tags;
+public final class TagKey<T> { public final String value; public TagKey(String value){this.value=value;} }
+''',
+'net/minecraft/tags/DamageTypeTags.java':'''package net.minecraft.tags;
+import net.minecraft.world.damagesource.DamageType;
+public final class DamageTypeTags {public static final TagKey<DamageType> PANIC_CAUSES=new TagKey<>("panic_causes");}
+''',
+'net/minecraft/world/entity/ai/goal/PanicGoal.java':'''package net.minecraft.world.entity.ai.goal;
+import java.util.EnumSet;
+import java.util.function.Function;
+import net.minecraft.tags.DamageTypeTags;
+import net.minecraft.tags.TagKey;
+import net.minecraft.world.damagesource.DamageType;
+import net.minecraft.world.entity.PathfinderMob;
+public class PanicGoal extends Goal {
+ public final PathfinderMob mob;
+ public final double speedModifier;
+ public double posX,posY,posZ;
+ public boolean isRunning;
+ private final Function<PathfinderMob,TagKey<DamageType>> panicCausingDamageTypes;
+ public PanicGoal(PathfinderMob mob,double speed) {
+   this.mob=mob;this.speedModifier=speed;
+   TagKey<DamageType> tag=DamageTypeTags.PANIC_CAUSES;
+   this.panicCausingDamageTypes=entity -> tag;
+   setFlags(EnumSet.of(Flag.MOVE));
+ }
+ public boolean canUse(){return true;}
+}
+''',
+'net/minecraft/world/entity/ai/targeting/TargetingConditions.java':'''package net.minecraft.world.entity.ai.targeting;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.server.level.ServerLevel;
+public final class TargetingConditions {
+ @FunctionalInterface public interface Selector {boolean test(LivingEntity target,ServerLevel level);}
+ public Selector selector;
+ private double range;
+ public static TargetingConditions forCombat(){return new TargetingConditions();}
+ public static TargetingConditions forNonCombat(){return new TargetingConditions();}
+ public TargetingConditions range(double range){this.range=range;return this;}
+ public TargetingConditions selector(Selector selector){this.selector=selector;return this;}
+}
+''',
+'net/minecraft/world/entity/ai/goal/target/TargetGoal.java':'''package net.minecraft.world.entity.ai.goal.target;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.goal.Goal;
+public class TargetGoal extends Goal {
+ public final Mob mob; public final boolean mustSee,mustReach; public int unseenMemoryTicks=60;
+ public TargetGoal(Mob mob,boolean mustSee,boolean mustReach){this.mob=mob;this.mustSee=mustSee;this.mustReach=mustReach;}
+ public void setUnseenMemoryTicks(int ticks){unseenMemoryTicks=ticks;}
+ public boolean canUse(){return true;}
+}
+''',
+'net/minecraft/world/entity/ai/goal/target/NearestAttackableTargetGoal.java':'''package net.minecraft.world.entity.ai.goal.target;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.targeting.TargetingConditions;
+public class NearestAttackableTargetGoal<T extends LivingEntity> extends TargetGoal {
+ public final Class<T> targetType; public final int randomInterval;
+ public final TargetingConditions targetConditions;
+ public NearestAttackableTargetGoal(Mob mob,Class<T> type,int interval,boolean mustSee,boolean mustReach,
+   TargetingConditions.Selector selector){
+   super(mob,mustSee,mustReach);this.targetType=type;this.randomInterval=(interval+1)/2;
+   this.targetConditions=TargetingConditions.forCombat().range(32).selector(selector);
+ }
+ public boolean canUse(){return true;}
+}
+''',
+'net/minecraft/world/entity/EntitySelector.java':'''package net.minecraft.world.entity;
+import java.util.function.Predicate;
+public final class EntitySelector {
+ public static Predicate<Entity> notRiding(Entity owner){return candidate -> candidate!=owner;}
+}
+''',
+'net/minecraft/world/entity/ai/goal/LookAtPlayerGoal.java':'''package net.minecraft.world.entity.ai.goal;
+import java.util.EnumSet;
+import java.util.function.Predicate;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntitySelector;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.ai.targeting.TargetingConditions;
+import net.minecraft.world.entity.player.Player;
+public class LookAtPlayerGoal extends Goal {
+ public final Mob mob;
+ public final Class<? extends LivingEntity> lookAtType;
+ public final float lookDistance;
+ public final float probability;
+ public final boolean onlyHorizontal;
+ public final TargetingConditions lookAtContext;
+ public LookAtPlayerGoal(Mob mob,Class<? extends LivingEntity> type,float distance,float probability,boolean onlyHorizontal){
+   this.mob=mob;this.lookAtType=type;this.lookDistance=distance;this.probability=probability;this.onlyHorizontal=onlyHorizontal;
+   setFlags(EnumSet.of(Flag.LOOK));
+   if(type==Player.class){
+     Predicate<Entity> selector=EntitySelector.notRiding(mob);
+     this.lookAtContext=TargetingConditions.forNonCombat().range(distance).selector((target,level)->selector.test(target));
+   } else this.lookAtContext=TargetingConditions.forNonCombat().range(distance);
+ }
+ public boolean canUse(){return true;}
+}
+''',
+'net/minecraft/world/entity/ai/goal/MoveThroughVillageGoal.java':'''package net.minecraft.world.entity.ai.goal;
+import java.util.EnumSet;
+import java.util.function.BooleanSupplier;
+import net.minecraft.world.entity.PathfinderMob;
+public class MoveThroughVillageGoal extends Goal {
+ public final PathfinderMob mob;
+ public final double speedModifier;
+ public final boolean onlyAtNight;
+ public final int distanceToPoi;
+ public final BooleanSupplier canDealWithDoors;
+ public MoveThroughVillageGoal(PathfinderMob mob,double speed,boolean night,int distance,BooleanSupplier doors){
+   this.mob=mob;this.speedModifier=speed;this.onlyAtNight=night;this.distanceToPoi=distance;this.canDealWithDoors=doors;
+   setFlags(EnumSet.of(Flag.MOVE));
+ }
+ public boolean canUse(){return true;}
+}
+''',
+'net/minecraft/world/entity/ai/goal/AvoidEntityGoal.java':'''package net.minecraft.world.entity.ai.goal;
+import java.util.EnumSet;
+import java.util.function.Predicate;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.PathfinderMob;
+public class AvoidEntityGoal<T extends LivingEntity> extends Goal {
+ public final PathfinderMob mob;
+ public final Class<T> avoidClass;
+ public final Predicate<? super LivingEntity> avoidPredicate;
+ public final float maxDist;
+ public final double walkSpeedModifier,sprintSpeedModifier;
+ public final Predicate<? super LivingEntity> predicateOnAvoidEntity;
+ public final Object avoidEntityTargeting=new Object();
+ public AvoidEntityGoal(PathfinderMob mob,Class<T> avoidClass,Predicate<? super LivingEntity> avoidPredicate,
+   float maxDist,double walk,double sprint,Predicate<? super LivingEntity> predicate){
+   this.mob=mob;this.avoidClass=avoidClass;this.avoidPredicate=avoidPredicate;this.maxDist=maxDist;
+   this.walkSpeedModifier=walk;this.sprintSpeedModifier=sprint;this.predicateOnAvoidEntity=predicate;
+   setFlags(EnumSet.of(Flag.MOVE));
+ }
+ public boolean canUse(){return true;}
+}
+''',
+
+'net/minecraft/world/item/Items.java':'''package net.minecraft.world.item;
+public final class Items { public static final Item BOW=new Item(new Item.Properties()); }
+''',
+'net/minecraft/world/entity/ai/goal/Goal.java':'''package net.minecraft.world.entity.ai.goal;
+import java.util.EnumSet;
+public abstract class Goal {
+ public enum Flag {MOVE,LOOK,JUMP,TARGET}
+ private EnumSet<Flag> flags=EnumSet.noneOf(Flag.class);
+ public void setFlags(EnumSet<Flag> values){flags=values.clone();}
+ public EnumSet<Flag> getFlags(){return flags.clone();}
+ public abstract boolean canUse();
+ public boolean canContinueToUse(){return canUse();}
+ public void start(){}
+ public void stop(){}
+ public void tick(){}
+ public boolean requiresUpdateEveryTick(){return false;}
+ public boolean isInterruptable(){return true;}
+}
+''',
+'net/minecraft/world/entity/ai/goal/MeleeAttackGoal.java':'''package net.minecraft.world.entity.ai.goal;
+import net.minecraft.world.entity.PathfinderMob;
+public class MeleeAttackGoal extends Goal {
+ public static int canUseCalls;
+ public final double speedModifier;
+ public final boolean followingTargetEvenIfNotSeen;
+ public MeleeAttackGoal(PathfinderMob mob,double speed,boolean follow){speedModifier=speed;followingTargetEvenIfNotSeen=follow;}
+ public boolean canUse(){canUseCalls++;return true;}
+}
+''',
+'net/minecraft/world/entity/ai/goal/RangedBowAttackGoal.java':'''package net.minecraft.world.entity.ai.goal;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.monster.RangedAttackMob;
+public class RangedBowAttackGoal<T extends Mob & RangedAttackMob> extends Goal {
+ public static int canUseCalls;
+ public final double speedModifier;
+ public final int attackIntervalMin;
+ public final float attackRadiusSqr;
+ public RangedBowAttackGoal(T mob,double speed,int interval,float radius){speedModifier=speed;attackIntervalMin=interval;attackRadiusSqr=radius*radius;}
+ public boolean canUse(){canUseCalls++;return true;}
+}
+''',
+'net/minecraft/world/entity/ai/goal/MoveToBlockGoal.java':'''package net.minecraft.world.entity.ai.goal;
+import net.minecraft.world.entity.PathfinderMob;
+public class MoveToBlockGoal extends Goal {
+ public final PathfinderMob mob; public final double speedModifier; public final int verticalSearchRange;
+ public MoveToBlockGoal(PathfinderMob mob,double speed,int range){this.mob=mob;speedModifier=speed;verticalSearchRange=range;}
+ public double acceptedDistance(){return 1.0;}
+ public boolean canUse(){return true;}
+}
+''',
+'net/minecraft/world/entity/ai/goal/RemoveBlockGoal.java':'''package net.minecraft.world.entity.ai.goal;
+import net.minecraft.world.entity.PathfinderMob;
+import net.minecraft.world.level.block.Block;
+public class RemoveBlockGoal extends MoveToBlockGoal {
+ public final Block blockToRemove;
+ public RemoveBlockGoal(Block block,PathfinderMob mob,double speed,int range){super(mob,speed,range);blockToRemove=block;}
+}
+''',
 }
 for n,txt in FULL.items():
     file=STUB/n;file.parent.mkdir(parents=True,exist_ok=True);file.write_text(txt+'\n')
@@ -477,6 +731,228 @@ real_api_only = {'NativeBrainSwap.java', 'GoalMindRuntime.java', 'GoalSelectorSt
 all_prod=[p for p in (ROOT/'src/main/java').rglob('*.java') if p.name not in real_api_only] + list((ROOT/'src/platform/minecraft-26.2/java').rglob('*.java'))
 full_cmd=['javac','-d',str(OUT)]+list(map(str,STUB.rglob('*.java')))+list(map(str,all_prod))
 subprocess.run(full_cmd,check=True)
+
+# Exercise the real recipient action adapters against a small synthetic mob
+# hierarchy. This proves the wrapper chooses an executable action owned by the
+# receiving body, rather than carrying the donor's species-bound goal.
+(STUB/'dev/freakyfriday/mind/GoalPortHarness.java').write_text('''package dev.freakyfriday.mind;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.PathfinderMob;
+import net.minecraft.world.entity.ai.goal.*;
+import net.minecraft.world.entity.monster.RangedAttackMob;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Block;
+
+public final class GoalPortHarness {
+ static int checks;
+ static void ok(boolean value,String message){checks++;if(!value)throw new AssertionError(message);}
+ static final class ZombieLike extends PathfinderMob {
+   ZombieLike(ServerLevel level){super("Zombie",level);}
+   public boolean canBreakDoors(){return true;}
+   final class ZombieAttackTurtleEggGoal extends RemoveBlockGoal {
+     ZombieAttackTurtleEggGoal(Block block){super(block,ZombieLike.this,1.15,2);setFlags(java.util.EnumSet.of(Flag.MOVE));}
+   }
+ }
+ static final class ZombieAttackGoal extends MeleeAttackGoal {
+   private final ZombieLike zombie;
+   ZombieAttackGoal(ZombieLike zombie){super(zombie,1.0,true);this.zombie=zombie;setFlags(java.util.EnumSet.of(Flag.MOVE));}
+ }
+ static final class SkeletonLike extends PathfinderMob implements RangedAttackMob {
+   SkeletonLike(ServerLevel level){super("Skeleton",level);}
+ }
+ static final class CreeperLike extends net.minecraft.world.entity.monster.Creeper {
+   CreeperLike(ServerLevel level){super("Creeper",level);}
+ }
+ public static void main(String[] args) throws Exception {
+   var level=new ServerLevel("minecraft:overworld");
+   var zombie=new ZombieLike(level);
+   var skeleton=new SkeletonLike(level);
+   var creeper=new CreeperLike(level);
+   var block=new Block();
+
+   var firstTarget=new net.minecraft.world.entity.LivingEntity("first-target",level);
+   var secondTarget=new net.minecraft.world.entity.LivingEntity("second-target",level);
+   zombie.setTarget(firstTarget); skeleton.setTarget(secondTarget);
+   var targetSnapshot=MobMindTargetState.capture(zombie,skeleton);
+   ok(MobMindTargetState.matches(zombie,skeleton,targetSnapshot),
+      "combat targets remain unchanged during preflight capture");
+   MobMindTargetState.exchange(zombie,skeleton,targetSnapshot);
+   ok(zombie.getTargetUnchecked()==secondTarget && skeleton.getTargetUnchecked()==firstTarget,
+      "active combat target follows the exchanged mind to the opposite body");
+   MobMindTargetState.restore(zombie,skeleton,targetSnapshot);
+   ok(zombie.getTargetUnchecked()==firstTarget && skeleton.getTargetUnchecked()==secondTarget,
+      "combat target pointers restore exactly during transaction rollback");
+
+   Goal sourceEgg=zombie.new ZombieAttackTurtleEggGoal(block);
+   ok(sourceEgg.getClass().getEnclosingClass()==ZombieLike.class,
+      "nested zombie goal exposes its incompatible enclosing owner");
+   Goal translatedEgg=GoalTransferAdapters.adapt(sourceEgg,skeleton);
+   ok(translatedEgg instanceof RemoveBlockGoal,"species-bound block removal becomes a generic recipient-owned remover");
+   var remover=(RemoveBlockGoal)translatedEgg;
+   ok(remover.mob==skeleton,"block-removal behavior executes on recipient body");
+   ok(remover.blockToRemove==block && remover.speedModifier==1.15 && remover.verticalSearchRange==2,
+      "block target, speed and search range survive translation");
+   ok(remover.getFlags().contains(Goal.Flag.MOVE),"scheduler control flags survive translation");
+
+   var lookAtSource=new net.minecraft.world.entity.ai.goal.LookAtPlayerGoal(
+      zombie,net.minecraft.world.entity.player.Player.class,8.0F,0.05F,true);
+   Goal translatedLookAt=GoalTransferAdapters.adapt(lookAtSource,skeleton);
+   ok(translatedLookAt instanceof net.minecraft.world.entity.ai.goal.LookAtPlayerGoal,
+      "look-at-player goal is reconstructed with a fresh recipient selector");
+   var lookAt=(net.minecraft.world.entity.ai.goal.LookAtPlayerGoal)translatedLookAt;
+   ok(lookAt.mob==skeleton && lookAt.lookAtType==lookAtSource.lookAtType
+       && lookAt.lookDistance==8.0F && lookAt.probability==0.05F && lookAt.onlyHorizontal,
+      "look target class, distance, probability and horizontal-only setting survive");
+   ok(lookAt.lookAtContext!=lookAtSource.lookAtContext,
+      "look-at targeting conditions are recreated, not shared");
+   ok(lookAt.lookAtContext.selector.test(skeleton,level)==false
+       && lookAt.lookAtContext.selector.test(zombie,level),
+      "not-riding selector is rebound from donor mob to recipient mob");
+
+   net.minecraft.world.entity.ai.targeting.TargetingConditions.Selector turtleSelector =
+      (entity,serverLevel) -> entity.isAlive();
+   var nearestSource=new net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal<>(
+      zombie,net.minecraft.world.entity.LivingEntity.class,12,false,true,turtleSelector);
+   nearestSource.setUnseenMemoryTicks(90);
+   Object oldTargetConditions=nearestSource.targetConditions;
+   Goal translatedNearest=GoalTransferAdapters.adapt(nearestSource,skeleton);
+   ok(translatedNearest instanceof net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal<?>,
+      "nearest-target goal is reconstructed with fresh targeting conditions");
+   var nearest=(net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal<?>)translatedNearest;
+   ok(nearest.mob==skeleton && nearest.targetType==nearestSource.targetType,
+      "target acquisition is rebound to recipient and retains target class");
+   ok(nearest.randomInterval==nearestSource.randomInterval && !nearest.mustSee && nearest.mustReach,
+      "target search cadence, visibility and reach policy survive reconstruction");
+   ok(nearest.unseenMemoryTicks==90,
+      "target goal unseen-memory setting is retained");
+   ok(nearest.targetConditions!=oldTargetConditions
+       && nearest.targetConditions.selector==turtleSelector,
+      "targeting conditions are recreated while preserving safe custom selector");
+   try {
+     net.minecraft.world.entity.ai.targeting.TargetingConditions.Selector unsafeSelector =
+        (entity,serverLevel) -> entity != zombie;
+     var unsafeNearest=new net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal<>(
+        zombie,net.minecraft.world.entity.LivingEntity.class,10,true,false,unsafeSelector);
+     GoalTransferAdapters.adapt(unsafeNearest,skeleton);
+     throw new AssertionError("captured donor in target selector must be rejected");
+   } catch(DynamicObjectGraph.Uncapturable expected) {
+     ok(expected.getMessage().contains("targetSelector"),
+        "owner-bound target selector fails closed with useful path");
+   }
+
+   var villageSource=new MoveThroughVillageGoal(
+      zombie,1.0,true,4,zombie::canBreakDoors);
+   Goal translatedVillage=GoalTransferAdapters.adapt(villageSource,skeleton);
+   ok(translatedVillage instanceof MoveThroughVillageGoal,
+      "village traversal is reconstructed instead of retaining Zombie-bound method reference");
+   var village=(MoveThroughVillageGoal)translatedVillage;
+   ok(village.mob==skeleton && village.speedModifier==1.0
+       && village.onlyAtNight && village.distanceToPoi==4,
+      "village movement config is retained on recipient body");
+   ok(!village.canDealWithDoors.getAsBoolean(),
+      "recipient without door-breaking capability does not inherit donor privilege");
+   Goal translatedVillageToZombie=GoalTransferAdapters.adapt(villageSource,zombie);
+   ok(((MoveThroughVillageGoal)translatedVillageToZombie).canDealWithDoors.getAsBoolean(),
+      "recipient's own door-breaking capability is queried dynamically");
+
+   java.util.function.Predicate<net.minecraft.world.entity.LivingEntity> acceptAll = entity -> true;
+   java.util.function.Predicate<net.minecraft.world.entity.LivingEntity> visibleOnly = entity -> entity.isAlive();
+   var vanillaAvoid=new AvoidEntityGoal<>(
+      zombie,net.minecraft.world.entity.LivingEntity.class,acceptAll,6.0F,1.0,1.2,visibleOnly);
+   Object oldTargeting=vanillaAvoid.avoidEntityTargeting;
+   Goal translatedAvoid=GoalTransferAdapters.adapt(vanillaAvoid,skeleton);
+   ok(translatedAvoid instanceof AvoidEntityGoal<?>,"base AvoidEntityGoal is reconstructed rather than cloning TargetingConditions");
+   var avoid=(AvoidEntityGoal<?>)translatedAvoid;
+   ok(avoid.mob==skeleton && avoid.avoidClass==vanillaAvoid.avoidClass,
+      "avoid behavior is rebound to recipient and preserves target class");
+   ok(avoid.avoidPredicate==acceptAll && avoid.predicateOnAvoidEntity==visibleOnly,
+      "safe vanilla predicates are retained exactly");
+   ok(avoid.maxDist==6.0F && avoid.walkSpeedModifier==1.0 && avoid.sprintSpeedModifier==1.2,
+      "avoid distance and walk/sprint configuration survive");
+   ok(avoid.avoidEntityTargeting!=oldTargeting,
+      "TargetingConditions is rebuilt for recipient rather than shared from donor");
+   try {
+     java.util.function.Predicate<net.minecraft.world.entity.LivingEntity> ownerBound =
+        entity -> entity != zombie;
+     var unsafeAvoid=new AvoidEntityGoal<>(
+        zombie,net.minecraft.world.entity.LivingEntity.class,ownerBound,6.0F,1.0,1.2,visibleOnly);
+     GoalTransferAdapters.adapt(unsafeAvoid,skeleton);
+     throw new AssertionError("captured donor reference in avoid predicate must be rejected");
+   } catch(DynamicObjectGraph.Uncapturable expected) {
+     ok(expected.getMessage().contains("avoidPredicate"),
+        "owner-bound avoid predicate fails closed with a useful field path");
+   }
+
+   PanicGoal donorPanic=new PanicGoal(zombie,1.25);
+   var panicBinding=new DynamicObjectGraph.Rebinding() {
+     public Object substitute(Object value){return value==zombie?skeleton:value;}
+     public boolean shared(Object value){return false;}
+     public boolean cloneable(Class<?> type){return Goal.class.isAssignableFrom(type);}
+   };
+   PanicGoal copiedPanic=DynamicObjectGraph.capture(donorPanic,PanicGoal.class,panicBinding);
+   ok(copiedPanic!=donorPanic && copiedPanic.mob==skeleton,
+      "PanicGoal is reconstructed with recipient body");
+   ok(copiedPanic.speedModifier==1.25 && copiedPanic.getFlags().contains(Goal.Flag.MOVE),
+      "PanicGoal speed and scheduler flags survive graph capture");
+   java.lang.reflect.Field panicFunctionField=PanicGoal.class.getDeclaredField("panicCausingDamageTypes");
+   panicFunctionField.setAccessible(true);
+   Object originalPanicFunction=panicFunctionField.get(donorPanic);
+   Object copiedPanicFunction=panicFunctionField.get(copiedPanic);
+   ok(originalPanicFunction==copiedPanicFunction,
+      "default PanicGoal damage-tag function is safely retained");
+
+   Goal translatedAttack=GoalTransferAdapters.adapt(new ZombieAttackGoal(zombie),skeleton);
+   ok(translatedAttack instanceof RecipientAttackIntentGoal,"owner-bound melee goal becomes portable attack intent");
+   skeleton.setMainHandItem(new Object());
+   MeleeAttackGoal.canUseCalls=0; RangedBowAttackGoal.canUseCalls=0;
+   ok(translatedAttack.canUse(),"unarmed ranged-capable recipient can still attack");
+   ok(MeleeAttackGoal.canUseCalls==1 && RangedBowAttackGoal.canUseCalls==0,
+      "recipient without a bow selects its melee action");
+
+   skeleton.setMainHandItem(Items.BOW);
+   MeleeAttackGoal.canUseCalls=0; RangedBowAttackGoal.canUseCalls=0;
+   Goal bowAttack=new RecipientAttackIntentGoal(
+      skeleton,1.0,30,15.0F,false,java.util.EnumSet.of(Goal.Flag.MOVE));
+   ok(bowAttack.canUse(),"armed skeleton selects ranged action");
+   ok(RangedBowAttackGoal.canUseCalls==1 && MeleeAttackGoal.canUseCalls==0,
+      "recipient with bow selects its ranged action");
+
+   skeleton.setOffHandItem(Items.BOW); skeleton.setMainHandItem(new Object());
+   MeleeAttackGoal.canUseCalls=0; RangedBowAttackGoal.canUseCalls=0;
+   ok(bowAttack.canUse(),"offhand bow is recognized");
+   ok(RangedBowAttackGoal.canUseCalls==1,"offhand bow selects ranged action");
+
+   var translatedRanged=GoalTransferAdapters.adapt(
+      new RangedBowAttackGoal<>(skeleton,1.1,24,12.0F),zombie);
+   ok(translatedRanged instanceof RecipientAttackIntentGoal,
+      "ranged-only source goal translates when recipient lacks ranged capability");
+   MeleeAttackGoal.canUseCalls=0; RangedBowAttackGoal.canUseCalls=0;
+   ok(translatedRanged.canUse(),"zombie receives an executable attack action");
+   ok(MeleeAttackGoal.canUseCalls==1,"recipient without ranged interface falls back to melee");
+
+   // Creeper swell is translated to ordinary attack intent off-Creeper, while
+   // any attack intent received by a Creeper uses its native swell behavior.
+   Goal swellToZombie=GoalTransferAdapters.adapt(new SwellGoal(creeper),zombie);
+   ok(swellToZombie instanceof RecipientAttackIntentGoal,"Creeper swell maps to portable attack intent on a Zombie");
+   MeleeAttackGoal.canUseCalls=0; SwellGoal.canUseCalls=0;
+   ok(swellToZombie.canUse(),"Zombie body executes Creeper attack intent");
+   ok(MeleeAttackGoal.canUseCalls==1 && SwellGoal.canUseCalls==0,
+      "non-Creeper body selects its melee action");
+
+   Goal zombieMindToCreeper=GoalTransferAdapters.adapt(new ZombieAttackGoal(zombie),creeper);
+   ok(zombieMindToCreeper instanceof RecipientAttackIntentGoal,"Zombie attack goal translates for Creeper recipient");
+   MeleeAttackGoal.canUseCalls=0; SwellGoal.canUseCalls=0;
+   ok(zombieMindToCreeper.canUse(),"Creeper body executes transferred attack intent");
+   ok(SwellGoal.canUseCalls==1 && MeleeAttackGoal.canUseCalls==0,
+      "Creeper recipient selects its native swell action");
+
+   System.out.println("PASS GoalPortHarness: "+checks+" checks; owner-bound goal translation and recipient-native melee/ranged/explosive actions");
+ }
+}
+''')
+subprocess.run(['javac','-cp',str(OUT),'-d',str(OUT),str(STUB/'dev/freakyfriday/mind/GoalPortHarness.java')],check=True)
+subprocess.run(['java','-ea','-cp',str(OUT),'dev.freakyfriday.mind.GoalPortHarness'],check=True)
+
 # Run the same simulation against the full mod class, not the surrogate book registrar.
 subprocess.run(['java','-ea','-cp',str(OUT),'dev.freakyfriday.BridgeHarness'],check=True)
 subprocess.run(['java','-ea','-cp',str(OUT),'dev.freakyfriday.PortabilityHarness'],check=True)

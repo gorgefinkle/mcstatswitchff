@@ -200,14 +200,16 @@ public final class DynamicObjectGraph {
                 return result;
             }
 
-            // Stateless lambdas (e.g. a static ItemTags food predicate) can be
-            // shared. Capturing lambdas have hidden private state that cannot
-            // reliably be rebound and are ALWAYS refused instead.
-            if (type.isHidden() || type.isSynthetic() && type.getName().contains("$$Lambda")) {
-                for (Field field : type.getDeclaredFields()) {
-                    if (!Modifier.isStatic(field.getModifiers()))
-                        throw new Uncapturable("Opaque captured lambda cannot be rebound: " + type.getName());
-                }
+            // A lambda may capture a shared vanilla predicate or method
+            // reference. Reuse it only when each captured dependency is
+            // immutable, another recursively safe lambda, or an object with
+            // no mutable instance state. A static-final reference alone is
+            // not enough: its referent could still be mutable.
+            if (isLambdaType(type)) {
+                String unsafeCapture = unsafeLambdaCapture(source, 0, new IdentityHashMap<>());
+                if (unsafeCapture != null)
+                    throw new Uncapturable("Captured lambda depends on non-shareable state at "
+                        + unsafeCapture + ": " + type.getName());
                 return source;
             }
 
@@ -257,6 +259,93 @@ public final class DynamicObjectGraph {
             try { Array.set(array, index, item); }
             catch (IllegalArgumentException err) { throw new Uncapturable("Invalid AI array", err); }
         }
+    }
+
+    /**
+     * Validate a callback/dependency before a semantic adapter deliberately
+     * reuses it in a freshly constructed recipient-bound goal.
+     */
+    public static void requireShareableDependency(Object dependency, String role)
+            throws Uncapturable {
+        if (dependency == null || primitiveLike(dependency.getClass())
+                || isKnownImmutableCapture(dependency.getClass())) return;
+        Class<?> type = dependency.getClass();
+        if (isLambdaType(type)) {
+            String unsafe = unsafeLambdaCapture(dependency, 0, new IdentityHashMap<>());
+            if (unsafe != null)
+                throw new Uncapturable("Cannot port " + role + " because its captured state is body-bound: " + unsafe);
+            return;
+        }
+        if (isStatelessObject(dependency)) return;
+        throw new Uncapturable("Cannot port " + role + " because dependency has mutable instance state: "
+            + type.getName());
+    }
+
+    private static boolean isLambdaType(Class<?> type) {
+        return type.isHidden() || type.isSynthetic() && type.getName().contains("$Lambda");
+    }
+
+    /**
+     * Returns the first unsafe capture path, or null when sharing the lambda
+     * instance cannot retain a donor-body or mutable owner reference.
+     */
+    private static String unsafeLambdaCapture(
+            Object lambda, int depth, IdentityHashMap<Object, Boolean> visited) {
+        if (lambda == null) return null;
+        if (depth > 12) return "capture graph exceeds safety depth";
+        // Shared lambda dependencies can form a DAG or a cycle. A revisit is
+        // not itself unsafe; every distinct captured field is still inspected
+        // on its first traversal, and any owner-bound reference rejects.
+        if (visited.put(lambda, Boolean.TRUE) != null) return null;
+        Class<?> type = lambda.getClass();
+        if (!isLambdaType(type)) return null;
+
+        for (Field field : type.getDeclaredFields()) {
+            if (Modifier.isStatic(field.getModifiers())) continue;
+            if (!field.trySetAccessible()) return type.getName() + "." + field.getName()
+                + " (inaccessible capture)";
+            try {
+                Object value = field.get(lambda);
+                if (value == null || primitiveLike(value.getClass())) continue;
+
+                Class<?> capturedType = value.getClass();
+                if (isLambdaType(capturedType)) {
+                    String nested = unsafeLambdaCapture(value, depth + 1, visited);
+                    if (nested != null) return type.getName() + "." + field.getName() + " -> " + nested;
+                    continue;
+                }
+
+                if (!isKnownImmutableCapture(capturedType) && !isStatelessObject(value))
+                    return type.getName() + "." + field.getName() + " (" + capturedType.getName() + ")";
+            } catch (IllegalAccessException failure) {
+                return type.getName() + "." + field.getName() + " (capture read failed)";
+            }
+        }
+        return null;
+    }
+
+    private static boolean isKnownImmutableCapture(Class<?> type) {
+        String name = type.getName();
+        return type.isEnum()
+            || name.equals("net.minecraft.resources.Identifier")
+            || name.equals("net.minecraft.tags.TagKey")
+            || name.equals("net.minecraft.world.item.Item");
+    }
+
+    /**
+     * A captured non-lambda service can be shared only when its complete class
+     * hierarchy has no mutable instance fields. Static singleton identity does
+     * not make the object's instance state safe to share.
+     */
+    private static boolean isStatelessObject(Object value) {
+        for (Class<?> declaring = value.getClass();
+             declaring != null && declaring != Object.class;
+             declaring = declaring.getSuperclass()) {
+            for (Field field : declaring.getDeclaredFields()) {
+                if (!Modifier.isStatic(field.getModifiers())) return false;
+            }
+        }
+        return true;
     }
 
     private static boolean primitiveLike(Class<?> type) {

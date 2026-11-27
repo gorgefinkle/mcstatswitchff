@@ -27,17 +27,26 @@ with the **recipient's corresponding live instances**, and copies every
 remaining accessible field. All goals and targeting goals are captured
 **before either entity's native selectors are touched**.
 
-The core does **not** contain a whitelist of mob species, predefined
-goal recipes, or special cow/pig paths. Cross-species admissibility depends
-on observed runtime object graph compatibility, not mob IDs.
+The generic capturer is not a species-pair table: it attempts complete
+runtime graph rebinding for unrecognized goals. A narrow semantic adapter
+registry handles cases where a vanilla goal's implementation is inseparable
+from its original species. These adapters translate a behavior intent to a
+recipient-native implementation; they are not a claim that every goal or
+species pair is portable. Unknown incompatible goals still reject the
+complete exchange.
 
 ## Safety contract
 
 - An owner field whose declared type cannot accept the new body rejects
   the **entire** swap with a field-level reason (e.g., a goal requiring
   `Creeper` cannot be rebound to a `Cow`).
-- Opaque stateful captured lambdas and unknown mutable owner-bound
-  dependencies reject the whole swap; they are never silently reused.
+- A lambda is shared only when its captured graph is limited to immutable
+  values, recursively safe lambdas, or objects with no mutable instance
+  fields. A static-final reference is not enough by itself. A closure that
+  captures a mob, goal, navigation service, or mutable service object rejects
+  the whole swap with the capture path. This is a narrow allowance for vanilla
+  shared predicates and method references, not permission to reuse arbitrary
+  captured callbacks.
 - This prototype relies on JDK `sun.misc.Unsafe.allocateInstance` for
   reproducing actual goal instances without invoking constructors. Its
   availability is verified when planning the capture. Failure is an
@@ -50,6 +59,46 @@ on observed runtime object graph compatibility, not mob IDs.
   reported and never called success.
 - A full cross-species exchange may still be rejected because arbitrary
   Minecraft goals and mods are not required to be portable.
+- The semantic adapter registry currently covers a narrow hostile-mob path:
+  - Any owner-bound `RemoveBlockGoal` subclass is reconstructed as a
+    recipient-owned `RemoveBlockGoal`, retaining the target block, speed,
+    vertical search range, accepted distance and control flags. The
+    species-specific sound overrides are not retained by this port.
+  - Species-bound melee goals, bow goals whose recipient lacks a bow/ranged
+    capability, and Creeper `SwellGoal` are converted to a
+    `RecipientAttackIntentGoal`. The physical recipient decides the action:
+    Creeper bodies use their native `SwellGoal`; otherwise a body implementing
+    `RangedAttackMob` and holding a bow uses `RangedBowAttackGoal`; remaining
+    `PathfinderMob` bodies use `MeleeAttackGoal`. Attack cooldown/path state
+    restarts because the underlying driver changes.
+  - Base `AvoidEntityGoal` instances are reconstructed with the
+    receiving body's navigation and a fresh `TargetingConditions`. Their
+    target class, distance, walk/sprint speeds and both predicates are kept;
+    captured predicates are reused only when their dependency graph is safe.
+    Subclasses with extra body-specific semantics are not flattened to the base
+    goal.
+  - Base `MoveThroughVillageGoal` instances are reconstructed with the
+    recipient's body, speed, night restriction and POI distance. Their
+    donor-bound `this::canBreakDoors` callback is replaced with a dynamic
+    query for the recipient's own public `canBreakDoors()` capability; bodies
+    without that capability do not inherit the donor's door-breaking ability.
+  - Base `LookAtPlayerGoal` instances are reconstructed so the
+    Player-targeting `notRiding` callback is rebound to the recipient. Target
+    class, look distance, probability, horizontal-only mode and control flags
+    are retained.
+  - Base `NearestAttackableTargetGoal` instances are recreated with
+    recipient-specific `TargetingConditions`, retaining target class,
+    normalized search cadence, must-see/must-reach settings, unseen memory and
+    any selector whose captured dependencies pass the strict sharing check.
+    Specialized target-goal subclasses are not flattened to the base class.
+  - The default `PanicGoal` function captures only its immutable panic damage
+    tag and passes the strict lambda validation path. Its original mobility
+    state and scheduler flags are copied while its `PathfinderMob` owner is
+    rebound.
+  - A translated goal is installed inactive, with its old selector lock
+    released, so the newly constructed driver receives a normal
+    `start()` lifecycle. Untranslated goals keep their captured scheduler
+    state.
 
 ## Independent implementation audit — collection and scheduler state
 
@@ -71,10 +120,11 @@ This closes the source-level scheduler bookkeeping gap, but it does not prove be
 - Active Mojang `Brain` graphs (sensors, memories, schedule/activity
   handlers) are not yet rebound across different classes; the legacy
   native Brain exchange remains limited to compatible same-class mobs.
-- The reflective clone has not been behaviorally verified in a running
-  26.2 server. Generic class/field compatibility cannot prove that a
+- The reflective clone and new semantic adapters have not been behaviorally
+  verified in a running 26.2 server. Compilation cannot prove that a
   transferred goal's later `canUse`, `tick`, or `stop` methods work on
-  the new body. Runtime acceptance is essential.
+  the new body, nor that a semantic port reproduces all visible side effects.
+  Runtime acceptance is essential.
 - Player ↔ player, player ↔ mob control and save/restart persistence
   are still not implemented.
 - GoalSelector running bits, disabled controls, and arbitration locks are now
@@ -86,16 +136,20 @@ This closes the source-level scheduler bookkeeping gap, but it does not prove be
 
 1. **Pure Java:** `DynamicObjectGraphSelfTest` must prove real field
    capture, copied mutable flags, nested references, cross-root alias
-   preservation, state retention, subclass-incompatible recipient
-   rejection and rejection of opaque captured callbacks.
+   preservation, state retention, safe reuse of a method reference to a
+   static shared predicate, rejection of a captured mutable singleton,
+   subclass-incompatible recipient rejection, and rejection of a callback
+   that captures the original body.
 2. **Minecraft source/CI:** The real NeoForge 26.2 and 26.3 compilers
    must accept the capture/runtime hooks, and both artifacts must contain
-   `GoalMindRuntime` and `DynamicObjectGraph` bytecode.
-3. **In-game basic cross-species:** Try cow↔pig and cow↔sheep first,
-   but **not** because those classes are whitelisted. Confirm behavior
-   changed, both donors stopped their outgoing goals, and reversal
-   restores their original goals. A refusal with a concrete field name is
-   valid evidence of a portability boundary, not a successful swap.
+   `GoalMindRuntime`, `DynamicObjectGraph`, `GoalTransferAdapters`, and
+   `RecipientAttackIntentGoal`, plus the adapter's access transformers.
+3. **In-game targeted pair:** Test Skeleton↔Zombie in both selection orders.
+   Confirm that melee/ranged decisions execute through each physical body's
+   available action, that the zombie egg-removal goal operates on the
+   receiving body, and that both directions reverse cleanly. Also test with
+   a Skeleton that does not hold a bow. This pair is not proven by CI or
+   source-level tests; only an actual 26.2 server test can establish it.
 4. **Hostile and modded AI:** Introduce a mob with targeting goals and
    a modded `Goal`; confirm every observed goal moves or the entire
    swap refuses—never silent partial success.
