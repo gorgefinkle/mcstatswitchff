@@ -1,9 +1,6 @@
 package dev.freakyfriday.mind;
 
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.entity.Mob;
-
-/** Executable regression checks for nested controller/body context handling. */
+/** Pure Java regression checks for nested controller/body context handling. */
 public final class MindBodyContextSelfTest {
     private MindBodyContextSelfTest() {}
     private static int checks;
@@ -14,10 +11,9 @@ public final class MindBodyContextSelfTest {
     }
 
     public static void main(String[] args) {
-        ServerLevel level = new ServerLevel(net.minecraft.resources.Identifier.withDefaultNamespace("overworld"));
-        Mob a = new Mob(level);
-        Mob b = new Mob(level);
-        Mob c = new Mob(level);
+        Object a = new Object();
+        Object b = new Object();
+        Object c = new Object();
 
         check(!MindBodyContext.isBound(), "context starts empty");
         check(MindBodyContext.bodyFor(a) == a, "unbound controller resolves to itself");
@@ -29,7 +25,7 @@ public final class MindBodyContextSelfTest {
             check(MindBodyContext.controllerFor(b) == a, "body B resolves to controller A");
             check(MindBodyContext.isExecutingController(a), "controller A is active");
             check(!MindBodyContext.isExecutingController(b), "physical body B is not mistaken for controller");
-            check(MindBodyContext.bodyFor(c) == c, "unrelated mob is unaffected");
+            check(MindBodyContext.bodyFor(c) == c, "unrelated object is unaffected");
 
             try (MindBodyContext.Scope nested = MindBodyContext.bind(c, a)) {
                 check(MindBodyContext.bodyFor(c) == a, "nested controller C sees body A");
