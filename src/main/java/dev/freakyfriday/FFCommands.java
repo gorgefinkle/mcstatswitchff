@@ -130,6 +130,6 @@ public final class FFCommands {
                     ctx.getSource().sendSuccess(() -> Component.literal(
                         "DEBUG ticked the first two loaded Mob bodies through their assigned native controllers."), true);
                     return 1;
-                }))));
+                })));
     }
 }
