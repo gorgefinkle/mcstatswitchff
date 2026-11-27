@@ -459,21 +459,23 @@ public abstract class Goal {
 'net/minecraft/world/entity/ai/goal/MeleeAttackGoal.java':'''package net.minecraft.world.entity.ai.goal;
 import net.minecraft.world.entity.PathfinderMob;
 public class MeleeAttackGoal extends Goal {
+ public static int canUseCalls;
  public final double speedModifier;
  public final boolean followingTargetEvenIfNotSeen;
  public MeleeAttackGoal(PathfinderMob mob,double speed,boolean follow){speedModifier=speed;followingTargetEvenIfNotSeen=follow;}
- public boolean canUse(){return true;}
+ public boolean canUse(){canUseCalls++;return true;}
 }
 ''',
 'net/minecraft/world/entity/ai/goal/RangedBowAttackGoal.java':'''package net.minecraft.world.entity.ai.goal;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.monster.RangedAttackMob;
 public class RangedBowAttackGoal<T extends Mob & RangedAttackMob> extends Goal {
+ public static int canUseCalls;
  public final double speedModifier;
  public final int attackIntervalMin;
  public final float attackRadiusSqr;
  public RangedBowAttackGoal(T mob,double speed,int interval,float radius){speedModifier=speed;attackIntervalMin=interval;attackRadiusSqr=radius*radius;}
- public boolean canUse(){return true;}
+ public boolean canUse(){canUseCalls++;return true;}
 }
 ''',
 'net/minecraft/world/entity/ai/goal/MoveToBlockGoal.java':'''package net.minecraft.world.entity.ai.goal;
@@ -568,6 +570,84 @@ real_api_only = {'NativeBrainSwap.java', 'GoalMindRuntime.java', 'GoalSelectorSt
 all_prod=[p for p in (ROOT/'src/main/java').rglob('*.java') if p.name not in real_api_only] + list((ROOT/'src/platform/minecraft-26.2/java').rglob('*.java'))
 full_cmd=['javac','-d',str(OUT)]+list(map(str,STUB.rglob('*.java')))+list(map(str,all_prod))
 subprocess.run(full_cmd,check=True)
+
+# Exercise the real recipient action adapters against a small synthetic mob
+# hierarchy. This proves the wrapper chooses an executable action owned by the
+# receiving body, rather than carrying the donor's species-bound goal.
+(STUB/'dev/freakyfriday/mind/GoalPortHarness.java').write_text('''package dev.freakyfriday.mind;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.PathfinderMob;
+import net.minecraft.world.entity.ai.goal.*;
+import net.minecraft.world.entity.monster.RangedAttackMob;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.level.block.Block;
+
+public final class GoalPortHarness {
+ static int checks;
+ static void ok(boolean value,String message){checks++;if(!value)throw new AssertionError(message);}
+ static final class ZombieLike extends PathfinderMob {
+   ZombieLike(ServerLevel level){super("Zombie",level);}
+   final class ZombieAttackTurtleEggGoal extends RemoveBlockGoal {
+     ZombieAttackTurtleEggGoal(Block block){super(block,ZombieLike.this,1.15,2);setFlags(java.util.EnumSet.of(Flag.MOVE));}
+   }
+ }
+ static final class ZombieAttackGoal extends MeleeAttackGoal {
+   private final ZombieLike zombie;
+   ZombieAttackGoal(ZombieLike zombie){super(zombie,1.0,true);this.zombie=zombie;setFlags(java.util.EnumSet.of(Flag.MOVE));}
+ }
+ static final class SkeletonLike extends PathfinderMob implements RangedAttackMob {
+   SkeletonLike(ServerLevel level){super("Skeleton",level);}
+ }
+ public static void main(String[] args) throws Exception {
+   var level=new ServerLevel("minecraft:overworld");
+   var zombie=new ZombieLike(level);
+   var skeleton=new SkeletonLike(level);
+   var block=new Block();
+
+   Goal translatedEgg=GoalTransferAdapters.adapt(zombie.new ZombieAttackTurtleEggGoal(block),skeleton);
+   ok(translatedEgg instanceof RemoveBlockGoal,"species-bound block removal becomes a generic recipient-owned remover");
+   var remover=(RemoveBlockGoal)translatedEgg;
+   ok(remover.mob==skeleton,"block-removal behavior executes on recipient body");
+   ok(remover.blockToRemove==block && remover.speedModifier==1.15 && remover.verticalSearchRange==2,
+      "block target, speed and search range survive translation");
+   ok(remover.getFlags().contains(Goal.Flag.MOVE),"scheduler control flags survive translation");
+
+   Goal translatedAttack=GoalTransferAdapters.adapt(new ZombieAttackGoal(zombie),skeleton);
+   ok(translatedAttack instanceof RecipientAttackIntentGoal,"owner-bound melee goal becomes portable attack intent");
+   skeleton.setMainHandItem(new Object());
+   MeleeAttackGoal.canUseCalls=0; RangedBowAttackGoal.canUseCalls=0;
+   ok(translatedAttack.canUse(),"unarmed ranged-capable recipient can still attack");
+   ok(MeleeAttackGoal.canUseCalls==1 && RangedBowAttackGoal.canUseCalls==0,
+      "recipient without a bow selects its melee action");
+
+   skeleton.setMainHandItem(Items.BOW);
+   MeleeAttackGoal.canUseCalls=0; RangedBowAttackGoal.canUseCalls=0;
+   Goal bowAttack=new RecipientAttackIntentGoal(
+      skeleton,1.0,30,15.0F,false,java.util.EnumSet.of(Goal.Flag.MOVE));
+   ok(bowAttack.canUse(),"armed skeleton selects ranged action");
+   ok(RangedBowAttackGoal.canUseCalls==1 && MeleeAttackGoal.canUseCalls==0,
+      "recipient with bow selects its ranged action");
+
+   skeleton.setOffHandItem(Items.BOW); skeleton.setMainHandItem(new Object());
+   MeleeAttackGoal.canUseCalls=0; RangedBowAttackGoal.canUseCalls=0;
+   ok(bowAttack.canUse(),"offhand bow is recognized");
+   ok(RangedBowAttackGoal.canUseCalls==1,"offhand bow selects ranged action");
+
+   var translatedRanged=GoalTransferAdapters.adapt(
+      new RangedBowAttackGoal<>(skeleton,1.1,24,12.0F),zombie);
+   ok(translatedRanged instanceof RecipientAttackIntentGoal,
+      "ranged-only source goal translates when recipient lacks ranged capability");
+   MeleeAttackGoal.canUseCalls=0; RangedBowAttackGoal.canUseCalls=0;
+   ok(translatedRanged.canUse(),"zombie receives an executable attack action");
+   ok(MeleeAttackGoal.canUseCalls==1,"recipient without ranged interface falls back to melee");
+
+   System.out.println("PASS GoalPortHarness: "+checks+" checks; owner-bound goal translation and recipient-selected melee/ranged execution");
+ }
+}
+''')
+subprocess.run(['javac','-cp',str(OUT),'-d',str(OUT),str(STUB/'dev/freakyfriday/mind/GoalPortHarness.java')],check=True)
+subprocess.run(['java','-ea','-cp',str(OUT),'dev.freakyfriday.mind.GoalPortHarness'],check=True)
+
 # Run the same simulation against the full mod class, not the surrogate book registrar.
 subprocess.run(['java','-ea','-cp',str(OUT),'dev.freakyfriday.BridgeHarness'],check=True)
 subprocess.run(['java','-ea','-cp',str(OUT),'dev.freakyfriday.PortabilityHarness'],check=True)
