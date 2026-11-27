@@ -103,24 +103,48 @@ public final class GoalMindRuntime {
         // retain their original alias relationships across all goals.
         GoalSelectorState.Snapshot[] sources = { donor.goals(), donor.targets() };
         int goalCount = sources[0].entries().size();
-        Goal[] roots = new Goal[goalCount + sources[1].entries().size()];
+        Goal[] sourceRoots = new Goal[goalCount + sources[1].entries().size()];
         int index = 0;
         for (GoalSelectorState.Snapshot source : sources)
-            for (GoalSelectorState.Entry entry : source.entries()) roots[index++] = entry.goal();
+            for (GoalSelectorState.Entry entry : source.entries()) sourceRoots[index++] = entry.goal();
+
+        // First translate only the known species-bound goal families whose
+        // intent has a well-defined recipient-native implementation. Every
+        // other goal still passes through the strict whole-graph rebind and
+        // will reject if it cannot be made safe.
+        Goal[] roots = sourceRoots.clone();
+        IdentityHashMap<Goal, Goal> portedRoots = new IdentityHashMap<>();
+        for (int i = 0; i < sourceRoots.length; i++) {
+            Goal original = sourceRoots[i];
+            if (!portedRoots.containsKey(original)) {
+                Goal replacement = GoalTransferAdapters.adapt(original, recipient);
+                if (replacement != null) portedRoots.put(original, replacement);
+            }
+            Goal replacement = portedRoots.get(original);
+            if (replacement != null) roots[i] = replacement;
+        }
         Goal[] rebound = DynamicObjectGraph.capture(roots, Goal[].class, rebinder);
 
         IdentityHashMap<Goal, Goal> remapped = new IdentityHashMap<>();
-        for (int i = 0; i < roots.length; i++) remapped.put(roots[i], rebound[i]);
+        for (int i = 0; i < sourceRoots.length; i++) remapped.put(sourceRoots[i], rebound[i]);
         GoalSelectorState.Snapshot[] results = new GoalSelectorState.Snapshot[2];
         int offset = 0;
         for (int selectorIndex = 0; selectorIndex < sources.length; selectorIndex++) {
             GoalSelectorState.Snapshot source = sources[selectorIndex];
             List<GoalSelectorState.Entry> entries = new ArrayList<>(source.entries().size());
-            for (GoalSelectorState.Entry entry : source.entries())
-                entries.add(new GoalSelectorState.Entry(entry.priority(), rebound[offset++], entry.running()));
+            for (GoalSelectorState.Entry entry : source.entries()) {
+                boolean ported = portedRoots.containsKey(entry.goal());
+                // A translated driver has a different implementation and
+                // must run its own start() lifecycle. Do not restore the
+                // donor wrapper's active bit around a freshly-created driver.
+                entries.add(new GoalSelectorState.Entry(
+                    entry.priority(), rebound[offset++], entry.running() && !ported));
+            }
             java.util.EnumMap<Goal.Flag, Goal> locks = new java.util.EnumMap<>(Goal.Flag.class);
-            for (Map.Entry<Goal.Flag, Goal> lock : source.lockedGoals().entrySet())
-                locks.put(lock.getKey(), remapped.get(lock.getValue()));
+            for (Map.Entry<Goal.Flag, Goal> lock : source.lockedGoals().entrySet()) {
+                if (!portedRoots.containsKey(lock.getValue()))
+                    locks.put(lock.getKey(), remapped.get(lock.getValue()));
+            }
             results[selectorIndex] = new GoalSelectorState.Snapshot(entries, source.disabledFlags(), locks);
         }
         return new Snapshot(results[0], results[1]);
