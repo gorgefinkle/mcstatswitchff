@@ -97,14 +97,24 @@ public ServerLevel(String id){dim=new Dimension(new Identifier(id));}public Dime
 public Entity getEntity(UUID id){return entities.get(id);} }''',
 'net/minecraft/world/entity/Entity.java':'''package net.minecraft.world.entity;
 import java.util.UUID;import net.minecraft.server.level.ServerLevel;import net.minecraft.network.chat.Component;
+import net.minecraft.world.level.Level;import net.minecraft.world.phys.*;import net.minecraft.core.BlockPos;
 public class Entity {private final UUID uuid=UUID.randomUUID();private final ServerLevel level;public final String name;
+private Vec3 position=new Vec3(0,0,0), movement=new Vec3(0,0,0);private float yaw=0,pitch=0;private boolean removed;
 public Entity(String name,ServerLevel l){this.name=name;level=l;l.add(this);}public UUID getUUID(){return uuid;}public ServerLevel level(){return level;}
+public void tick(){} public boolean isRemoved(){return removed;} public void discard(){removed=true;}
+public Vec3 position(){return position;} public BlockPos blockPosition(){return new BlockPos((int)position.x(),(int)position.y(),(int)position.z());}
+public AABB getBoundingBox(){return new AABB(position.x()-.3,position.y(),position.z()-.3,position.x()+.3,position.y()+1.8,position.z()+.3);}
+public double getX(){return position.x();}public double getY(){return position.y();}public double getZ(){return position.z();}
+public double getEyeY(){return getY()+1.6;}public float getEyeHeight(){return 1.6f;}public float getBbWidth(){return .6f;}public float getBbHeight(){return 1.8f;}
+public float getYRot(){return yaw;}public void setYRot(float v){yaw=v;}public float getXRot(){return pitch;}public void setXRot(float v){pitch=v;}
+public Vec3 getDeltaMovement(){return movement;}public void setDeltaMovement(Vec3 v){movement=v;}public void setDeltaMovement(double x,double y,double z){movement=new Vec3(x,y,z);}
 public Component getDisplayName(){return Component.literal(name);} }''',
 'net/minecraft/world/entity/LivingEntity.java':'''package net.minecraft.world.entity;
 import net.minecraft.server.level.ServerLevel;import net.minecraft.world.entity.ai.attributes.*;import net.minecraft.core.registries.BuiltInRegistries;
 public class LivingEntity extends Entity{private final AttributeMap attrs=new AttributeMap();private float health=20, absorption=0; private boolean alive=true; public float maxHealthPenalty=0;
 public boolean isAlive(){return alive;}public void kill(){alive=false;} public void revive(){alive=true;}
 public LivingEntity(String name,ServerLevel l){super(name,l);} public AttributeMap getAttributes(){return attrs;}
+public void tick(){super.tick();aiStep();} public void aiStep(){}
 public float getHealth(){return health;}public void setHealth(float value){health=Math.max(0,Math.min(value,getMaxHealth()));}
 public float getMaxHealth(){var h=attrs.getInstance(BuiltInRegistries.ATTRIBUTE.register("minecraft:max_health"));return h==null?20:(float)h.getValue()-maxHealthPenalty;}
 public float getAbsorptionAmount(){return absorption;}public void setAbsorptionAmount(float value){absorption=value;}
@@ -306,10 +316,27 @@ public @interface At { String value(); }
 'org/spongepowered/asm/mixin/injection/Inject.java':'''package org.spongepowered.asm.mixin.injection;
 import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME) @Target(ElementType.METHOD)
-public @interface Inject { String[] method(); At at(); }
+public @interface Inject { String[] method(); At at(); boolean cancellable() default false; }
+''',
+'org/spongepowered/asm/mixin/injection/Redirect.java':'''package org.spongepowered.asm.mixin.injection;
+import java.lang.annotation.*;
+@Retention(RetentionPolicy.RUNTIME) @Target(ElementType.METHOD)
+public @interface Redirect { String[] method(); At at(); }
+''',
+'org/spongepowered/asm/mixin/gen/Invoker.java':'''package org.spongepowered.asm.mixin.gen;
+import java.lang.annotation.*;
+@Retention(RetentionPolicy.RUNTIME) @Target(ElementType.METHOD)
+public @interface Invoker { String value() default ""; }
 ''',
 'org/spongepowered/asm/mixin/injection/callback/CallbackInfo.java':'''package org.spongepowered.asm.mixin.injection.callback;
-public class CallbackInfo {}
+public class CallbackInfo { public void cancel() {} }
+''',
+'org/spongepowered/asm/mixin/injection/callback/CallbackInfoReturnable.java':'''package org.spongepowered.asm.mixin.injection.callback;
+public class CallbackInfoReturnable<T> extends CallbackInfo {
+ private T value;
+ public void setReturnValue(T value){this.value=value;cancel();}
+ public T getReturnValue(){return value;}
+}
 ''',
 'org/slf4j/Logger.java':'''package org.slf4j;
 public interface Logger { default void debug(String message,Object... args) {} default void info(String message,Object... args) {} }
@@ -320,11 +347,43 @@ public final class LogUtils { private static final Logger LOGGER=new Logger(){};
 ''',
 'net/minecraft/world/entity/Mob.java':'''package net.minecraft.world.entity;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.ai.control.*;
+import net.minecraft.world.entity.ai.navigation.PathNavigation;
+import net.minecraft.world.entity.ai.sensing.Sensing;
 public class Mob extends LivingEntity {
  private final EntityType<Mob> type=new EntityType<>("test:mob");
+ private final PathNavigation navigation=new PathNavigation();
+ private final MoveControl move=new MoveControl();
+ private final LookControl look=new LookControl();
+ private final JumpControl jump=new JumpControl();
+ private final Sensing sensing=new Sensing();
  public Mob(String name,ServerLevel level){super(name,level);}
  public EntityType<Mob> getType(){return type;}
+ public void tick(){super.tick();}
+ public PathNavigation getNavigation(){return navigation;}
+ public MoveControl getMoveControl(){return move;}
+ public LookControl getLookControl(){return look;}
+ public JumpControl getJumpControl(){return jump;}
+ public Sensing getSensing(){return sensing;}
 }
+''',
+'net/minecraft/world/entity/ai/navigation/PathNavigation.java':'''package net.minecraft.world.entity.ai.navigation; public class PathNavigation {}
+''',
+'net/minecraft/world/entity/ai/control/MoveControl.java':'''package net.minecraft.world.entity.ai.control; public class MoveControl {}
+''',
+'net/minecraft/world/entity/ai/control/LookControl.java':'''package net.minecraft.world.entity.ai.control; public class LookControl {}
+''',
+'net/minecraft/world/entity/ai/control/JumpControl.java':'''package net.minecraft.world.entity.ai.control; public class JumpControl {}
+''',
+'net/minecraft/world/entity/ai/sensing/Sensing.java':'''package net.minecraft.world.entity.ai.sensing; public class Sensing {}
+''',
+'net/minecraft/world/level/Level.java':'''package net.minecraft.world.level; public class Level { public boolean isClientSide(){return false;} }
+''',
+'net/minecraft/world/phys/Vec3.java':'''package net.minecraft.world.phys; public record Vec3(double x,double y,double z) {}
+''',
+'net/minecraft/world/phys/AABB.java':'''package net.minecraft.world.phys; public record AABB(double minX,double minY,double minZ,double maxX,double maxY,double maxZ) {}
+''',
+'net/minecraft/core/BlockPos.java':'''package net.minecraft.core; public record BlockPos(int x,int y,int z) {}
 ''',
 'net/minecraft/world/entity/EntityType.java':'''package net.minecraft.world.entity;
 public final class EntityType<T extends LivingEntity>{public final String name;public EntityType(String name){this.name=name;}}
