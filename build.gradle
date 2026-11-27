@@ -40,7 +40,7 @@ neoForge {
     validateAccessTransformers = true
     runs {
         client { client() }
-        server { server(); programArgument '--nogui' }
+        server { server(); gameDirectory = project.file('runs/server'); programArgument '--nogui' }
     }
     mods { freakyfriday { sourceSet(sourceSets.main) } }
 }
