@@ -1,7 +1,9 @@
 package dev.freakyfriday.mind;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.function.BooleanSupplier;
 import java.util.function.Predicate;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.entity.Mob;
@@ -10,6 +12,7 @@ import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.ai.goal.AvoidEntityGoal;
 import net.minecraft.world.entity.ai.goal.PanicGoal;
 import net.minecraft.world.entity.ai.goal.MeleeAttackGoal;
+import net.minecraft.world.entity.ai.goal.MoveThroughVillageGoal;
 import net.minecraft.world.entity.ai.goal.MoveToBlockGoal;
 import net.minecraft.world.entity.ai.goal.RangedBowAttackGoal;
 import net.minecraft.world.entity.ai.goal.RemoveBlockGoal;
@@ -38,6 +41,14 @@ public final class GoalTransferAdapters {
      */
     public static Goal adapt(Goal source, Mob recipient)
             throws DynamicObjectGraph.Uncapturable {
+        // MoveThroughVillageGoal accepts a BooleanSupplier for whether
+        // the body can deal with doors. Vanilla Zombie passes this::canBreakDoors,
+        // which is an owner-bound lambda. Recreate that capability query for the
+        // recipient rather than carrying the donor's captured this reference.
+        if (source.getClass() == MoveThroughVillageGoal.class) {
+            return adaptMoveThroughVillage((MoveThroughVillageGoal) source, recipient);
+        }
+
         // The vanilla AvoidEntityGoal owns a TargetingConditions instance
         // assembled from two predicates. Reconstruct that helper instead of
         // cloning private TargetingConditions internals or keeping its old
@@ -107,6 +118,51 @@ public final class GoalTransferAdapters {
             }
         }
         return false;
+    }
+
+    private static Goal adaptMoveThroughVillage(
+            MoveThroughVillageGoal source, Mob recipient)
+            throws DynamicObjectGraph.Uncapturable {
+        if (!(recipient instanceof PathfinderMob pathfinder)) {
+            throw new DynamicObjectGraph.Uncapturable(
+                "Village traversal requires a PathfinderMob recipient.");
+        }
+
+        BooleanSupplier doorCapability = recipientDoorCapability(recipient);
+        MoveThroughVillageGoal replacement = new MoveThroughVillageGoal(
+            pathfinder,
+            source.speedModifier,
+            source.onlyAtNight,
+            source.distanceToPoi,
+            doorCapability);
+        replacement.setFlags(source.getFlags().clone());
+        return replacement;
+    }
+
+    private static BooleanSupplier recipientDoorCapability(Mob recipient)
+            throws DynamicObjectGraph.Uncapturable {
+        final Method capability;
+        try {
+            capability = recipient.getClass().getMethod("canBreakDoors");
+        } catch (NoSuchMethodException absent) {
+            // Bodies without an explicit door-breaking capability must plan
+            // village routes without assuming they can open/break doors.
+            return () -> false;
+        }
+        if (capability.getParameterCount() != 0
+                || capability.getReturnType() != boolean.class
+                || !capability.trySetAccessible()) {
+            throw new DynamicObjectGraph.Uncapturable(
+                "Recipient exposes an incompatible canBreakDoors capability method.");
+        }
+        return () -> {
+            try {
+                return (boolean) capability.invoke(recipient);
+            } catch (ReflectiveOperationException failure) {
+                throw new IllegalStateException(
+                    "Could not query the recipient body's door-breaking capability", failure);
+            }
+        };
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
