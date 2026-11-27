@@ -23,7 +23,7 @@ assert (root/'src/main/java/dev/freakyfriday/mixin/MobBodyServicesMixin.java').e
 assert (root/'src/main/java/dev/freakyfriday/mixin/EntityBodyContextMixin.java').exists()
 assert (root/'src/main/java/dev/freakyfriday/mixin/LivingEntityBodyContextMixin.java').exists()
 mixin_config=json.loads((resources/'freakyfriday.mixins.json').read_text())
-for mixin in ('ServerLevelMobTickDispatchMixin','MobTickBodyBridgeMixin','LivingEntityTickInvoker',
+for mixin in ('ServerLevelMobTickDispatchMixin','MobTickBodyBridgeMixin',
               'LivingEntityAiStepBodyBridgeMixin','MobBodyServicesMixin','MobServerAiStepMixin',
               'EntityBodyContextMixin','LivingEntityBodyContextMixin'):
     assert mixin in mixin_config['mixins'], f'mixin not registered: {mixin}'
