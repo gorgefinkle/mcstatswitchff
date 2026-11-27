@@ -14,7 +14,8 @@ assert mods['mods'][0]['modId']=='freakyfriday'
 assert mods['mods'][0]['version']=='${ff_mod_version}'
 assert "version = '0.13.2-alpha'" in (root/'build.gradle').read_text()
 assert (root/'src/platform/minecraft-26.2/java/dev/freakyfriday/compat/PlatformHooks.java').exists()
-assert (root/'src/platform/minecraft-26.3/java/dev/freakyfriday/compat/PlatformHooks.java').exists()
+assert 'src/platform/minecraft-26.2/java' in (root/'build.gradle').read_text()
+assert '26.3' not in (root/'build.gradle').read_text(), 'later Minecraft versions must remain deferred'
 assert 'PlatformHooks::addBookToCreativeTab' in (root/'src/main/java/dev/freakyfriday/FreakyFriday.java').read_text()
 assert not (root/'src/main/java/dev/freakyfriday/AttributeSwapper.java').exists()
 assert (root/'src/main/java/dev/freakyfriday/api/AbilityCategoryAdapter.java').exists()
@@ -49,5 +50,5 @@ assert 'addPermanentModifier' in (root/'src/main/java/dev/freakyfriday/Attribute
 assert 'removeModifiers()' not in '\n'.join(line for line in (root/'src/main/java/dev/freakyfriday/AttributeModifierTransfer.java').read_text().splitlines() if not line.strip().startswith('*') and not line.strip().startswith('//'))
 assert 'Category replacement was not exact' in (root/'src/main/java/dev/freakyfriday/core/CategoryExchange.java').read_text()
 subprocess.run([sys.executable, str(root/'scripts/test-version-profiles.py')], cwd=root, check=True)
-print('PASS: resources, metadata, source wiring and versions')
+print('PASS: resources, metadata, and Minecraft 26.2-only source wiring')
 print('NOT TESTED HERE: real NeoForge build/integrated/dedicated server runtime. Run scripts/build_doctor.py separately.')
