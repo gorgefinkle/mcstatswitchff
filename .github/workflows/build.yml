@@ -1,4 +1,4 @@
-name: Freaky Friday builds
+name: Freaky Friday 26.2 builds
 on:
   push:
     branches: [main, 'feature/whole-mind-swap']
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   core:
-    name: Pure Java core and version profile checks
+    name: Pure Java core and 26.2 source checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,29 +18,25 @@ jobs:
         with:
           distribution: temurin
           java-version: '25'
-      - name: Validate full source presence
+      - name: Validate 26.2-only development target
         shell: bash
         run: |
           test -f build.gradle
-          test -f src/main/java/dev/freakyfriday/AttributeCategorySwapper.java
-          test -f src/test/java/dev/freakyfriday/core/CategoryExchangeSelfTest.java
+          test -f versions/minecraft-26.2.properties
           test -f src/platform/minecraft-26.2/java/dev/freakyfriday/compat/PlatformHooks.java
-          test -f src/platform/minecraft-26.3/java/dev/freakyfriday/compat/PlatformHooks.java
+          ! grep -q "src/platform/minecraft-26.3/java" build.gradle
+          ! grep -q "matrix:" .github/workflows/build.yml
       - name: Pure Java regression suite
         run: sh scripts/test-core.sh
-      - name: Version isolation and metadata
+      - name: 26.2 target isolation and metadata
         run: python3 scripts/test-version-profiles.py
       - name: R0.11 extended source and synthetic Minecraft audit
         run: python3 scripts/self_audit.py
 
   build:
-    name: NeoForge Minecraft ${{ matrix.minecraft }}
+    name: NeoForge Minecraft 26.2
     needs: core
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        minecraft: ['26.2', '26.3']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -51,15 +47,15 @@ jobs:
         with:
           gradle-version: '9.2.1'
           cache-read-only: ${{ github.event_name == 'pull_request' }}
-      - name: Compile and package version-specific mod
-        run: bash ./gradlew build -PtargetMinecraft=${{ matrix.minecraft }} --no-daemon --stacktrace
+      - name: Compile and package the 26.2 mod
+        run: bash ./gradlew build --no-daemon --stacktrace
       - name: Verify JAR integrity and create SHA256 manifest
-        run: python3 scripts/verify-build-artifact.py --minecraft ${{ matrix.minecraft }}
-      - name: Upload JARs and build reports
+        run: python3 scripts/verify-build-artifact.py --minecraft 26.2
+      - name: Upload 26.2 JAR and build reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: freakyfriday-mc${{ matrix.minecraft }}-build
+          name: freakyfriday-mc26.2-build
           retention-days: 30
           if-no-files-found: warn
           path: |
