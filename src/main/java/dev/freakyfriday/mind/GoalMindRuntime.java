@@ -116,12 +116,12 @@ public final class GoalMindRuntime {
         Goal[] roots = sourceRoots.clone();
         IdentityHashMap<Goal, Goal> portedRoots = new IdentityHashMap<>();
         for (int i = 0; i < sourceRoots.length; i++) {
-            Goal original = sourceRoots[i];
-            if (!portedRoots.containsKey(original)) {
-                Goal replacement = GoalTransferAdapters.adapt(original, recipient);
-                if (replacement != null) portedRoots.put(original, replacement);
+            Goal sourceGoal = sourceRoots[i];
+            if (!portedRoots.containsKey(sourceGoal)) {
+                Goal replacement = GoalTransferAdapters.adapt(sourceGoal, recipient);
+                if (replacement != null) portedRoots.put(sourceGoal, replacement);
             }
-            Goal replacement = portedRoots.get(original);
+            Goal replacement = portedRoots.get(sourceGoal);
             if (replacement != null) roots[i] = replacement;
         }
         Goal[] rebound = DynamicObjectGraph.capture(roots, Goal[].class, rebinder);
