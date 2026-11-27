@@ -33,11 +33,11 @@ public final class FFCommands {
             position.x - 256, -64, position.z - 256,
             position.x + 256, 384, position.z + 256
         );
-        return source.getLevel().getEntities(null, bounds, entity -> entity instanceof Mob)
+        return source.getLevel().getEntities((Entity) null, bounds, entity -> entity instanceof Mob)
             .stream()
             .filter(Mob.class::isInstance)
             .map(Mob.class::cast)
-            .sorted(Comparator.comparingDouble(Mob::getX).thenComparingDouble(Mob::getZ))
+            .sorted(Comparator.comparingDouble((Mob mob) -> mob.getX()).thenComparingDouble(mob -> mob.getZ()))
             .toList();
     }
 
