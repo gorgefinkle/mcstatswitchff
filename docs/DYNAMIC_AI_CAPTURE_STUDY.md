@@ -294,6 +294,25 @@ The achievable robust contract is:
 - common native decision/action pathways are observed generically;
 - opaque mod logic degrades in fidelity, never in exchange availability.
 
+## Exact Minecraft 26.2 findings
+
+The version-specific mapping pages confirm several important details for the first target:
+
+- GoalSelector owns an available-goals set, a control-lock map, and disabled controls. Its public lifecycle surface includes add/remove/clear, tick, tickRunningGoals, and getAvailableGoals. This is scheduler state, not a portable mind.
+- Brain is generic as Brain<E extends LivingEntity>. Its sensor map is typed around Sensor<? super E>; its behavior/task lists are typed around Task<? super E>; Brain.tick receives both ServerLevel and the typed body E. That generic owner binding is direct evidence that swapping a Brain between unrelated concrete bodies does not make its behavior package portable.
+- Brain.State is a record containing only a MemoryMap, with a codec. Brain.pack() creates that state. It is useful for memory persistence/inspection, but it is not a snapshot of sensors, task lists, running task state, activity providers, or custom AI. Do not mistake pack() for a whole-brain export.
+- MoveControl, FlightMoveControl, and SmoothSwimmingMoveControl are generic over Mob in the 26.2 migration notes. This is another sign that the control pipeline is typed around a particular Mob owner; transplanting a controller is not equivalent to moving intent.
+- In 26.2, Mob#getGoalSelector is the public accessor (the migration primer notes the Bee accessor move). Prefer supported public access where possible and reserve access transformers/mixins for genuinely private boundaries.
+
+These 26.2 details strengthen the recommendation: use Brain.State only as an optional memory snapshot source; observe GoalSelector lifecycle; observe Brain behavior lifecycle; and instrument common controls. Do not exchange Brain task graphs or control objects.
+
+References for the exact 26.2 API shape:
+- GoalSelector mapping: https://mappings.relativitymc.org/26.2/net/minecraft/entity/ai/goal/GoalSelector.html
+- Brain mapping: https://mappings.relativitymc.org/26.2/net/minecraft/entity/ai/brain/Brain.html
+- Brain.State mapping: https://mappings.relativitymc.org/26.2/net/minecraft/entity/ai/brain/Brain$State.html
+- Control classes: https://mappings.relativitymc.org/26.2/net/minecraft/entity/ai/control/index.html
+- NeoForge 26.1.x → 26.2 migration notes: https://github.com/neoforged/.github/blob/main/primers/26.2/index.md
+
 ## Implementation sequence
 
 ### Phase 0 — exact version source map
