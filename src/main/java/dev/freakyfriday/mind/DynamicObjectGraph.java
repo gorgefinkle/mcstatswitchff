@@ -200,12 +200,11 @@ public final class DynamicObjectGraph {
                 return result;
             }
 
-            // A lambda may capture a static, shared predicate (for example a
-            // bound method reference to a vanilla static final selector). Such a
-            // closure is safe to reuse when every captured value is provably
-            // immutable, itself a stateless lambda, or a static-final singleton.
-            // A closure that captures a mob, goal, navigation or other mutable
-            // runtime object remains unportable and is rejected.
+            // A lambda may capture a shared vanilla predicate or method
+            // reference. Reuse it only when each captured dependency is
+            // immutable, another recursively safe lambda, or an object with
+            // no mutable instance state. A static-final reference alone is
+            // not enough: its referent could still be mutable.
             if (isLambdaType(type)) {
                 String unsafeCapture = unsafeLambdaCapture(source, 0, new IdentityHashMap<>());
                 if (unsafeCapture != null)
@@ -296,7 +295,7 @@ public final class DynamicObjectGraph {
                     continue;
                 }
 
-                if (!isKnownImmutableCapture(capturedType) && !isStaticFinalSingleton(value))
+                if (!isKnownImmutableCapture(capturedType) && !isStatelessObject(value))
                     return type.getName() + "." + field.getName() + " (" + capturedType.getName() + ")";
             } catch (IllegalAccessException failure) {
                 return type.getName() + "." + field.getName() + " (capture read failed)";
@@ -314,38 +313,19 @@ public final class DynamicObjectGraph {
     }
 
     /**
-     * A captured singleton is shareable only when it is literally held by a
-     * static final field in its nest or enclosing class. This avoids treating
-     * arbitrary mutable service instances as constants just because their
-     * reference happens to be captured by a lambda.
+     * A captured non-lambda service can be shared only when its complete class
+     * hierarchy has no mutable instance fields. Static singleton identity does
+     * not make the object's instance state safe to share.
      */
-    private static boolean isStaticFinalSingleton(Object value) {
-        Class<?> type = value.getClass();
-        IdentityHashMap<Class<?>, Boolean> checked = new IdentityHashMap<>();
-        Class<?> nest = type.getNestHost();
-        for (Class<?> owner = nest; owner != null && checked.put(owner, Boolean.TRUE) == null;
-             owner = owner.getEnclosingClass()) {
-            if (declaresStaticFinalReference(owner, value)) return true;
-        }
-        for (Class<?> owner = type; owner != null && checked.put(owner, Boolean.TRUE) == null;
-             owner = owner.getEnclosingClass()) {
-            if (declaresStaticFinalReference(owner, value)) return true;
-        }
-        return false;
-    }
-
-    private static boolean declaresStaticFinalReference(Class<?> owner, Object value) {
-        for (Field field : owner.getDeclaredFields()) {
-            int modifiers = field.getModifiers();
-            if (!Modifier.isStatic(modifiers) || !Modifier.isFinal(modifiers)
-                    || !field.getType().isInstance(value) || !field.trySetAccessible()) continue;
-            try {
-                if (field.get(null) == value) return true;
-            } catch (IllegalAccessException ignored) {
-                // An inaccessible static holder is not proof of a singleton.
+    private static boolean isStatelessObject(Object value) {
+        for (Class<?> declaring = value.getClass();
+             declaring != null && declaring != Object.class;
+             declaring = declaring.getSuperclass()) {
+            for (Field field : declaring.getDeclaredFields()) {
+                if (!Modifier.isStatic(field.getModifiers())) return false;
             }
         }
-        return false;
+        return true;
     }
 
     private static boolean primitiveLike(Class<?> type) {
