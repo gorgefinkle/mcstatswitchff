@@ -2,14 +2,12 @@ package dev.freakyfriday.mixin;
 
 import dev.freakyfriday.mind.MindBodyContext;
 import dev.freakyfriday.mind.MindHostRegistry;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.control.JumpControl;
 import net.minecraft.world.entity.ai.control.LookControl;
 import net.minecraft.world.entity.ai.control.MoveControl;
 import net.minecraft.world.entity.ai.navigation.PathNavigation;
 import net.minecraft.world.entity.ai.sensing.Sensing;
-import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
@@ -57,9 +55,4 @@ abstract class MobServerAiStepMixin {
         return ((Mob) MindBodyContext.bodyFor(controller)).getJumpControl();
     }
 
-    @Redirect(method = "serverAiStep",
-        at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;level()Lnet/minecraft/world/level/Level;"))
-    private Level freakyfriday$physicalLevel(Entity controller) {
-        return ((Entity) MindBodyContext.bodyFor(controller)).level();
-    }
 }
