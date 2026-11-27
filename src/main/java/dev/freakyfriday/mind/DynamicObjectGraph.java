@@ -274,7 +274,10 @@ public final class DynamicObjectGraph {
             Object lambda, int depth, IdentityHashMap<Object, Boolean> visited) {
         if (lambda == null) return null;
         if (depth > 12) return "capture graph exceeds safety depth";
-        if (visited.put(lambda, Boolean.TRUE) != null) return "cyclic capture graph";
+        // Shared lambda dependencies can form a DAG or a cycle. A revisit is
+        // not itself unsafe; every distinct captured field is still inspected
+        // on its first traversal, and any owner-bound reference rejects.
+        if (visited.put(lambda, Boolean.TRUE) != null) return null;
         Class<?> type = lambda.getClass();
         if (!isLambdaType(type)) return null;
 
