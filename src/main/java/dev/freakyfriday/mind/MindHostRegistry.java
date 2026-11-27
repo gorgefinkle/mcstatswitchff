@@ -82,6 +82,32 @@ public final class MindHostRegistry {
         }
     }
 
+    /**
+     * Operator-only development hook. Exchanges the original native controller
+     * assignments without involving the book UI or changing body state.
+     */
+    public static void debugExchangeControllers(Mob first, Mob second) {
+        if (first == null || second == null) throw new IllegalArgumentException("Two Mob bodies are required");
+        if (first == second) throw new IllegalArgumentException("Choose two different Mob bodies");
+        registerHost(first);
+        registerHost(second);
+        MindBodyBindings.Exchange exchange = MindBodyBindings.exchangeBodies(first.getUUID(), second.getUUID());
+        LOGGER.info("Freaky Friday DEBUG exchange: controller {} ({}) -> body {} ({}); controller {} ({}) -> body {} ({})",
+            exchange.firstController(), typeOf(exchange.firstController()), exchange.firstBody(), first.getType(),
+            exchange.secondController(), typeOf(exchange.secondController()), exchange.secondBody(), second.getType());
+    }
+
+    private static String typeOf(UUID controllerId) {
+        Mob host = resolve(controllerId);
+        return host == null ? "unloaded" : host.getType().toString();
+    }
+
+    /** Invokes one real native controller/body tick from an operator command on the server thread. */
+    public static void debugTickBody(Mob physicalBody) {
+        if (physicalBody == null) throw new IllegalArgumentException("A Mob body is required");
+        tickAssignedController(physicalBody);
+    }
+
     public static void observeServerAiPhase(Mob host) {
         if (host == null || host.level().isClientSide()) return;
         registerHost(host);
