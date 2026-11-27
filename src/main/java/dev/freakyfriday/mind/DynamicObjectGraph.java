@@ -261,6 +261,26 @@ public final class DynamicObjectGraph {
         }
     }
 
+    /**
+     * Validate a callback/dependency before a semantic adapter deliberately
+     * reuses it in a freshly constructed recipient-bound goal.
+     */
+    public static void requireShareableDependency(Object dependency, String role)
+            throws Uncapturable {
+        if (dependency == null || primitiveLike(dependency.getClass())
+                || isKnownImmutableCapture(dependency.getClass())) return;
+        Class<?> type = dependency.getClass();
+        if (isLambdaType(type)) {
+            String unsafe = unsafeLambdaCapture(dependency, 0, new IdentityHashMap<>());
+            if (unsafe != null)
+                throw new Uncapturable("Cannot port " + role + " because its captured state is body-bound: " + unsafe);
+            return;
+        }
+        if (isStatelessObject(dependency)) return;
+        throw new Uncapturable("Cannot port " + role + " because dependency has mutable instance state: "
+            + type.getName());
+    }
+
     private static boolean isLambdaType(Class<?> type) {
         return type.isHidden() || type.isSynthetic() && type.getName().contains("$Lambda");
     }
