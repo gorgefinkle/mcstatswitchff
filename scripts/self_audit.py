@@ -15,6 +15,18 @@ assert mods['mods'][0]['version']=='${ff_mod_version}'
 assert mods['mixins'][0]['config']=='freakyfriday.mixins.json'
 assert (resources/'freakyfriday.mixins.json').exists()
 assert (root/'src/main/java/dev/freakyfriday/mixin/MobServerAiStepMixin.java').exists()
+assert (root/'src/main/java/dev/freakyfriday/mixin/ServerLevelMobTickDispatchMixin.java').exists()
+assert (root/'src/main/java/dev/freakyfriday/mixin/MobTickBodyBridgeMixin.java').exists()
+assert (root/'src/main/java/dev/freakyfriday/mixin/LivingEntityTickInvoker.java').exists()
+assert (root/'src/main/java/dev/freakyfriday/mixin/LivingEntityAiStepBodyBridgeMixin.java').exists()
+assert (root/'src/main/java/dev/freakyfriday/mixin/MobBodyServicesMixin.java').exists()
+assert (root/'src/main/java/dev/freakyfriday/mixin/EntityBodyContextMixin.java').exists()
+assert (root/'src/main/java/dev/freakyfriday/mixin/LivingEntityBodyContextMixin.java').exists()
+mixin_config=json.loads((resources/'freakyfriday.mixins.json').read_text())
+for mixin in ('ServerLevelMobTickDispatchMixin','MobTickBodyBridgeMixin','LivingEntityTickInvoker',
+              'LivingEntityAiStepBodyBridgeMixin','MobBodyServicesMixin','MobServerAiStepMixin',
+              'EntityBodyContextMixin','LivingEntityBodyContextMixin'):
+    assert mixin in mixin_config['mixins'], f'mixin not registered: {mixin}'
 assert (root/'src/main/java/dev/freakyfriday/mind/MindHostRegistry.java').exists()
 assert (root/'src/main/java/dev/freakyfriday/mind/MindBodyBindings.java').exists()
 assert (root/'src/test/java/dev/freakyfriday/mind/MindBodyBindingsSelfTest.java').exists()
