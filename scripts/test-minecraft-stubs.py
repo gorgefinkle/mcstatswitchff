@@ -423,9 +423,12 @@ public class Block {}
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.ItemStack;
 public class Mob extends LivingEntity {
+ private LivingEntity target;
  public Mob(String name,ServerLevel level){super(name,level);}
  public ItemStack getMainHandItem(){return super.getMainHandItem();}
  public ItemStack getOffhandItem(){return super.getOffhandItem();}
+ public LivingEntity getTargetUnchecked(){return target;}
+ public void setTarget(LivingEntity target){this.target=target;}
 }
 ''',
 'net/minecraft/world/entity/PathfinderMob.java':'''package net.minecraft.world.entity;
@@ -766,6 +769,19 @@ public final class GoalPortHarness {
    var skeleton=new SkeletonLike(level);
    var creeper=new CreeperLike(level);
    var block=new Block();
+
+   var firstTarget=new net.minecraft.world.entity.LivingEntity("first-target",level);
+   var secondTarget=new net.minecraft.world.entity.LivingEntity("second-target",level);
+   zombie.setTarget(firstTarget); skeleton.setTarget(secondTarget);
+   var targetSnapshot=MobMindTargetState.capture(zombie,skeleton);
+   ok(MobMindTargetState.matches(zombie,skeleton,targetSnapshot),
+      "combat targets remain unchanged during preflight capture");
+   MobMindTargetState.exchange(zombie,skeleton,targetSnapshot);
+   ok(zombie.getTargetUnchecked()==secondTarget && skeleton.getTargetUnchecked()==firstTarget,
+      "active combat target follows the exchanged mind to the opposite body");
+   MobMindTargetState.restore(zombie,skeleton,targetSnapshot);
+   ok(zombie.getTargetUnchecked()==firstTarget && skeleton.getTargetUnchecked()==secondTarget,
+      "combat target pointers restore exactly during transaction rollback");
 
    Goal sourceEgg=zombie.new ZombieAttackTurtleEggGoal(block);
    ok(sourceEgg.getClass().getEnclosingClass()==ZombieLike.class,
