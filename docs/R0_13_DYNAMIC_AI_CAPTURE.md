@@ -60,16 +60,17 @@ complete exchange.
 - A full cross-species exchange may still be rejected because arbitrary
   Minecraft goals and mods are not required to be portable.
 - The semantic adapter registry currently covers a narrow hostile-mob path:
-  - Zombie turtle-egg removal is reconstructed as a recipient-owned
-    `RemoveBlockGoal`, retaining the target block, speed, vertical search
-    range, accepted distance and control flags. The species-specific sound
-    overrides are not retained by this port.
-  - Zombie melee and Skeleton bow/melee attack goals are converted to an
+  - Any owner-bound `RemoveBlockGoal` subclass is reconstructed as a
+    recipient-owned `RemoveBlockGoal`, retaining the target block, speed,
+    vertical search range, accepted distance and control flags. The
+    species-specific sound overrides are not retained by this port.
+  - Species-bound melee goals, bow goals whose recipient lacks a bow/ranged
+    capability, and Creeper `SwellGoal` are converted to a
     `RecipientAttackIntentGoal`. The physical recipient decides the action:
-    a body implementing `RangedAttackMob` and holding a bow uses
-    `RangedBowAttackGoal`; otherwise a `PathfinderMob` uses
-    `MeleeAttackGoal`. Attack cooldown/path state is restarted because the
-    underlying driver changes.
+    Creeper bodies use their native `SwellGoal`; otherwise a body implementing
+    `RangedAttackMob` and holding a bow uses `RangedBowAttackGoal`; remaining
+    `PathfinderMob` bodies use `MeleeAttackGoal`. Attack cooldown/path state
+    restarts because the underlying driver changes.
   - A translated goal is installed inactive, with its old selector lock
     released, so the newly constructed driver receives a normal
     `start()` lifecycle. Untranslated goals keep their captured scheduler
