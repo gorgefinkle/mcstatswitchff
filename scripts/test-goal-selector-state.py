@@ -38,7 +38,7 @@ import java.util.function.Predicate;
 public class GoalSelector {
  public final Set<WrappedGoal> availableGoals=new LinkedHashSet<>();
  public final Map<Goal.Flag,WrappedGoal> lockedFlags=new EnumMap<>(Goal.Flag.class);
- public final EnumSet<Goal.Flag> disabledFlags=EnumSet.noneOf(Goal.Flag.class);
+ public final Set<Goal.Flag> disabledFlags=EnumSet.noneOf(Goal.Flag.class);
  public Set<WrappedGoal> getAvailableGoals(){return availableGoals;}
  public void addGoal(int p,Goal g){availableGoals.add(new WrappedGoal(p,g));}
  public void removeAllGoals(Predicate<Goal> p){availableGoals.removeIf(w->p.test(w.getGoal()));lockedFlags.clear();}
