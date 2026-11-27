@@ -77,9 +77,10 @@ This closes the source-level scheduler bookkeeping gap, but it does not prove be
   the new body. Runtime acceptance is essential.
 - Player ↔ player, player ↔ mob control and save/restart persistence
   are still not implemented.
-- Exact restoration of currently-running goal scheduler state and
-  navigation path progress is not guaranteed; a completed capture is
-  not the same as a fully portable executing mind.
+- GoalSelector running bits, disabled controls, and arbitration locks are now
+  captured and restored as scheduler bookkeeping. Their behavioral correctness
+  on the first post-swap server tick is still unverified. Exact navigation path
+  progress and species-specific behavior remain outside this scheduler snapshot.
 
 ## Technical acceptance gates
 
