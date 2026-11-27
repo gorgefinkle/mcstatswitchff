@@ -451,6 +451,29 @@ public class SwellGoal extends Goal {
  public boolean canUse(){canUseCalls++;return true;}
 }
 ''',
+'net/minecraft/world/entity/ai/goal/AvoidEntityGoal.java':'''package net.minecraft.world.entity.ai.goal;
+import java.util.EnumSet;
+import java.util.function.Predicate;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.PathfinderMob;
+public class AvoidEntityGoal<T extends LivingEntity> extends Goal {
+ public final PathfinderMob mob;
+ public final Class<T> avoidClass;
+ public final Predicate<? super LivingEntity> avoidPredicate;
+ public final float maxDist;
+ public final double walkSpeedModifier,sprintSpeedModifier;
+ public final Predicate<? super LivingEntity> predicateOnAvoidEntity;
+ public final Object avoidEntityTargeting=new Object();
+ public AvoidEntityGoal(PathfinderMob mob,Class<T> avoidClass,Predicate<? super LivingEntity> avoidPredicate,
+   float maxDist,double walk,double sprint,Predicate<? super LivingEntity> predicate){
+   this.mob=mob;this.avoidClass=avoidClass;this.avoidPredicate=avoidPredicate;this.maxDist=maxDist;
+   this.walkSpeedModifier=walk;this.sprintSpeedModifier=sprint;this.predicateOnAvoidEntity=predicate;
+   setFlags(EnumSet.of(Flag.MOVE));
+ }
+ public boolean canUse(){return true;}
+}
+''',
+
 'net/minecraft/world/item/Items.java':'''package net.minecraft.world.item;
 public final class Items { public static final Item BOW=new Item(new Item.Properties()); }
 ''',
@@ -632,6 +655,34 @@ public final class GoalPortHarness {
    ok(remover.blockToRemove==block && remover.speedModifier==1.15 && remover.verticalSearchRange==2,
       "block target, speed and search range survive translation");
    ok(remover.getFlags().contains(Goal.Flag.MOVE),"scheduler control flags survive translation");
+
+   java.util.function.Predicate<net.minecraft.world.entity.LivingEntity> acceptAll = entity -> true;
+   java.util.function.Predicate<net.minecraft.world.entity.LivingEntity> visibleOnly = entity -> entity.isAlive();
+   var vanillaAvoid=new AvoidEntityGoal<>(
+      zombie,net.minecraft.world.entity.LivingEntity.class,acceptAll,6.0F,1.0,1.2,visibleOnly);
+   Object oldTargeting=vanillaAvoid.avoidEntityTargeting;
+   Goal translatedAvoid=GoalTransferAdapters.adapt(vanillaAvoid,skeleton);
+   ok(translatedAvoid instanceof AvoidEntityGoal<?>,"base AvoidEntityGoal is reconstructed rather than cloning TargetingConditions");
+   var avoid=(AvoidEntityGoal<?>)translatedAvoid;
+   ok(avoid.mob==skeleton && avoid.avoidClass==vanillaAvoid.avoidClass,
+      "avoid behavior is rebound to recipient and preserves target class");
+   ok(avoid.avoidPredicate==acceptAll && avoid.predicateOnAvoidEntity==visibleOnly,
+      "safe vanilla predicates are retained exactly");
+   ok(avoid.maxDist==6.0F && avoid.walkSpeedModifier==1.0 && avoid.sprintSpeedModifier==1.2,
+      "avoid distance and walk/sprint configuration survive");
+   ok(avoid.avoidEntityTargeting!=oldTargeting,
+      "TargetingConditions is rebuilt for recipient rather than shared from donor");
+   try {
+     java.util.function.Predicate<net.minecraft.world.entity.LivingEntity> ownerBound =
+        entity -> entity != zombie;
+     var unsafeAvoid=new AvoidEntityGoal<>(
+        zombie,net.minecraft.world.entity.LivingEntity.class,ownerBound,6.0F,1.0,1.2,visibleOnly);
+     GoalTransferAdapters.adapt(unsafeAvoid,skeleton);
+     throw new AssertionError("captured donor reference in avoid predicate must be rejected");
+   } catch(DynamicObjectGraph.Uncapturable expected) {
+     ok(expected.getMessage().contains("avoidPredicate"),
+        "owner-bound avoid predicate fails closed with a useful field path");
+   }
 
    Goal translatedAttack=GoalTransferAdapters.adapt(new ZombieAttackGoal(zombie),skeleton);
    ok(translatedAttack instanceof RecipientAttackIntentGoal,"owner-bound melee goal becomes portable attack intent");
