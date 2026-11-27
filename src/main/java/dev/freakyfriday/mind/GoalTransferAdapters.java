@@ -1,5 +1,7 @@
 package dev.freakyfriday.mind;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.PathfinderMob;
