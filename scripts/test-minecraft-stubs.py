@@ -437,6 +437,20 @@ public class PathfinderMob extends Mob {
 'net/minecraft/world/entity/monster/RangedAttackMob.java':'''package net.minecraft.world.entity.monster;
 public interface RangedAttackMob {}
 ''',
+'net/minecraft/world/entity/monster/Creeper.java':'''package net.minecraft.world.entity.monster;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.PathfinderMob;
+public class Creeper extends PathfinderMob { public Creeper(String name,ServerLevel level){super(name,level);} }
+''',
+'net/minecraft/world/entity/ai/goal/SwellGoal.java':'''package net.minecraft.world.entity.ai.goal;
+import net.minecraft.world.entity.monster.Creeper;
+public class SwellGoal extends Goal {
+ public static int canUseCalls;
+ public final Creeper creeper;
+ public SwellGoal(Creeper creeper){this.creeper=creeper;setFlags(java.util.EnumSet.of(Flag.MOVE));}
+ public boolean canUse(){canUseCalls++;return true;}
+}
+''',
 'net/minecraft/world/item/Items.java':'''package net.minecraft.world.item;
 public final class Items { public static final Item BOW=new Item(new Item.Properties()); }
 ''',
@@ -598,10 +612,14 @@ public final class GoalPortHarness {
  static final class SkeletonLike extends PathfinderMob implements RangedAttackMob {
    SkeletonLike(ServerLevel level){super("Skeleton",level);}
  }
+ static final class CreeperLike extends net.minecraft.world.entity.monster.Creeper {
+   CreeperLike(ServerLevel level){super("Creeper",level);}
+ }
  public static void main(String[] args) throws Exception {
    var level=new ServerLevel("minecraft:overworld");
    var zombie=new ZombieLike(level);
    var skeleton=new SkeletonLike(level);
+   var creeper=new CreeperLike(level);
    var block=new Block();
 
    Goal translatedEgg=GoalTransferAdapters.adapt(zombie.new ZombieAttackTurtleEggGoal(block),skeleton);
@@ -641,7 +659,23 @@ public final class GoalPortHarness {
    ok(translatedRanged.canUse(),"zombie receives an executable attack action");
    ok(MeleeAttackGoal.canUseCalls==1,"recipient without ranged interface falls back to melee");
 
-   System.out.println("PASS GoalPortHarness: "+checks+" checks; owner-bound goal translation and recipient-selected melee/ranged execution");
+   // Creeper swell is translated to ordinary attack intent off-Creeper, while
+   // any attack intent received by a Creeper uses its native swell behavior.
+   Goal swellToZombie=GoalTransferAdapters.adapt(new SwellGoal(creeper),zombie);
+   ok(swellToZombie instanceof RecipientAttackIntentGoal,"Creeper swell maps to portable attack intent on a Zombie");
+   MeleeAttackGoal.canUseCalls=0; SwellGoal.canUseCalls=0;
+   ok(swellToZombie.canUse(),"Zombie body executes Creeper attack intent");
+   ok(MeleeAttackGoal.canUseCalls==1 && SwellGoal.canUseCalls==0,
+      "non-Creeper body selects its melee action");
+
+   Goal zombieMindToCreeper=GoalTransferAdapters.adapt(new ZombieAttackGoal(zombie),creeper);
+   ok(zombieMindToCreeper instanceof RecipientAttackIntentGoal,"Zombie attack goal translates for Creeper recipient");
+   MeleeAttackGoal.canUseCalls=0; SwellGoal.canUseCalls=0;
+   ok(zombieMindToCreeper.canUse(),"Creeper body executes transferred attack intent");
+   ok(SwellGoal.canUseCalls==1 && MeleeAttackGoal.canUseCalls==0,
+      "Creeper recipient selects its native swell action");
+
+   System.out.println("PASS GoalPortHarness: "+checks+" checks; owner-bound goal translation and recipient-native melee/ranged/explosive actions");
  }
 }
 ''')
