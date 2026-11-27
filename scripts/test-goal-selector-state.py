@@ -88,10 +88,12 @@ public class GoalSelectorStateHarness {
   catch(IllegalStateException expected){ok(expected.getMessage().contains("missing its selector lock"),"inconsistent source scheduler fails closed");}
 
   GoalSelector collision=new GoalSelector();
+  Goal sentinel=new Goal(Goal.Flag.LOOK);collision.addGoal(99,sentinel);
   Goal one=new Goal(Goal.Flag.MOVE),two=new Goal(Goal.Flag.MOVE);
   var collisionEntries=List.of(new GoalSelectorState.Entry(1,one,true),new GoalSelectorState.Entry(2,two,true));
   try {GoalSelectorState.install(collision,new GoalSelectorState.Snapshot(collisionEntries,EnumSet.noneOf(Goal.Flag.class),Map.of()));throw new AssertionError("conflicting active locks must reject");}
   catch(IllegalStateException expected){ok(expected.getMessage().contains("Two running goals claim"),"conflicting control claims fail closed");}
+  ok(collision.getAvailableGoals().size()==1&&find(collision,sentinel)!=null,"invalid replacement is rejected before mutating recipient selector");
   System.out.println("PASS GoalSelectorStateHarness: "+checks+" checks");
  }
 }
