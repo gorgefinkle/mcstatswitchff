@@ -12,8 +12,9 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 
 /**
  * Keep camera view and physical player body independent during possession.
- * Vanilla setCamera teleports the player to the camera, and ServerPlayer.tick
- * continuously follows it; both relocations are suppressed while possessed.
+ * setCamera still stores/sends the NPC camera entity, but its teleport is
+ * suppressed. Only ServerPlayer.tick's follow query is overridden, so other
+ * callers of getCamera retain the actual camera identity.
  */
 @Mixin(ServerPlayer.class)
 abstract class ServerPlayerPossessionCameraMixin {
@@ -33,11 +34,11 @@ abstract class ServerPlayerPossessionCameraMixin {
 
     @Redirect(
         method = "tick",
-        at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;absSnapTo(DDDFF)V")
+        at = @At(value = "INVOKE",
+            target = "Lnet/minecraft/server/level/ServerPlayer;getCamera()Lnet/minecraft/world/entity/Entity;")
     )
-    private void freakyfriday$skipCameraFollow(Entity physicalPlayer,
-            double x, double y, double z, float yRot, float xRot) {
-        if (physicalPlayer instanceof ServerPlayer player && PlayerPossessionState.isActive(player)) return;
-        physicalPlayer.absSnapTo(x, y, z, yRot, xRot);
+    private Entity freakyfriday$keepPhysicalAccountBody(ServerPlayer player) {
+        if (PlayerPossessionState.isActive(player)) return player;
+        return player.getCamera();
     }
 }
