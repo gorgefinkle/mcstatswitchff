@@ -96,7 +96,20 @@ public String getString(){return message;} public Component withStyle(ChatFormat
 public Component withStyle(UnaryOperator<Style> fn){fn.apply(new Style());return this;}
 public static class Style{public Style withClickEvent(ClickEvent e){return this;}}
 }''',
-'net/minecraft/world/item/ItemStack.java':'''package net.minecraft.world.item;public record ItemStack(Object item){public boolean is(Object other){return item==other;}}''',
+'net/minecraft/world/item/ItemStack.java':'''package net.minecraft.world.item;
+public class ItemStack {
+ public static final ItemStack EMPTY=new ItemStack(null,0);
+ private final Object item;private int count;
+ public ItemStack(Object item){this(item,1);}
+ public ItemStack(Object item,int count){this.item=item;this.count=count;}
+ public Object item(){return item;}public int getCount(){return count;}
+ public boolean is(Object other){return item==other;}
+ public boolean isEmpty(){return item==null||count<=0;}
+ public ItemStack copy(){return new ItemStack(item,count);}
+ public ItemStack split(int amount){int taken=Math.min(amount,count);count-=taken;return new ItemStack(item,taken);}
+ public void shrink(int amount){count=Math.max(0,count-amount);}
+}
+''',
 'net/minecraft/world/InteractionHand.java':'''package net.minecraft.world;public enum InteractionHand{MAIN_HAND,OFF_HAND}''',
 'net/minecraft/world/InteractionResult.java':'''package net.minecraft.world;public enum InteractionResult{SUCCESS}''',
 'net/minecraft/world/item/Item.java':'''package net.minecraft.world.item;
@@ -464,6 +477,7 @@ public class Entity {
  public float getYRot(){return yaw;}public void setYRot(float v){yaw=v;}public float getXRot(){return pitch;}public void setXRot(float v){pitch=v;}
  public Vec3 getDeltaMovement(){return movement;}public void setDeltaMovement(Vec3 v){movement=v;}public void setDeltaMovement(double x,double y,double z){movement=new Vec3(x,y,z);}
  public void move(MoverType type,Vec3 amount){position=new Vec3(position.x+amount.x,position.y+amount.y,position.z+amount.z);}
+public Object spawnAtLocation(net.minecraft.server.level.ServerLevel level,net.minecraft.world.item.ItemStack stack){return stack;}
  public void absSnapTo(double x,double y,double z,float yRot,float xRot){position=new Vec3(x,y,z);yaw=yRot;pitch=xRot;}
  public void setShiftKeyDown(boolean value){shift=value;}public boolean isShiftKeyDown(){return shift;}
  public void setSprinting(boolean value){sprinting=value;}public boolean isSprinting(){return sprinting;}
@@ -474,20 +488,36 @@ import net.minecraft.core.Holder;import net.minecraft.core.registries.BuiltInReg
 public final class Attributes {public static final Holder<Attribute> MOVEMENT_SPEED=BuiltInRegistries.ATTRIBUTE.register("minecraft:movement_speed");}
 ''',
 'net/minecraft/world/entity/LivingEntity.java':'''package net.minecraft.world.entity;
-import net.minecraft.server.level.ServerLevel;import net.minecraft.world.level.Level;import net.minecraft.world.entity.ai.attributes.*;import net.minecraft.core.registries.BuiltInRegistries;import net.minecraft.core.Holder;
-public class LivingEntity extends Entity{private final AttributeMap attrs=new AttributeMap();private float health=20, absorption=0; private boolean alive=true,jumping; public float maxHealthPenalty=0;
-public boolean isAlive(){return alive;}public void kill(){alive=false;} public void revive(){alive=true;}
-public LivingEntity(String name,ServerLevel l){super(name,l);}
-protected LivingEntity(EntityType<? extends LivingEntity> type,Level level){super("mixin",(ServerLevel)level);}
-public AttributeMap getAttributes(){return attrs;}
-public AttributeInstance getAttribute(Holder<Attribute> attribute){return attrs.getInstance(attribute);}
-public double getAttributeValue(Holder<Attribute> attribute){AttributeInstance instance=attrs.getInstance(attribute);return instance==null?0.0:instance.getValue();}
-public void tick(){super.tick();aiStep();} public void aiStep(){}
-public void swing(net.minecraft.world.InteractionHand hand){} public void swing(net.minecraft.world.InteractionHand hand,boolean sendToEntity){}
-public void setJumping(boolean value){jumping=value;}public boolean isJumping(){return jumping;}
-public float getHealth(){return health;}public void setHealth(float value){health=Math.max(0,Math.min(value,getMaxHealth()));}
-public float getMaxHealth(){var h=attrs.getInstance(BuiltInRegistries.ATTRIBUTE.register("minecraft:max_health"));return h==null?20:(float)h.getValue()-maxHealthPenalty;}
-public float getAbsorptionAmount(){return absorption;}public void setAbsorptionAmount(float value){absorption=value;}
+import java.util.*;import net.minecraft.server.level.ServerLevel;import net.minecraft.world.level.Level;
+import net.minecraft.world.entity.ai.attributes.*;import net.minecraft.core.registries.BuiltInRegistries;import net.minecraft.core.Holder;
+import net.minecraft.world.InteractionHand;import net.minecraft.world.item.ItemStack;
+public class LivingEntity extends Entity {
+ private final AttributeMap attrs=new AttributeMap();private float health=20,absorption=0;private boolean alive=true,jumping,usingItem,blocking;
+ public float maxHealthPenalty=0;private final EnumMap<EquipmentSlot,ItemStack> equipment=new EnumMap<>(EquipmentSlot.class);
+ private InteractionHand usedHand=InteractionHand.MAIN_HAND;private ItemStack useItem=ItemStack.EMPTY;private int useRemaining;
+ public boolean isAlive(){return alive;}public void kill(){alive=false;}public void revive(){alive=true;}
+ public LivingEntity(String name,ServerLevel l){super(name,l);}
+ protected LivingEntity(EntityType<? extends LivingEntity> type,Level level){super("mixin",(ServerLevel)level);}
+ public AttributeMap getAttributes(){return attrs;}public AttributeInstance getAttribute(Holder<Attribute> attribute){return attrs.getInstance(attribute);}
+ public double getAttributeValue(Holder<Attribute> attribute){AttributeInstance instance=attrs.getInstance(attribute);return instance==null?0.0:instance.getValue();}
+ public void tick(){super.tick();aiStep();}public void aiStep(){}
+ public void swing(InteractionHand hand){}public void swing(InteractionHand hand,boolean sendToEntity){}
+ public void setJumping(boolean value){jumping=value;}public boolean isJumping(){return jumping;}
+ public ItemStack getItemBySlot(EquipmentSlot slot){return equipment.getOrDefault(slot,ItemStack.EMPTY);}
+ public void setItemSlot(EquipmentSlot slot,ItemStack stack){equipment.put(slot,stack==null?ItemStack.EMPTY:stack);}
+ public ItemStack getItemInHand(InteractionHand hand){return getItemBySlot(hand==InteractionHand.MAIN_HAND?EquipmentSlot.MAINHAND:EquipmentSlot.OFFHAND);}
+ public void setItemInHand(InteractionHand hand,ItemStack stack){setItemSlot(hand==InteractionHand.MAIN_HAND?EquipmentSlot.MAINHAND:EquipmentSlot.OFFHAND,stack);}
+ public boolean isUsingItem(){return usingItem;}public InteractionHand getUsedItemHand(){return usedHand;}
+ public ItemStack getUseItem(){return useItem;}public int getUseItemRemainingTicks(){return useRemaining;}
+ public int getTicksUsingItem(){return usingItem?Math.max(0,useItem.getCount()-useRemaining):0;}
+ public float getTicksUsingItem(float partialTick){return getTicksUsingItem()+partialTick;}
+ public void startUsingItem(InteractionHand hand){usedHand=hand;useItem=getItemInHand(hand);usingItem=!useItem.isEmpty();useRemaining=useItem.getCount();}
+ public void stopUsingItem(){usingItem=false;useItem=ItemStack.EMPTY;useRemaining=0;}
+ public void releaseUsingItem(){stopUsingItem();}
+ public boolean isBlocking(){return blocking;}public ItemStack getItemBlockingWith(){return blocking?useItem:null;}
+ public float getHealth(){return health;}public void setHealth(float value){health=Math.max(0,Math.min(value,getMaxHealth()));}
+ public float getMaxHealth(){var h=attrs.getInstance(BuiltInRegistries.ATTRIBUTE.register("minecraft:max_health"));return h==null?20:(float)h.getValue()-maxHealthPenalty;}
+ public float getAbsorptionAmount(){return absorption;}public void setAbsorptionAmount(float value){absorption=value;}
 }''',
 'net/minecraft/server/level/ServerLevel.java':'''package net.minecraft.server.level;
 import net.minecraft.world.entity.Entity;import net.minecraft.resources.Identifier;import java.util.*;import net.minecraft.world.level.Level;
@@ -550,6 +580,9 @@ public class JumpControl {private final Mob mob;private boolean jump;
 'net/minecraft/world/phys/AABB.java':'''package net.minecraft.world.phys; public record AABB(double minX,double minY,double minZ,double maxX,double maxY,double maxZ) {}
 ''',
 'net/minecraft/core/BlockPos.java':'''package net.minecraft.core; public record BlockPos(int x,int y,int z) {}
+''',
+'net/minecraft/world/entity/EquipmentSlot.java':'''package net.minecraft.world.entity;
+public enum EquipmentSlot {MAINHAND,OFFHAND,FEET,LEGS,CHEST,HEAD,BODY,SADDLE}
 ''',
 'net/minecraft/world/entity/EntityType.java':'''package net.minecraft.world.entity;
 public final class EntityType<T extends LivingEntity>{public final String name;public EntityType(String name){this.name=name;}}
