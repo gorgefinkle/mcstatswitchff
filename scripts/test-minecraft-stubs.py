@@ -632,6 +632,9 @@ public final class EntityType<T extends LivingEntity>{
  public final String name;public EntityType(String name){this.name=name;}
 }
 ''',
+'net/minecraft/world/entity/EntityTypes.java':'''package net.minecraft.world.entity;
+public final class EntityTypes { public static final EntityType<LivingEntity> PLAYER=EntityType.PLAYER; }
+''',
 'net/neoforged/neoforge/event/entity/EntityAttributeModificationEvent.java':'''package net.neoforged.neoforge.event.entity;
 import java.util.*;import net.minecraft.core.Holder;import net.minecraft.world.entity.*;import net.minecraft.world.entity.ai.attributes.*;
 public class EntityAttributeModificationEvent {
@@ -809,10 +812,10 @@ public static void main(String[] args){
  }
  ok(event.has(skeleton,flight),"existing native flight stat unchanged");
  ok(!event.has(cow,flight),"new flight property must not pretend to grant flight");
- ok(event.has(EntityType.PLAYER,waypointReceive),"player has a waypoint receive range for ServerPlayer chunk tracking");
- ok(event.has(EntityType.PLAYER,waypointTransmit),"player has a waypoint transmit range");
- ok(event.types.get(EntityType.PLAYER).get(waypointReceive)==6.0E7,"player receive range preserves the vanilla 60-million-block default");
- ok(event.types.get(EntityType.PLAYER).get(waypointTransmit)==6.0E7,"player transmit range preserves the vanilla 60-million-block default");
+ ok(event.has(EntityTypes.PLAYER,waypointReceive),"player has a waypoint receive range for ServerPlayer chunk tracking");
+ ok(event.has(EntityTypes.PLAYER,waypointTransmit),"player has a waypoint transmit range");
+ ok(event.types.get(EntityTypes.PLAYER).get(waypointReceive)==6.0E7,"player receive range preserves the vanilla 60-million-block default");
+ ok(event.types.get(EntityTypes.PLAYER).get(waypointTransmit)==6.0E7,"player transmit range preserves the vanilla 60-million-block default");
  ok(event.types.get(cow).get(armor)==7.0,"native creature armor was preserved");
  // Simulate TWO spawned creatures built from different native type suppliers.
  // These initially differed by five defensive attributes, and that difference
