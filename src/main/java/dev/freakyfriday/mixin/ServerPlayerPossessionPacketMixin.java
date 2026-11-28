@@ -33,7 +33,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ServerGamePacketListenerImpl.class)
 abstract class ServerPlayerPossessionPacketMixin {
     @Shadow public ServerPlayer player;
-    @Shadow private abstract boolean hasClientLoaded();
+    @Shadow private boolean hasClientLoaded() { throw new AssertionError("Mixin shadow should be replaced at runtime"); }
 
     private void freakyfriday$runActionAtNpcBody(Object packet, Operation<Void> original) {
         Mob physicalNpcBody = PlayerPossessionState.npcBodyForPlayer(this.player);
