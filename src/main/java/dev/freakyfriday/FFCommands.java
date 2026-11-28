@@ -13,6 +13,7 @@ import net.minecraft.server.permissions.PermissionLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.monster.Creeper;
+import net.minecraft.world.entity.monster.Zombie;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
@@ -85,6 +86,28 @@ public final class FFCommands {
                         MindHostRegistry.debugExchangeControllers(first, second);
                         ctx.getSource().sendSuccess(() -> Component.literal(
                             "DEBUG exchanged loaded controllers: " + first.getType() + " / " + second.getType()), true);
+                        return 1;
+                    } catch (RuntimeException failure) {
+                        ctx.getSource().sendFailure(Component.literal("Debug exchange failed: " + failure.getMessage()));
+                        return 0;
+                    }
+                }))
+            .then(Commands.literal("debug-exchange-zombie-creeper-loaded")
+                .requires(source -> source.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.GAMEMASTERS)))
+                .executes(ctx -> {
+                    List<Mob> mobs = nearbyMobs(ctx.getSource());
+                    Zombie zombie = mobs.stream().filter(Zombie.class::isInstance).map(Zombie.class::cast).findFirst().orElse(null);
+                    Creeper creeper = mobs.stream().filter(Creeper.class::isInstance).map(Creeper.class::cast).findFirst().orElse(null);
+                    if (zombie == null || creeper == null) {
+                        ctx.getSource().sendFailure(Component.literal(
+                            "Debug pair requires the summoned Zombie and Creeper; loaded zombie="
+                                + (zombie != null) + ", creeper=" + (creeper != null) + "."));
+                        return 0;
+                    }
+                    try {
+                        MindHostRegistry.debugExchangeControllers(zombie, creeper);
+                        ctx.getSource().sendSuccess(() -> Component.literal(
+                            "DEBUG exchanged the summoned Zombie and Creeper controllers."), true);
                         return 1;
                     } catch (RuntimeException failure) {
                         ctx.getSource().sendFailure(Component.literal("Debug exchange failed: " + failure.getMessage()));
