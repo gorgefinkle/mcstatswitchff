@@ -50,7 +50,7 @@ jobs:
       - name: Launch 26.2 dedicated server and prove AI observer mixin applies
         run: bash scripts/test-server-mixin.sh
       - name: Verify JAR integrity and create SHA256 manifest
-        run: python3 scripts/verify-build-artifact.py --minecraft 26.2
+        run: python3 scripts/verify-build-artifact.py --minecraft 26.2 --runtime-smoke-test
       - name: Upload 26.2 JAR and build reports
         if: always()
         uses: actions/upload-artifact@v4
