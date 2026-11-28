@@ -16,6 +16,7 @@ public final class MindBodyContextSelfTest {
         Object c = new Object();
 
         check(!MindBodyContext.isBound(), "context starts empty");
+        check(!MindBodyContext.isExecutingPhysicalBodyAiStep(b), "no physical-body AI phase initially");
         check(MindBodyContext.bodyFor(a) == a, "unbound controller resolves to itself");
         check(MindBodyContext.controllerFor(a) == a, "unbound body resolves to itself");
 
@@ -26,6 +27,17 @@ public final class MindBodyContextSelfTest {
             check(MindBodyContext.isExecutingController(a), "controller A is active");
             check(!MindBodyContext.isExecutingController(b), "physical body B is not mistaken for controller");
             check(MindBodyContext.bodyFor(c) == c, "unrelated object is unaffected");
+
+            try (MindBodyContext.BodyAiStepScope physical = MindBodyContext.physicalBodyAiStep(b)) {
+                check(MindBodyContext.isExecutingPhysicalBodyAiStep(b), "recipient-specific AI phase is visible");
+                check(!MindBodyContext.isExecutingPhysicalBodyAiStep(a), "controller is not the physical AI recipient");
+                try (MindBodyContext.BodyAiStepScope nestedPhysical = MindBodyContext.physicalBodyAiStep(c)) {
+                    check(MindBodyContext.isExecutingPhysicalBodyAiStep(c), "nested body AI phase is visible");
+                    check(!MindBodyContext.isExecutingPhysicalBodyAiStep(b), "nested phase masks outer phase");
+                }
+                check(MindBodyContext.isExecutingPhysicalBodyAiStep(b), "closing nested phase restores outer phase");
+            }
+            check(!MindBodyContext.isExecutingPhysicalBodyAiStep(b), "closing physical phase clears marker");
 
             try (MindBodyContext.Scope nested = MindBodyContext.bind(c, a)) {
                 check(MindBodyContext.bodyFor(c) == a, "nested controller C sees body A");
@@ -44,12 +56,15 @@ public final class MindBodyContextSelfTest {
         // Exception unwinding must never leak a mapping into a later entity tick.
         try {
             try (MindBodyContext.Scope ignored = MindBodyContext.bind(a, b)) {
-                throw new IllegalStateException("fixture");
+                try (MindBodyContext.BodyAiStepScope physical = MindBodyContext.physicalBodyAiStep(b)) {
+                    throw new IllegalStateException("fixture");
+                }
             }
         } catch (IllegalStateException expected) {
             check(expected.getMessage().equals("fixture"), "fixture exception propagated");
         }
         check(!MindBodyContext.isBound(), "try/finally unwinding clears context after exception");
+        check(!MindBodyContext.isExecutingPhysicalBodyAiStep(b), "exception unwinding clears physical AI phase");
 
         MindBodyContext.Scope outer = MindBodyContext.bind(a, b);
         MindBodyContext.Scope inner = MindBodyContext.bind(c, a);
@@ -64,6 +79,6 @@ public final class MindBodyContextSelfTest {
         check(!MindBodyContext.isBound(), "valid LIFO cleanup restores empty context");
 
         System.out.println("PASS MindBodyContextSelfTest: " + checks
-            + " checks; nested mapping, reverse lookup, exception cleanup and LIFO validation");
+            + " checks; nested mapping, physical AI phase, reverse lookup, exception cleanup and LIFO validation");
     }
 }
