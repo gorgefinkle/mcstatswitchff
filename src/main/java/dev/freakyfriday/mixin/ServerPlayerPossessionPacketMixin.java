@@ -5,6 +5,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import dev.freakyfriday.mind.MindBodyContext;
 import dev.freakyfriday.mind.PlayerInputBridge;
 import dev.freakyfriday.mind.PlayerPossessionState;
+import dev.freakyfriday.mind.PlayerBodyActions;
 import net.minecraft.network.protocol.PacketUtils;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
 import net.minecraft.network.protocol.game.ServerboundAttackPacket;
@@ -32,7 +33,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ServerGamePacketListenerImpl.class)
 abstract class ServerPlayerPossessionPacketMixin {
     @Shadow public ServerPlayer player;
-    @Shadow private boolean hasClientLoaded();
+    @Shadow private abstract boolean hasClientLoaded();
 
     private void freakyfriday$runActionAtNpcBody(Object packet, Operation<Void> original) {
         Mob physicalNpcBody = PlayerPossessionState.npcBodyForPlayer(this.player);
@@ -73,28 +74,13 @@ abstract class ServerPlayerPossessionPacketMixin {
         if (action == ServerboundPlayerActionPacket.Action.DROP_ITEM
                 || action == ServerboundPlayerActionPacket.Action.DROP_ALL_ITEMS) {
             this.player.resetLastActionTime();
-            if (action == ServerboundPlayerActionPacket.Action.DROP_ITEM) {
-                freakyfriday$dropBodyEquipment(body, EquipmentSlot.MAINHAND, false);
-            } else {
-                for (EquipmentSlot slot : EquipmentSlot.values()) {
-                    freakyfriday$dropBodyEquipment(body, slot, true);
-                }
-            }
+            PlayerBodyActions.dropMainHand(body,
+                action == ServerboundPlayerActionPacket.Action.DROP_ALL_ITEMS);
             return;
         }
 
         try (MindBodyContext.Scope ignored = MindBodyContext.bind(this.player, body)) {
             original.call(packet);
-        }
-    }
-
-    private void freakyfriday$dropBodyEquipment(Mob body, EquipmentSlot slot, boolean all) {
-        ItemStack held = body.getItemBySlot(slot);
-        if (held == null || held.isEmpty()) return;
-        ItemStack dropped = all ? held.copy() : held.split(1);
-        body.setItemSlot(slot, held.isEmpty() ? ItemStack.EMPTY : held);
-        if (body.level() instanceof ServerLevel level && !dropped.isEmpty()) {
-            body.spawnAtLocation(level, dropped);
         }
     }
 
