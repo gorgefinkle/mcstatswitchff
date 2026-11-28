@@ -65,6 +65,7 @@ public record Identifier(String id) { public static Identifier parse(String id){
 public record Holder<T>(T value) {}''',
 'net/minecraft/world/entity/ai/attributes/Attribute.java':'''package net.minecraft.world.entity.ai.attributes;
 public record Attribute(String name) {
+public double getDefaultValue(){return 0.0;}
 public double sanitizeValue(double v){return name.equals("minecraft:movement_speed") ? Math.max(0.0,Math.min(1.0,v)):v;}
 }''',
 'net/minecraft/world/entity/ai/attributes/AttributeModifier.java':'''package net.minecraft.world.entity.ai.attributes;
