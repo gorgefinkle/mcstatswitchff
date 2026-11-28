@@ -17,6 +17,9 @@ import net.minecraft.network.protocol.game.ServerboundSwingPacket;
 import net.minecraft.network.protocol.game.ServerboundPlayerInputPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import net.minecraft.world.entity.player.Input;
 import org.spongepowered.asm.mixin.Mixin;
@@ -29,6 +32,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ServerGamePacketListenerImpl.class)
 abstract class ServerPlayerPossessionPacketMixin {
     @Shadow public ServerPlayer player;
+    @Shadow private boolean hasClientLoaded();
 
     private void freakyfriday$runActionAtNpcBody(Object packet, Operation<Void> original) {
         Mob physicalNpcBody = PlayerPossessionState.npcBodyForPlayer(this.player);
@@ -60,7 +64,38 @@ abstract class ServerPlayerPossessionPacketMixin {
     @WrapMethod(method = "handlePlayerAction")
     private void freakyfriday$playerActionAtNpcBody(ServerboundPlayerActionPacket packet, Operation<Void> original) {
         if (!PlayerPossessionState.isActive(this.player)) { original.call(packet); return; }
-        freakyfriday$runActionAtNpcBody(packet, original);
+        Mob body = PlayerPossessionState.npcBodyForPlayer(this.player);
+        if (body == null) return;
+        PacketUtils.ensureRunningOnSameThread(packet, (ServerGamePacketListenerImpl) (Object) this, this.player.level());
+        if (!this.hasClientLoaded()) return;
+
+        ServerboundPlayerActionPacket.Action action = packet.getAction();
+        if (action == ServerboundPlayerActionPacket.Action.DROP_ITEM
+                || action == ServerboundPlayerActionPacket.Action.DROP_ALL_ITEMS) {
+            this.player.resetLastActionTime();
+            if (action == ServerboundPlayerActionPacket.Action.DROP_ITEM) {
+                freakyfriday$dropBodyEquipment(body, EquipmentSlot.MAINHAND, false);
+            } else {
+                for (EquipmentSlot slot : EquipmentSlot.values()) {
+                    freakyfriday$dropBodyEquipment(body, slot, true);
+                }
+            }
+            return;
+        }
+
+        try (MindBodyContext.Scope ignored = MindBodyContext.bind(this.player, body)) {
+            original.call(packet);
+        }
+    }
+
+    private void freakyfriday$dropBodyEquipment(Mob body, EquipmentSlot slot, boolean all) {
+        ItemStack held = body.getItemBySlot(slot);
+        if (held == null || held.isEmpty()) return;
+        ItemStack dropped = all ? held.copy() : held.split(1);
+        body.setItemSlot(slot, held.isEmpty() ? ItemStack.EMPTY : held);
+        if (body.level() instanceof ServerLevel level && !dropped.isEmpty()) {
+            body.spawnAtLocation(level, dropped);
+        }
     }
 
     @WrapMethod(method = "handleUseItemOn")
