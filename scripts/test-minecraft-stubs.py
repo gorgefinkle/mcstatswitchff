@@ -313,6 +313,11 @@ import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME) @Target(ElementType.TYPE)
 public @interface Mixin { Class<?>[] value() default {}; }
 ''',
+'org/spongepowered/asm/mixin/Shadow.java':'''package org.spongepowered.asm.mixin;
+import java.lang.annotation.*;
+@Retention(RetentionPolicy.RUNTIME) @Target({ElementType.FIELD,ElementType.METHOD})
+public @interface Shadow {}
+''',
 'org/spongepowered/asm/mixin/Unique.java':'''package org.spongepowered.asm.mixin;
 import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME) @Target({ElementType.FIELD,ElementType.METHOD})
@@ -493,7 +498,11 @@ public class JumpControl {public void jump(){}public void tick(){}}
 ''',
 'net/minecraft/world/level/Level.java':'''package net.minecraft.world.level; public class Level { public boolean isClientSide(){return false;} }
 ''',
-'net/minecraft/world/phys/Vec3.java':'''package net.minecraft.world.phys; public class Vec3 {public final double x,y,z;public Vec3(double x,double y,double z){this.x=x;this.y=y;this.z=z;}}
+'net/minecraft/world/phys/Vec3.java':'''package net.minecraft.world.phys; public class Vec3 {
+ public static final Vec3 ZERO=new Vec3(0,0,0);
+ public final double x,y,z;
+ public Vec3(double x,double y,double z){this.x=x;this.y=y;this.z=z;}
+}
 ''',
 'net/minecraft/world/phys/AABB.java':'''package net.minecraft.world.phys; public record AABB(double minX,double minY,double minZ,double maxX,double maxY,double maxZ) {}
 ''',
