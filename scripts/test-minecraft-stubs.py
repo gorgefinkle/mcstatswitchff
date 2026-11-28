@@ -469,13 +469,19 @@ public class Entity {
  public void setSprinting(boolean value){sprinting=value;}public boolean isSprinting(){return sprinting;}
  public Component getDisplayName(){return Component.literal(name);}
 }''',
+'net/minecraft/world/entity/ai/attributes/Attributes.java':'''package net.minecraft.world.entity.ai.attributes;
+import net.minecraft.core.Holder;import net.minecraft.core.registries.BuiltInRegistries;
+public final class Attributes {public static final Holder<Attribute> MOVEMENT_SPEED=BuiltInRegistries.ATTRIBUTE.register("minecraft:movement_speed");}
+''',
 'net/minecraft/world/entity/LivingEntity.java':'''package net.minecraft.world.entity;
-import net.minecraft.server.level.ServerLevel;import net.minecraft.world.level.Level;import net.minecraft.world.entity.ai.attributes.*;import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.server.level.ServerLevel;import net.minecraft.world.level.Level;import net.minecraft.world.entity.ai.attributes.*;import net.minecraft.core.registries.BuiltInRegistries;import net.minecraft.core.Holder;
 public class LivingEntity extends Entity{private final AttributeMap attrs=new AttributeMap();private float health=20, absorption=0; private boolean alive=true,jumping; public float maxHealthPenalty=0;
 public boolean isAlive(){return alive;}public void kill(){alive=false;} public void revive(){alive=true;}
 public LivingEntity(String name,ServerLevel l){super(name,l);}
 protected LivingEntity(EntityType<? extends LivingEntity> type,Level level){super("mixin",(ServerLevel)level);}
 public AttributeMap getAttributes(){return attrs;}
+public AttributeInstance getAttribute(Holder<Attribute> attribute){return attrs.getInstance(attribute);}
+public double getAttributeValue(Holder<Attribute> attribute){AttributeInstance instance=attrs.getInstance(attribute);return instance==null?0.0:instance.getValue();}
 public void tick(){super.tick();aiStep();} public void aiStep(){}
 public void swing(net.minecraft.world.InteractionHand hand){} public void swing(net.minecraft.world.InteractionHand hand,boolean sendToEntity){}
 public void setJumping(boolean value){jumping=value;}public boolean isJumping(){return jumping;}
@@ -514,7 +520,7 @@ public class Mob extends LivingEntity {
  public Mob(String name,ServerLevel level){super(name,level);}public EntityType<Mob> getType(){return type;}
  public void tick(){super.tick();}public PathNavigation getNavigation(){return navigation;}public MoveControl getMoveControl(){return move;}
  public LookControl getLookControl(){return look;}public JumpControl getJumpControl(){return jump;}public Sensing getSensing(){return sensing;}
- public void setZza(float v){zza=v;}public void setXxa(float v){xxa=v;}public void setSpeed(float v){speed=v;}
+ public void setZza(float v){zza=v;}public void setXxa(float v){xxa=v;}public void setSpeed(float v){speed=v;setZza(v);}
  public float getZza(){return zza;}public float getXxa(){return xxa;}public float getSpeed(){return speed;}
 }''',
 'net/minecraft/world/entity/ai/navigation/PathNavigation.java':'''package net.minecraft.world.entity.ai.navigation; public class PathNavigation {}
@@ -874,6 +880,7 @@ public final class PlayerPossessionHarness {
   ServerLevel world=new ServerLevel("minecraft:overworld");
   ServerPlayer player=new ServerPlayer("Account",world);
   Mob npc=new Mob("Zombie",world);
+  npc.getAttributes().put(net.minecraft.world.entity.ai.attributes.Attributes.MOVEMENT_SPEED,0.27);
   var playerId=player.getUUID();var npcId=npc.getUUID();
 
   ok(MindBodyBindings.controllerForBody(playerId).equals(playerId),"player begins with own controller");
@@ -891,16 +898,23 @@ public final class PlayerPossessionHarness {
   PlayerInputBridge.capture(player,input);
   PlayerInputBridge.captureLook(player,91.0f,-17.0f);
   PlayerInputBridge.tickControlledMob(npc);
-  eq(npc.getZza(),1.0,"forward input becomes positive Mob forward axis");
-  eq(npc.getXxa(),1.0,"left input becomes positive Mob strafe axis");
+  eq(npc.getZza(),Math.sqrt(0.5),"diagonal forward input is normalized after Mob.setSpeed");
+  eq(npc.getXxa(),Math.sqrt(0.5),"diagonal strafe input is normalized after Mob.setSpeed");
+  eq(npc.getSpeed(),0.27,"player-controlled Mob receives its native movement attribute as travel speed");
   ok(npc.isShiftKeyDown(),"shift input reaches NPC body");
   ok(npc.isSprinting(),"sprint input reaches NPC body");
   ok(npc.isJumping(),"jump input reaches NPC body's jump controller");
   eq(npc.getYRot(),91.0,"look yaw reaches NPC body");
   eq(npc.getXRot(),-17.0,"look pitch reaches NPC body");
   Vec3 intent=PlayerInputBridge.movementIntent(player);
-  eq(intent.x,1.0,"movement intent strafe axis");
-  eq(intent.z,1.0,"movement intent forward axis");
+  eq(intent.x,Math.sqrt(0.5),"movement intent strafe is normalized");
+  eq(intent.z,Math.sqrt(0.5),"movement intent forward is normalized");
+
+  PlayerInputBridge.capture(player,new Input(true,false,false,false,false,false,false));
+  PlayerInputBridge.tickControlledMob(npc);
+  eq(npc.getZza(),1.0,"cardinal forward input is not attenuated");
+  eq(npc.getXxa(),0.0,"cardinal forward input clears previous strafe");
+  eq(npc.getSpeed(),0.27,"cardinal input keeps native movement speed");
 
   ok(PlayerPossessionState.end(player),"explicit end succeeds");
   ok(!PlayerPossessionState.isActive(player),"end removes session state");
