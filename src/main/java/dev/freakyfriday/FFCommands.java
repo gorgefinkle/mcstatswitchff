@@ -158,6 +158,32 @@ public final class FFCommands {
                         "DEBUG creeper progress=" + progress + " mind=" + creeper.getUUID()), true);
                     return 1;
                 }))
+            .then(Commands.literal("debug-prime-creeper")
+                .requires(source -> source.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.GAMEMASTERS)))
+                .then(Commands.argument("creeper", EntityArgument.entity()).executes(ctx -> {
+                    Entity entity = EntityArgument.getEntity(ctx, "creeper");
+                    if (!(entity instanceof Creeper creeper)) {
+                        ctx.getSource().sendFailure(Component.literal("Debug prime requires a Creeper entity selector."));
+                        return 0;
+                    }
+                    creeper.ignite();
+                    ctx.getSource().sendSuccess(() -> Component.literal(
+                        "DEBUG primed Creeper mind " + creeper.getUUID() + "."), true);
+                    return 1;
+                })))
+            .then(Commands.literal("debug-creeper-progress")
+                .requires(source -> source.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.GAMEMASTERS)))
+                .then(Commands.argument("creeper", EntityArgument.entity()).executes(ctx -> {
+                    Entity entity = EntityArgument.getEntity(ctx, "creeper");
+                    if (!(entity instanceof Creeper creeper)) {
+                        ctx.getSource().sendFailure(Component.literal("Debug progress requires a Creeper entity selector."));
+                        return 0;
+                    }
+                    float progress = creeper.getSwelling(1.0f);
+                    ctx.getSource().sendSuccess(() -> Component.literal(
+                        "DEBUG creeper progress=" + progress + " mind=" + creeper.getUUID()), true);
+                    return 1;
+                })))
             .then(Commands.literal("debug-tick")
                 .requires(source -> source.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.GAMEMASTERS)))
                 .then(Commands.argument("body", EntityArgument.entity()).executes(ctx -> {
