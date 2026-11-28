@@ -92,7 +92,15 @@ public final class MindHostRegistry {
         controller.xRotO = physicalBody.xRotO;
 
         try (MindBodyContext.Scope ignored = MindBodyContext.bind(controller, physicalBody)) {
+            // First run the donor's concrete tick override. MobTickBodyBridgeMixin
+            // suppresses only this controller invocation's LivingEntity super-tick,
+            // preserving subclass-owned mind state without double-ticking the body.
             controller.tick();
+
+            // Then run the recipient's concrete tick override and its complete
+            // physical LivingEntity/Mob lifecycle exactly once. Its aiStep call
+            // is redirected to the controller by LivingEntityAiStepBodyBridgeMixin.
+            physicalBody.tick();
         }
     }
 
