@@ -1,6 +1,7 @@
 package dev.freakyfriday.mixin;
 
 import dev.freakyfriday.mind.MindBodyContext;
+import dev.freakyfriday.mind.MindHostRegistry;
 import dev.freakyfriday.mind.LivingEntityTickInvoker;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
@@ -10,6 +11,8 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * Separates the two concrete tick chains during a mind/body exchange.
@@ -30,6 +33,11 @@ abstract class MobTickBodyBridgeMixin extends LivingEntity implements LivingEnti
     @Unique
     public void freakyfriday$invokeLivingEntityTick() {
         super.tick();
+    }
+
+    @Inject(method = "tick", at = @At("HEAD"))
+    private void freakyfriday$countDebugConcreteMobTick(CallbackInfo callback) {
+        MindHostRegistry.countDebugMobTick((Mob) (Object) this);
     }
 
     @Redirect(
