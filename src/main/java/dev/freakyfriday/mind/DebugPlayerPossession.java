@@ -95,7 +95,12 @@ public final class DebugPlayerPossession {
 
             Vec3 accountStart = player.position();
             Vec3 npcStart = npcBody.position();
-            PlayerPossessionState.begin(player, npcBody);
+            // Exercise the same transaction entry point called by the
+            // two-click book workflow, not a test-only possession shortcut.
+            String exchangeFailure = MindExchangeRuntime.exchange(player, npcBody);
+            if (exchangeFailure != null) {
+                throw new IllegalStateException(exchangeFailure);
+            }
             MindHostRegistry.startDebugAiPhaseCounter(npcBody);
             aiCounterStarted = true;
             PlayerInputBridge.capture(player,
