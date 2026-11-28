@@ -33,10 +33,12 @@ public final class FFCommands {
             position.x - 256, -64, position.z - 256,
             position.x + 256, 384, position.z + 256
         );
-        return source.getLevel().getEntities((Entity) null, bounds, entity -> entity instanceof Mob)
-            .stream()
+        return java.util.stream.StreamSupport.stream(
+                source.getLevel().getAllEntities().spliterator(), false)
             .filter(Mob.class::isInstance)
             .map(Mob.class::cast)
+            .filter(mob -> Math.abs(mob.getX() - position.x) <= 256
+                && Math.abs(mob.getZ() - position.z) <= 256)
             .sorted(Comparator.comparingDouble((Mob mob) -> mob.getX()).thenComparingDouble(mob -> mob.getZ()))
             .toList();
     }
