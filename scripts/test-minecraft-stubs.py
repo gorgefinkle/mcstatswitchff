@@ -46,6 +46,22 @@ public final class CategoryPickerNetworking {
     player.sendSystemMessage(Component.literal("Category GUI for " + name));
   }
 }''',
+'dev/freakyfriday/mind/DebugPlayerPossession.java':'''package dev.freakyfriday.mind;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Mob;
+/** Synthetic-harness stand-in only; the real live-server fixture is compiled by Gradle. */
+public final class DebugPlayerPossession {
+ public static String start(MinecraftServer server, ServerLevel level, Mob body) {
+  return "HARNESS ONLY: live ServerPlayer fixture is not executed by synthetic tests";
+ }
+ public static String status() {
+  return "HARNESS ONLY: live ServerPlayer fixture is not executed by synthetic tests";
+ }
+ public static String stop() {
+  return "HARNESS ONLY: live ServerPlayer fixture is not executed by synthetic tests";
+ }
+}''',
 'net/minecraft/resources/Identifier.java':'''package net.minecraft.resources;
 public record Identifier(String id) { public static Identifier parse(String id){if(id==null||!id.contains(":"))throw new IllegalArgumentException("bad id");return new Identifier(id);} public static Identifier withDefaultNamespace(String path){return new Identifier("minecraft:"+path);} public static Identifier tryParse(String id){return parse(id);} public String toString(){return id;} }''',
 'net/minecraft/core/Holder.java':'''package net.minecraft.core;
@@ -827,7 +843,7 @@ for sentinel in ('NativeBrainSwap.java','PlayerPossessionState.java','MindExchan
     sentinel_file = STUB/'dev/freakyfriday/mind'/sentinel
     if sentinel_file.exists():
         sentinel_file.unlink()
-real_api_only = {'NativeBrainSwap.java', 'GoalMindRuntime.java', 'GoalSelectorState.java', 'CategoryPickerPayload.java','CategoryPickerNetworking.java',
+real_api_only = {'NativeBrainSwap.java', 'GoalMindRuntime.java', 'GoalSelectorState.java', 'DebugPlayerPossession.java', 'CategoryPickerPayload.java','CategoryPickerNetworking.java',
                  'CategoryPickerScreen.java','ClientCategoryPickerNetworking.java'}
 all_prod=[p for p in (ROOT/'src/main/java').rglob('*.java') if p.name not in real_api_only] + list((ROOT/'src/platform/minecraft-26.2/java').rglob('*.java'))
 full_cmd=['javac','-d',str(OUT)]+list(map(str,STUB.rglob('*.java')))+list(map(str,all_prod))
