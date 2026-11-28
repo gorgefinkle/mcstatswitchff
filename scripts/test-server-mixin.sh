@@ -102,10 +102,10 @@ command(44, "summon minecraft:creeper 3 80 0")
 time.sleep(1.0)  # allow ServerLevel's entity manager to finish registration
 command(45, "freakyfriday debug-prime-creeper-loaded")
 initial = command(46, "freakyfriday debug-creeper-progress-loaded")
-command(47, "freakyfriday debug-exchange-loaded")
+command(47, "freakyfriday debug-exchange-zombie-creeper-loaded")
 time.sleep(0.4)
 during_swap = command(48, "freakyfriday debug-creeper-progress-loaded")
-command(49, "freakyfriday debug-exchange-loaded")
+command(49, "freakyfriday debug-exchange-zombie-creeper-loaded")
 time.sleep(0.4)
 after_reverse = command(50, "freakyfriday debug-creeper-progress-loaded")
 
