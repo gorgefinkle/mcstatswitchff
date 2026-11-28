@@ -2,6 +2,7 @@ package dev.freakyfriday;
 
 import dev.freakyfriday.mind.MindHostRegistry;
 import dev.freakyfriday.mind.MindSwapSessions;
+import dev.freakyfriday.mind.PlayerPossessionState;
 import java.util.Comparator;
 import java.util.List;
 import net.minecraft.commands.Commands;
@@ -49,6 +50,17 @@ public final class FFCommands {
             }))
             .then(Commands.literal("cancel").executes(ctx -> {
                 MindSwapSessions.cancel(ctx.getSource().getPlayerOrException());
+                return 1;
+            }))
+            .then(Commands.literal("end").executes(ctx -> {
+                ServerPlayer player = ctx.getSource().getPlayerOrException();
+                if (PlayerPossessionState.end(player)) {
+                    ctx.getSource().sendSuccess(() -> Component.literal(
+                        "NPC possession ended. Your player body and camera have been restored."), false);
+                } else {
+                    ctx.getSource().sendFailure(Component.literal(
+                        "You do not have an active NPC possession session."));
+                }
                 return 1;
             }))
             .then(Commands.literal("debug-exchange")
