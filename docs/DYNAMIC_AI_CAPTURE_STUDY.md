@@ -250,6 +250,18 @@ For a physical Mob body B controlled by original controller host A:
 
 This uses the original native controller object as an executable host. It does not transplant Goals, Brain instances, captured lambdas, custom fields, or task-local state. The original class-specific tick and aiStep methods run on the controller host, while the common LivingEntity base tick and native control objects run against the physical body.
 
+### Two concrete tick phases: controller first, body second
+
+The dispatcher now separates the native tick chains rather than replacing the recipient's whole subclass tick with the donor's:
+
+1. Invoke the original controller host's concrete `tick()` chain under `MindBodyContext`. This preserves its concrete subclass tick state (for example, Creeper fuse state).
+2. At the donor's `Mob.tick() → LivingEntity.tick()` boundary, suppress only that donor superclass physical tick. Its controller-owned concrete tick logic has already run.
+3. Invoke the recipient physical body's concrete `tick()` chain under the same context. It performs the recipient subclass's body-owned tick behavior and then reaches its normal Mob/LivingEntity base lifecycle once.
+4. Redirect that physical body's `LivingEntity.tick() → aiStep()` call to the donor controller's `aiStep()`, preserving the donor's native AI decision phase.
+5. Body navigation, sensing and movement controls are still resolved to the physical recipient.
+
+The point of the split is that neither side loses its concrete subclass tick override: the donor's private AI/timer state is advanced, and the recipient's physical species tick remains active. It must still be tested for concrete examples that store behavior in `aiStep()`, not only `tick()`; the present redirect routes the LivingEntity aiStep call to the donor and therefore does not yet prove every recipient-specific aiStep side effect is retained.
+
 ### Why this is only a candidate until proven
 
 The controller's concrete tick/aiStep override can still write its own private subclass fields directly. That is usually correct for mind-owned task state (such as an active fuse timer), but a subclass method can also mutate fields that represent physical state, set a dead flag, discard itself, or invoke world actions directly. A generic body facade must distinguish those effects.
