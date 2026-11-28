@@ -47,12 +47,9 @@ public final class CategoryPickerNetworking {
   }
 }''',
 'dev/freakyfriday/mind/DebugPlayerPossession.java':'''package dev.freakyfriday.mind;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.entity.Mob;
-/** Synthetic-harness stand-in only; the real live-server fixture is compiled by Gradle. */
+/** Synthetic-harness stand-in only; real live-server fixture is compiled by Gradle. */
 public final class DebugPlayerPossession {
- public static String start(MinecraftServer server, ServerLevel level, Mob body) {
+ public static String start(Object server, Object level, Object body) {
   return "HARNESS ONLY: live ServerPlayer fixture is not executed by synthetic tests";
  }
  public static String status() {
