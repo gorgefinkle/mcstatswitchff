@@ -524,10 +524,16 @@ public class LivingEntity extends Entity {
  public float getMaxHealth(){var h=attrs.getInstance(BuiltInRegistries.ATTRIBUTE.register("minecraft:max_health"));return h==null?20:(float)h.getValue()-maxHealthPenalty;}
  public float getAbsorptionAmount(){return absorption;}public void setAbsorptionAmount(float value){absorption=value;}
 }''',
+'net/minecraft/server/level/ServerChunkCache.java':'''package net.minecraft.server.level;
+import dev.freakyfriday.mind.MindBodyContext;
+public class ServerChunkCache {public Object lastViewCenter;
+ public void move(ServerPlayer player){lastViewCenter=MindBodyContext.bodyFor(player);}
+}
+''',
 'net/minecraft/server/level/ServerLevel.java':'''package net.minecraft.server.level;
-import net.minecraft.world.entity.Entity;import net.minecraft.resources.Identifier;import java.util.*;import net.minecraft.world.level.Level;
+import net.minecraft.world.entity.Entity;import net.minecraft.world.entity.player.Player;import net.minecraft.resources.Identifier;import java.util.*;import net.minecraft.world.level.Level;
 public final class ServerLevel extends Level {public record Dimension(Identifier identifier){} private final Dimension dim;private final Map<UUID,Entity> entities=new HashMap<>();
-private long time=0; public long getGameTime(){return time;}public void tick(){++time;}
+private long time=0; private final ServerChunkCache chunkSource=new ServerChunkCache(); public long getGameTime(){return time;}public ServerChunkCache getChunkSource(){return chunkSource;}public void tick(){++time;}
 public ServerLevel(String id){dim=new Dimension(new Identifier(id));}public Dimension dimension(){return dim;}public boolean isClientSide(){return false;}public void add(Entity e){entities.put(e.getUUID(),e);}
 public Entity getEntity(UUID id){return entities.get(id);}
 public Iterable<Entity> getAllEntities(){return entities.values();}
@@ -925,6 +931,9 @@ public final class PlayerPossessionHarness {
   ok(MindBodyBindings.controllerForBody(npcId).equals(npcId),"NPC begins with own controller");
 
   PlayerPossessionState.begin(player,npc);
+  PlayerPossessionState.refreshCameraChunkTracking(player);
+  ok(world.getChunkSource().lastViewCenter==npc,
+     "camera chunk tracker reads the possessed NPC position through scoped body context");
   ok(PlayerPossessionState.isActive(player),"possession session published");
   ok(MindBodyBindings.controllerForBody(playerId).equals(npcId),"NPC mind assigned to player physical body");
   ok(MindBodyBindings.controllerForBody(npcId).equals(playerId),"player input identity assigned to NPC physical body");
