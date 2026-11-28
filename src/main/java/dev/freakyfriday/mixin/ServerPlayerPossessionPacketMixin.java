@@ -22,6 +22,7 @@ import net.minecraft.server.network.ServerGamePacketListenerImpl;
 import net.minecraft.world.entity.player.Input;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.gen.Invoker;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -30,7 +31,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ServerGamePacketListenerImpl.class)
 abstract class ServerPlayerPossessionPacketMixin {
     @Shadow public ServerPlayer player;
-    @Shadow private abstract boolean hasClientLoaded();
+    @Invoker("hasClientLoaded") protected abstract boolean freakyfriday$hasClientLoaded();
 
     private void freakyfriday$runActionAtNpcBody(Object packet, Operation<Void> original) {
         Mob physicalNpcBody = PlayerPossessionState.npcBodyForPlayer(this.player);
@@ -65,7 +66,7 @@ abstract class ServerPlayerPossessionPacketMixin {
         Mob body = PlayerPossessionState.npcBodyForPlayer(this.player);
         if (body == null) return;
         PacketUtils.ensureRunningOnSameThread(packet, (ServerGamePacketListenerImpl) (Object) this, this.player.level());
-        if (!this.hasClientLoaded()) return;
+        if (!this.freakyfriday$hasClientLoaded()) return;
 
         ServerboundPlayerActionPacket.Action action = packet.getAction();
         if (action == ServerboundPlayerActionPacket.Action.DROP_ITEM
