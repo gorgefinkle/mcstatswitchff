@@ -412,12 +412,38 @@ public final class PacketUtils {public static void ensureRunningOnSameThread(Obj
 import net.minecraft.world.entity.player.Input;
 public record ServerboundPlayerInputPacket(Input input){}
 ''',
+'net/minecraft/network/protocol/game/ServerboundAttackPacket.java':'''package net.minecraft.network.protocol.game; public class ServerboundAttackPacket {public int entityId(){return 0;}}
+''',
+'net/minecraft/network/protocol/game/ServerboundInteractPacket.java':'''package net.minecraft.network.protocol.game;
+public class ServerboundInteractPacket {}
+''',
+'net/minecraft/network/protocol/game/ServerboundPlayerActionPacket.java':'''package net.minecraft.network.protocol.game;
+public class ServerboundPlayerActionPacket {}
+''',
+'net/minecraft/network/protocol/game/ServerboundUseItemOnPacket.java':'''package net.minecraft.network.protocol.game;
+public class ServerboundUseItemOnPacket {}
+''',
+'net/minecraft/network/protocol/game/ServerboundUseItemPacket.java':'''package net.minecraft.network.protocol.game;
+public class ServerboundUseItemPacket {}
+''',
+'net/minecraft/network/protocol/game/ServerboundPlayerCommandPacket.java':'''package net.minecraft.network.protocol.game;
+public class ServerboundPlayerCommandPacket {}
+''',
+'net/minecraft/network/protocol/game/ServerboundSwingPacket.java':'''package net.minecraft.network.protocol.game;
+public class ServerboundSwingPacket {}
+''',
 'net/minecraft/network/protocol/game/ServerboundMovePlayerPacket.java':'''package net.minecraft.network.protocol.game;
 public class ServerboundMovePlayerPacket {private float yaw,pitch;public boolean hasRotation(){return true;}public float getYRot(float fallback){return yaw;}public float getXRot(float fallback){return pitch;}}
 ''',
 'net/minecraft/server/network/ServerGamePacketListenerImpl.java':'''package net.minecraft.server.network;
 import net.minecraft.server.level.ServerPlayer;import net.minecraft.network.protocol.game.*;
-public class ServerGamePacketListenerImpl {public ServerPlayer player;public void handlePlayerInput(ServerboundPlayerInputPacket packet){}public void handleMovePlayer(ServerboundMovePlayerPacket packet){}}
+public class ServerGamePacketListenerImpl {public ServerPlayer player;
+public void handlePlayerInput(ServerboundPlayerInputPacket packet){} public void handleMovePlayer(ServerboundMovePlayerPacket packet){}
+public void handleAttack(ServerboundAttackPacket packet){} public void handleInteract(ServerboundInteractPacket packet){}
+public void handlePlayerAction(ServerboundPlayerActionPacket packet){} public void handleUseItemOn(ServerboundUseItemOnPacket packet){}
+public void handleUseItem(ServerboundUseItemPacket packet){} public void handlePlayerCommand(ServerboundPlayerCommandPacket packet){}
+public void handleAnimate(ServerboundSwingPacket packet){}
+}
 ''','net/minecraft/world/entity/Entity.java':'''package net.minecraft.world.entity;
 import java.util.UUID;
 import net.minecraft.server.level.ServerLevel;import net.minecraft.network.chat.Component;
