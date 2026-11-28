@@ -88,35 +88,63 @@ auth_id, _, _ = read_packet(sock)
 if auth_id != 41:
     raise SystemExit("RCON authentication failed")
 
-def command(request_id, value):
+next_request_id = 42
+
+def command(value):
+    global next_request_id
+    request_id = next_request_id
+    next_request_id += 1
     send_packet(sock, request_id, 2, value)
     response_id, _, response = read_packet(sock)
     if response_id != request_id:
         raise SystemExit(f"RCON response mismatch for {value!r}: {response_id}")
+    response = response.strip()
     print(f"RCON {value}: {response}")
     return response
 
-command(42, "forceload add 0 0")
-command(43, "summon minecraft:zombie 0 80 0")
-command(44, "summon minecraft:creeper 3 80 0")
-time.sleep(1.0)  # allow ServerLevel's entity manager to finish registration
+def command_until(value, predicate, attempts=40, interval=0.25):
+    last = ""
+    for _ in range(attempts):
+        last = command(value)
+        if predicate(last):
+            return last
+        time.sleep(interval)
+    raise SystemExit(
+        f"Timed out waiting for RCON command to succeed: {value!r}; last response={last!r}"
+    )
+
+command("forceload add 0 0")
+command("summon minecraft:zombie 0 80 0")
+command("summon minecraft:creeper 3 80 0")
+time.sleep(0.5)  # allow the chunk/entity manager to begin its first tick
+
 zombie_selector = "@e[type=minecraft:zombie,limit=1]"
 creeper_selector = "@e[type=minecraft:creeper,limit=1]"
-command(45, f"freakyfriday debug-prime-creeper {creeper_selector}")
-initial = command(46, f"freakyfriday debug-creeper-progress {creeper_selector}")
-command(47, f"freakyfriday debug-exchange {zombie_selector} {creeper_selector}")
-time.sleep(0.4)
-during_swap = command(48, f"freakyfriday debug-creeper-progress {creeper_selector}")
-command(49, f"freakyfriday debug-exchange {zombie_selector} {creeper_selector}")
-time.sleep(0.4)
-after_reverse = command(50, f"freakyfriday debug-creeper-progress {creeper_selector}")
 
-import re
+# The freshly summoned mobs can take a server tick to become selector-visible.
+# Retry only discovery/registration responses; any other command failure stays
+# visible and eventually fails the smoke instead of being silently ignored.
+prime_command = f"freakyfriday debug-prime-creeper {creeper_selector}"
+command_until(prime_command, lambda response: "DEBUG primed Creeper mind " in response)
+
+progress_command = f"freakyfriday debug-creeper-progress {creeper_selector}"
 def progress(response):
+    import re
     match = re.search(r"DEBUG creeper progress=([0-9.]+)", response)
     if not match:
         raise SystemExit(f"Missing numeric Creeper progress in RCON response: {response!r}")
     return float(match.group(1))
+
+initial = command_until(progress_command, lambda response: "DEBUG creeper progress=" in response)
+
+exchange_command = f"freakyfriday debug-exchange {zombie_selector} {creeper_selector}"
+command_until(exchange_command, lambda response: "DEBUG controller/body assignment exchanged." in response)
+time.sleep(0.4)
+during_swap = command_until(progress_command, lambda response: "DEBUG creeper progress=" in response)
+
+command_until(exchange_command, lambda response: "DEBUG controller/body assignment exchanged." in response)
+time.sleep(0.4)
+after_reverse = command_until(progress_command, lambda response: "DEBUG creeper progress=" in response)
 
 initial_value = progress(initial)
 swapped_value = progress(during_swap)
