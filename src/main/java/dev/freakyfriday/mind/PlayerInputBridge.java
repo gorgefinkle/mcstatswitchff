@@ -87,10 +87,12 @@ public final class PlayerInputBridge {
         if (input.jump()) body.getJumpControl().jump();
         body.getJumpControl().tick();
 
-        // Run the full concrete body tick. MobServerAiStepMixin suppresses its
-        // native target/goal/navigation/control scheduler for this body, while
-        // LivingEntity.aiStep still performs normal physical movement/collision.
-        body.tick();
+        // This Mob is also the native controller host whose concrete tick
+        // already runs on the Player body. Invoke only its LivingEntity
+        // physical tick here so its Mob/subclass tick state is not advanced a
+        // second time. Mob.aiStep still runs; MobServerAiStepMixin suppresses
+        // its native scheduler while preserving physical body effects/travel.
+        ((LivingEntityTickInvoker) (Object) body).freakyfriday$invokeLivingEntityTick();
     }
 
     private static float axis(boolean positive, boolean negative) {
