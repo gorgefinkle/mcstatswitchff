@@ -62,10 +62,10 @@ public final class PlayerInputBridge {
         if (input.jump()) body.getJumpControl().jump();
         body.getJumpControl().tick();
 
-        // Run physical LivingEntity tick on the Mob itself. This deliberately
-        // avoids its concrete Mob.tick/subclass AI tick; its serverAiStep is
-        // also suppressed while the player owns this body.
-        ((LivingEntityTickInvoker) (Object) body).freakyfriday$invokeLivingEntityTick();
+        // Run the physical Mob's full concrete tick chain. Its subclass/body
+        // lifecycle is preserved, while MobServerAiStepMixin suppresses only
+        // the native decision scheduler because player input owns this body.
+        body.tick();
     }
 
     private static float axis(boolean positive, boolean negative) {
