@@ -555,13 +555,14 @@ public void ignite(){} public float getSwelling(float partialTick){return swelli
 'net/minecraft/world/entity/Mob.java':'''package net.minecraft.world.entity;
 import net.minecraft.server.level.ServerLevel;import net.minecraft.world.entity.ai.control.*;
 import net.minecraft.world.entity.ai.navigation.PathNavigation;import net.minecraft.world.entity.ai.sensing.Sensing;
-public class Mob extends LivingEntity {
+import dev.freakyfriday.mind.LivingEntityTickInvoker;
+public class Mob extends LivingEntity implements LivingEntityTickInvoker {
  private final EntityType<Mob> type=new EntityType<>("test:mob");
  private final PathNavigation navigation=new PathNavigation();private final MoveControl move=new MoveControl();
  private final LookControl look=new LookControl();private final JumpControl jump=new JumpControl(this);private final Sensing sensing=new Sensing();
  private float zza,xxa,speed;
  public Mob(String name,ServerLevel level){super(name,level);}public EntityType<Mob> getType(){return type;}
- public void tick(){super.tick();}public PathNavigation getNavigation(){return navigation;}public MoveControl getMoveControl(){return move;}
+ public void tick(){super.tick();}public void freakyfriday$invokeLivingEntityTick(){super.tick();}public PathNavigation getNavigation(){return navigation;}public MoveControl getMoveControl(){return move;}
  public LookControl getLookControl(){return look;}public JumpControl getJumpControl(){return jump;}public Sensing getSensing(){return sensing;}
  public void setZza(float v){zza=v;}public void setXxa(float v){xxa=v;}public void setSpeed(float v){speed=v;setZza(v);}
  public float getZza(){return zza;}public float getXxa(){return xxa;}public float getSpeed(){return speed;}
