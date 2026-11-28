@@ -42,6 +42,8 @@ assert (root/'src/main/java/dev/freakyfriday/mind/MindBodyBindings.java').exists
 assert (root/'src/test/java/dev/freakyfriday/mind/MindBodyBindingsSelfTest.java').exists()
 assert (root/'src/main/java/dev/freakyfriday/mind/MindBodyContext.java').exists()
 assert 'npcBodyForPlayer' in (root/'src/main/java/dev/freakyfriday/mind/PlayerPossessionState.java').read_text()
+assert 'PlayerBodyActions.dropMainHand' in (root/'src/main/java/dev/freakyfriday/mixin/ServerPlayerPossessionPacketMixin.java').read_text()
+assert (root/'src/main/java/dev/freakyfriday/mind/PlayerBodyActions.java').exists()
 assert '@WrapMethod(method = "handleAttack")' in (root/'src/main/java/dev/freakyfriday/mixin/ServerPlayerPossessionPacketMixin.java').read_text()
 assert "PlayerPossessionHarness" in (root/'scripts/test-minecraft-stubs.py').read_text()
 assert "PlayerPossessionHarness" in (root/'scripts/test-minecraft-stubs.py').read_text()
