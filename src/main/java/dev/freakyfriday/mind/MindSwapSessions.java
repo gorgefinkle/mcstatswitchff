@@ -45,6 +45,7 @@ public final class MindSwapSessions {
     }
 
     public static void clearOnLogout(UUID playerId) {
+        PlayerPossessionState.endOnLogout(playerId);
         PENDING.remove(playerId);
         LAST_INTERACTION.remove(playerId);
     }
@@ -93,15 +94,15 @@ public final class MindSwapSessions {
             message(p, "Choose a DIFFERENT second body.");
             return;
         }
-        String problem = NativeBrainSwap.exchange(first, target);
+        String problem = MindExchangeRuntime.exchange(first, target);
         if (problem != null) {
             message(p, problem + " Selection remains active; choose another body or cancel.");
             return;
         }
         PENDING.remove(p.getUUID());
-        message(p, "Exchanged complete supported AI mind controllers between "
+        message(p, "Exchanged the controller/body assignments between "
             + first.getDisplayName().getString() + " and "
             + target.getDisplayName().getString()
-            + ". Experimental: test in a disposable world; persistence is not verified.");
+            + ". Experimental: verify movement and action behavior in-game.");
     }
 }
