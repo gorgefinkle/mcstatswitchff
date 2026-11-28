@@ -12,7 +12,6 @@
     "EntityBodyContextMixin",
     "LivingEntityBodyContextMixin",
     "PlayerPossessionTickMixin",
-    "PlayerBodyAiStepMixin",
     "ServerPlayerPossessionCameraMixin",
     "ServerPlayerPossessionPacketMixin",
     "LivingEntityPhysicalAiStepMixin"
