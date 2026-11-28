@@ -25,7 +25,13 @@ abstract class MobServerAiStepMixin {
     @Inject(method = "serverAiStep", at = @At("HEAD"), cancellable = true)
     private void freakyfriday$observeOrSuppressNativeAi(CallbackInfo callback) {
         Mob mob = (Mob) (Object) this;
-        if (PlayerPossessionState.isPlayerControlledBody(mob)
+        // Suppress native AI only when this Mob is the physical NPC body
+        // being driven by player input. The same Mob can simultaneously act as
+        // the controller for the separate ServerPlayer body; its AI must run
+        // in that controller context instead of being mistaken for the body.
+        boolean isPhysicalPlayerDrivenMob = MindBodyContext.bodyFor(mob) == mob
+            && PlayerPossessionState.isPlayerControlledBody(mob);
+        if (isPhysicalPlayerDrivenMob
                 || MindBodyContext.isExecutingPhysicalBodyAiStep(mob)) {
             callback.cancel();
             return;
