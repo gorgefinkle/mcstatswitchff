@@ -98,6 +98,36 @@ abstract class EntityBodyContextMixin {
         if (body != (Entity) (Object) this) callback.setReturnValue(body.getBbHeight());
     }
 
+    @Inject(method = "setShiftKeyDown", at = @At("HEAD"), cancellable = true)
+    private void freakyfriday$setBodyShiftKeyDown(boolean shiftKeyDown, CallbackInfo callback) {
+        Entity body = freakyfriday$body();
+        if (body != (Entity) (Object) this) {
+            body.setShiftKeyDown(shiftKeyDown);
+            callback.cancel();
+        }
+    }
+
+    @Inject(method = "isShiftKeyDown", at = @At("HEAD"), cancellable = true)
+    private void freakyfriday$bodyShiftKeyDown(CallbackInfoReturnable<Boolean> callback) {
+        Entity body = freakyfriday$body();
+        if (body != (Entity) (Object) this) callback.setReturnValue(body.isShiftKeyDown());
+    }
+
+    @Inject(method = "setSprinting", at = @At("HEAD"), cancellable = true)
+    private void freakyfriday$setBodySprinting(boolean sprinting, CallbackInfo callback) {
+        Entity body = freakyfriday$body();
+        if (body != (Entity) (Object) this) {
+            body.setSprinting(sprinting);
+            callback.cancel();
+        }
+    }
+
+    @Inject(method = "isSprinting", at = @At("HEAD"), cancellable = true)
+    private void freakyfriday$bodySprinting(CallbackInfoReturnable<Boolean> callback) {
+        Entity body = freakyfriday$body();
+        if (body != (Entity) (Object) this) callback.setReturnValue(body.isSprinting());
+    }
+
     @Inject(method = "getYRot", at = @At("HEAD"), cancellable = true)
     private void freakyfriday$bodyYaw(CallbackInfoReturnable<Float> callback) {
         Entity body = freakyfriday$body();
