@@ -29,10 +29,6 @@ public final class FFCommands {
 
     private static List<Mob> nearbyMobs(net.minecraft.commands.CommandSourceStack source) {
         var position = source.getPosition();
-        AABB bounds = new AABB(
-            position.x - 256, -64, position.z - 256,
-            position.x + 256, 384, position.z + 256
-        );
         return java.util.stream.StreamSupport.stream(
                 source.getLevel().getAllEntities().spliterator(), false)
             .filter(Mob.class::isInstance)
