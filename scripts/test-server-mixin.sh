@@ -100,14 +100,16 @@ command(42, "forceload add 0 0")
 command(43, "summon minecraft:zombie 0 80 0")
 command(44, "summon minecraft:creeper 3 80 0")
 time.sleep(1.0)  # allow ServerLevel's entity manager to finish registration
-command(45, "freakyfriday debug-prime-creeper-loaded")
-initial = command(46, "freakyfriday debug-creeper-progress-loaded")
-command(47, "freakyfriday debug-exchange-zombie-creeper-loaded")
+zombie_selector = "@e[type=minecraft:zombie,limit=1]"
+creeper_selector = "@e[type=minecraft:creeper,limit=1]"
+command(45, f"freakyfriday debug-prime-creeper {creeper_selector}")
+initial = command(46, f"freakyfriday debug-creeper-progress {creeper_selector}")
+command(47, f"freakyfriday debug-exchange {zombie_selector} {creeper_selector}")
 time.sleep(0.4)
-during_swap = command(48, "freakyfriday debug-creeper-progress-loaded")
-command(49, "freakyfriday debug-exchange-zombie-creeper-loaded")
+during_swap = command(48, f"freakyfriday debug-creeper-progress {creeper_selector}")
+command(49, f"freakyfriday debug-exchange {zombie_selector} {creeper_selector}")
 time.sleep(0.4)
-after_reverse = command(50, "freakyfriday debug-creeper-progress-loaded")
+after_reverse = command(50, f"freakyfriday debug-creeper-progress {creeper_selector}")
 
 import re
 def progress(response):
