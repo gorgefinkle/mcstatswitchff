@@ -10,7 +10,11 @@
     "MobBodyServicesMixin",
     "MobServerAiStepMixin",
     "EntityBodyContextMixin",
-    "LivingEntityBodyContextMixin"
+    "LivingEntityBodyContextMixin",
+    "PlayerPossessionTickMixin",
+    "PlayerBodyAiStepMixin",
+    "ServerPlayerPossessionCameraMixin",
+    "ServerPlayerPossessionPacketMixin"
   ],
   "injectors": {
     "defaultRequire": 1
