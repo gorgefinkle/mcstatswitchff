@@ -181,6 +181,51 @@ print("PASS Creeper concrete Mob.tick ran exactly once per world tick while on Z
       f"nativeTicks={initial[3]}->{during_swap[3]}->{after_reverse[3]}, "
       f"worldTicks={initial[4]}->{during_swap[4]}->{after_reverse[4]}")
 
+# Exercise the same possession transaction used by the book's NPC-to-player
+# route, with a real ServerPlayer registered on the live dedicated server.
+# The fixture injects a forward input sample because CI has no remote client.
+possess_command = f"freakyfriday debug-player-possess {zombie_selector}"
+command_until(possess_command,
+              lambda response: "DEBUG ServerPlayer possession started" in response)
+
+status_command = "freakyfriday debug-player-possession-status"
+status = command_until(status_command,
+                       lambda response: "DEBUG ServerPlayer possession active=true" in response)
+# Allow several natural player/entity ticks so the seeded forward input can
+# move the NPC physical body while the separate account body stays put.
+for _ in range(12):
+    time.sleep(0.2)
+    status = command(status_command)
+    if "active=true" not in status:
+        raise SystemExit("NPC-to-player possession ended unexpectedly during its live tick test")
+
+import re
+def status_number(name, response):
+    match = re.search(rf"(?:^|\\s){name}=([0-9.]+)", response)
+    if not match:
+        raise SystemExit(f"Missing {name} in possession status: {response!r}")
+    return float(match.group(1))
+
+for required_flag in ("cameraMatchesNpc=true", "playerMindOnNpc=true", "npcMindOnPlayer=true"):
+    if required_flag not in status:
+        raise SystemExit(f"NPC-to-player possession invariant failed: {required_flag}: {status!r}")
+player_delta = status_number("playerDelta", status)
+npc_delta = status_number("npcDelta", status)
+if player_delta > 0.10:
+    raise SystemExit(f"Possessed account body moved instead of staying independent: delta={player_delta}")
+if npc_delta < 0.10:
+    raise SystemExit(f"NPC physical body did not respond to captured player input: delta={npc_delta}")
+print(f"PASS live ServerPlayer possession: camera follows NPC, ownership maps are inverse, "
+      f"account body remains still ({player_delta:.3f}), NPC body moves ({npc_delta:.3f})")
+
+end_response = command("freakyfriday debug-player-possession-end")
+if "DEBUG ServerPlayer possession ended" not in end_response:
+    raise SystemExit(f"ServerPlayer possession cleanup did not complete: {end_response!r}")
+inactive = command("freakyfriday debug-player-possession-status")
+if "no ServerPlayer possession fixture is active" not in inactive:
+    raise SystemExit(f"Possession fixture remained active after cleanup: {inactive!r}")
+print("PASS live ServerPlayer possession cleanup: account camera and controller mappings restored")
+
 # Stop the server cleanly over its authenticated control channel.
 send_packet(sock, 51, 2, "stop")
 sock.close()
