@@ -189,10 +189,11 @@ command_until(possess_command,
               lambda response: "DEBUG ServerPlayer possession started" in response)
 
 status_command = "freakyfriday debug-player-possession-status"
-status = command_until(status_command,
-                       lambda response: "DEBUG ServerPlayer possession active=true" in response)
+initial_status = command_until(status_command,
+                               lambda response: "DEBUG ServerPlayer possession active=true" in response)
 # Allow several natural player/entity ticks so the seeded forward input can
-# move the NPC physical body while the separate account body stays put.
+# move the NPC physical body while the separate account body stays put, and
+# the NPC's own native AI phase must execute on the ServerPlayer body.
 for _ in range(12):
     time.sleep(0.2)
     status = command(status_command)
@@ -211,12 +212,20 @@ for required_flag in ("cameraMatchesNpc=true", "playerMindOnNpc=true", "npcMindO
         raise SystemExit(f"NPC-to-player possession invariant failed: {required_flag}: {status!r}")
 player_delta = status_number("playerDelta", status)
 npc_delta = status_number("npcDelta", status)
+initial_ai_phases = status_number("npcAiPhases", initial_status)
 if player_delta > 0.10:
     raise SystemExit(f"Possessed account body moved instead of staying independent: delta={player_delta}")
 if npc_delta < 0.10:
     raise SystemExit(f"NPC physical body did not respond to captured player input: delta={npc_delta}")
+ai_phases = status_number("npcAiPhases", status)
+if initial_ai_phases is None or ai_phases <= initial_ai_phases:
+    raise SystemExit(
+        f"NPC native AI did not advance on the ServerPlayer body: "
+        f"AI phases {initial_ai_phases} -> {ai_phases}"
+    )
 print(f"PASS live ServerPlayer possession: camera follows NPC, ownership maps are inverse, "
-      f"account body remains still ({player_delta:.3f}), NPC body moves ({npc_delta:.3f})")
+      f"account body remains still ({player_delta:.3f}), NPC body moves ({npc_delta:.3f}), "
+      f"NPC native AI phases advance ({initial_ai_phases:.0f}->{ai_phases:.0f})")
 
 end_response = command("freakyfriday debug-player-possession-end")
 if "DEBUG ServerPlayer possession ended" not in end_response:
