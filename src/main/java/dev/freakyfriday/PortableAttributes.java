@@ -41,9 +41,10 @@ public final class PortableAttributes {
     }
 
     public static void addToEntityTypes(EntityAttributeModificationEvent event) {
-        for (Holder<Attribute> holder : BuiltInRegistries.ATTRIBUTE.listElements()) {
+        // Registry.listElements() is a Stream in 26.2 (not an Iterable).
+        BuiltInRegistries.ATTRIBUTE.listElements().forEach(holder -> {
             Identifier id = BuiltInRegistries.ATTRIBUTE.getKey(holder.value());
-            if (id == null) continue;
+            if (id == null) return;
 
             for (EntityType<? extends LivingEntity> type : event.getTypes()) {
                 if (!event.has(type, holder)) {
@@ -55,6 +56,6 @@ public final class PortableAttributes {
                 event.add(EntityTypes.PLAYER, holder,
                     defaultFor(EntityTypes.PLAYER, id, holder));
             }
-        }
+        });
     }
 }
