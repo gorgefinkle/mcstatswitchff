@@ -12,11 +12,13 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 /**
- * Executes the original controller's concrete Mob.tick(), but its superclass
- * LivingEntity.tick() is invoked on the assigned physical body.
+ * Separates the two concrete tick chains during a mind/body exchange.
  *
- * The injected helper uses invokespecial through this Mob hierarchy. A normal
- * @Invoker would use virtual dispatch and call Mob.tick() again, recursing.
+ * The controller's concrete Mob.tick() and its subclass tick overrides run
+ * first, but its LivingEntity superclass tick is suppressed. The physical
+ * body's concrete tick is then called by MindHostRegistry and reaches this
+ * redirect with no controller identity match, so its true LivingEntity base
+ * tick runs exactly once.
  */
 @Mixin(Mob.class)
 abstract class MobTickBodyBridgeMixin extends LivingEntity implements LivingEntityTickInvoker {
@@ -34,8 +36,15 @@ abstract class MobTickBodyBridgeMixin extends LivingEntity implements LivingEnti
         method = "tick",
         at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/LivingEntity;tick()V")
     )
-    private void freakyfriday$runPhysicalLivingTick(LivingEntity controller) {
-        LivingEntity physicalBody = (LivingEntity) MindBodyContext.bodyFor(controller);
+    private void freakyfriday$separateControllerAndBodyTicks(LivingEntity receiver) {
+        // Do not execute the donor's physical superclass tick. Its subclass
+        // tick has already updated donor-owned AI state; the assigned body's
+        // full concrete tick is run immediately after that controller phase.
+        if (MindBodyContext.isExecutingController(receiver)) return;
+
+        // This is the physical body's Mob.tick() invocation. Its superclass
+        // LivingEntity tick is the one physical base tick for this body.
+        LivingEntity physicalBody = (LivingEntity) MindBodyContext.bodyFor(receiver);
         ((LivingEntityTickInvoker) (Object) physicalBody).freakyfriday$invokeLivingEntityTick();
     }
 }
