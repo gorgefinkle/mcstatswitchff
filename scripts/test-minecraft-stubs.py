@@ -433,7 +433,11 @@ public record ServerboundPlayerInputPacket(Input input){}
 public class ServerboundInteractPacket {}
 ''',
 'net/minecraft/network/protocol/game/ServerboundPlayerActionPacket.java':'''package net.minecraft.network.protocol.game;
-public class ServerboundPlayerActionPacket {}
+public class ServerboundPlayerActionPacket {
+ public enum Action {START_DESTROY_BLOCK,ABORT_DESTROY_BLOCK,STOP_DESTROY_BLOCK,DROP_ALL_ITEMS,DROP_ITEM,RELEASE_USE_ITEM,SWAP_ITEM_WITH_OFFHAND,STAB}
+ private Action action=Action.START_DESTROY_BLOCK;
+ public Action getAction(){return action;}
+}
 ''',
 'net/minecraft/network/protocol/game/ServerboundUseItemOnPacket.java':'''package net.minecraft.network.protocol.game;
 public class ServerboundUseItemOnPacket {}
@@ -460,12 +464,13 @@ public void handleUseItem(ServerboundUseItemPacket packet){} public void handleP
 public void handleAnimate(ServerboundSwingPacket packet){}
 }
 ''','net/minecraft/world/entity/Entity.java':'''package net.minecraft.world.entity;
-import java.util.UUID;
+import java.util.UUID;import java.util.ArrayList;import java.util.List;import net.minecraft.world.item.ItemStack;
 import net.minecraft.server.level.ServerLevel;import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.Level;import net.minecraft.world.phys.*;import net.minecraft.core.BlockPos;
 public class Entity {
  public enum Relative {X,Y,Z,Y_ROT,X_ROT}
  private final UUID uuid=UUID.randomUUID();private final ServerLevel level;public final String name;
+ public final List<ItemStack> droppedItems=new ArrayList<>();
  public int tickCount;public double xo,yo,zo,xOld,yOld,zOld;public float yRotO,xRotO;
  private Vec3 position=new Vec3(0,0,0), movement=new Vec3(0,0,0);private float yaw=0,pitch=0;private boolean removed,shift,sprinting;
  public Entity(String name,ServerLevel l){this.name=name;level=l;l.add(this);}public UUID getUUID(){return uuid;}public ServerLevel level(){return level;}
@@ -477,7 +482,7 @@ public class Entity {
  public float getYRot(){return yaw;}public void setYRot(float v){yaw=v;}public float getXRot(){return pitch;}public void setXRot(float v){pitch=v;}
  public Vec3 getDeltaMovement(){return movement;}public void setDeltaMovement(Vec3 v){movement=v;}public void setDeltaMovement(double x,double y,double z){movement=new Vec3(x,y,z);}
  public void move(MoverType type,Vec3 amount){position=new Vec3(position.x+amount.x,position.y+amount.y,position.z+amount.z);}
-public Object spawnAtLocation(net.minecraft.server.level.ServerLevel level,net.minecraft.world.item.ItemStack stack){return stack;}
+public Object spawnAtLocation(net.minecraft.server.level.ServerLevel level,ItemStack stack){droppedItems.add(stack);return stack;}
  public void absSnapTo(double x,double y,double z,float yRot,float xRot){position=new Vec3(x,y,z);yaw=yRot;pitch=xRot;}
  public void setShiftKeyDown(boolean value){shift=value;}public boolean isShiftKeyDown(){return shift;}
  public void setSprinting(boolean value){sprinting=value;}public boolean isSprinting(){return sprinting;}
@@ -926,6 +931,26 @@ public final class PlayerPossessionHarness {
   ok(PlayerPossessionState.controllerForPlayerBody(player)==npc,"NPC controller resolves for player body");
   ok(PlayerPossessionState.playerForNpcBody(npc)==player,"account resolves for controlled NPC body");
   ok(player.getCamera()==npc,"camera routes to NPC without changing account entity identity");
+
+  // Equipment drops are body-owned: DROP_ITEM removes exactly one from
+  // NPC main hand; DROP_ALL_ITEMS removes the remainder of that stack only.
+  player.setItemSlot(EquipmentSlot.MAINHAND,new net.minecraft.world.item.ItemStack("account-tool",3));
+  npc.setItemSlot(EquipmentSlot.MAINHAND,new net.minecraft.world.item.ItemStack("npc-sword",5));
+  npc.setItemSlot(EquipmentSlot.OFFHAND,new net.minecraft.world.item.ItemStack("npc-shield",1));
+  npc.setItemSlot(EquipmentSlot.HEAD,new net.minecraft.world.item.ItemStack("npc-helmet",1));
+  int droppedOne=PlayerBodyActions.dropMainHand(npc,false);
+  ok(droppedOne==1,"DROP_ITEM removes one NPC main-hand item");
+  ok(npc.getItemBySlot(EquipmentSlot.MAINHAND).getCount()==4,"one-item drop leaves four in NPC main hand");
+  ok(npc.droppedItems.get(0).getCount()==1,"one-item drop spawns exactly one");
+  ok(!npc.getItemBySlot(EquipmentSlot.HEAD).isEmpty(),"one-item drop preserves helmet");
+  int droppedAll=PlayerBodyActions.dropMainHand(npc,true);
+  ok(droppedAll==4,"DROP_ALL_ITEMS removes only the remaining main-hand stack");
+  ok(npc.getItemBySlot(EquipmentSlot.MAINHAND).isEmpty(),"DROP_ALL_ITEMS empties NPC main hand");
+  ok(npc.droppedItems.get(1).getCount()==4,"DROP_ALL_ITEMS spawns exact remaining stack once");
+  ok(npc.getItemBySlot(EquipmentSlot.OFFHAND).getCount()==1,"DROP_ALL_ITEMS preserves offhand");
+  ok(!npc.getItemBySlot(EquipmentSlot.HEAD).isEmpty(),"DROP_ALL_ITEMS preserves armor slots");
+  ok(player.getItemBySlot(EquipmentSlot.MAINHAND).getCount()==3,"NPC drop does not mutate authenticated account inventory");
+  ok(PlayerBodyActions.dropMainHand(npc,false)==0,"empty NPC hand drops nothing");
 
   Input input=new Input(true,false,true,false,true,true,true);
   PlayerInputBridge.capture(player,input);
