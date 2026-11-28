@@ -1,13 +1,16 @@
 package dev.freakyfriday.mind;
 
 import com.mojang.authlib.GameProfile;
-import io.netty.channel.ChannelHandler;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.embedded.EmbeddedChannel;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import net.minecraft.network.Connection;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.common.ClientboundKeepAlivePacket;
+import net.minecraft.network.protocol.common.ServerboundKeepAlivePacket;
 import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -44,25 +47,48 @@ public final class DebugPlayerPossession {
         String profileName = "FFPossess" + profileId.toString().substring(0, 8);
         CommonListenerCookie cookie = CommonListenerCookie.createInitial(
             new GameProfile(profileId, profileName), false);
-        Connection connection = new Connection(PacketFlow.SERVERBOUND);
         ServerPlayer player = new ServerPlayer(
             server, level, cookie.gameProfile(), cookie.clientInformation());
+        Connection connection = new Connection(PacketFlow.SERVERBOUND) {
+            @Override
+            public void tick() {
+                super.tick();
+                player.resetLastActionTime();
+            }
+
+            @Override
+            public boolean isMemoryConnection() {
+                return true;
+            }
+
+            @Override
+            public void send(Packet<?> packet, ChannelFutureListener listener, boolean flush) {
+                super.send(packet, listener, flush);
+                if (packet instanceof ClientboundKeepAlivePacket keepAlive) {
+                    player.connection.handleKeepAlive(
+                        new ServerboundKeepAlivePacket(keepAlive.getId()));
+                }
+            }
+        };
 
         try {
-            // Match the supported 26.2 GameTest mock-player construction path.
-            new EmbeddedChannel(new ChannelHandler[] { connection });
+            // Match NeoForge 26.2's ExtendedGameTestHelper ticking mock-player
+            // connection so keep-alive and chunk-batch state stay valid.
+            new EmbeddedChannel(connection);
             net.neoforged.neoforge.network.registration.NetworkRegistry
                 .configureMockConnection(connection);
             server.getPlayerList().placeNewPlayer(connection, player, cookie);
             server.getConnection().getConnections().add(connection);
             player.gameMode.changeGameModeForPlayer(GameType.SURVIVAL);
-            player.connection.markClientLoaded();
 
             // Keep the account body spatially separate and stationary. The
             // NPC physical body is the one driven by captured digital input.
             player.setNoGravity(true);
             player.snapTo(npcBody.getX() + 8.0, npcBody.getY(), npcBody.getZ() + 8.0,
                 npcBody.getYRot(), npcBody.getXRot());
+            player.connection.chunkSender.sendNextChunks(player);
+            player.connection.chunkSender.onChunkBatchReceivedByClient(64.0f);
+            player.connection.markClientLoaded();
             npcBody.setNoGravity(true);
             npcBody.setDeltaMovement(0.0, 0.0, 0.0);
             npcBody.setOnGround(true);
