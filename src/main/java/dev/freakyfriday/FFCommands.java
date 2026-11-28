@@ -143,6 +143,7 @@ public final class FFCommands {
                     creeper.setDeltaMovement(0.0, 0.0, 0.0);
                     creeper.setOnGround(true);
                     creeper.resetFallDistance();
+                    MindHostRegistry.startDebugMobTickCounter(creeper);
                     creeper.ignite();
                     ctx.getSource().sendSuccess(() -> Component.literal(
                         "DEBUG primed Creeper mind " + creeper.getUUID() + "."), true);
@@ -162,9 +163,11 @@ public final class FFCommands {
                     float progress = creeper.getSwelling(1.0f);
                     int entityTicks = creeper.tickCount;
                     long worldTick = creeper.level().getGameTime();
+                    long nativeTicks = MindHostRegistry.debugMobTickCount(creeper);
                     ctx.getSource().sendSuccess(() -> Component.literal(
                         "DEBUG creeper progress=" + progress + " mind=" + creeper.getUUID()
-                            + " entityTicks=" + entityTicks + " worldTick=" + worldTick), true);
+                            + " entityTicks=" + entityTicks + " nativeTicks=" + nativeTicks
+                            + " worldTick=" + worldTick), true);
                     return 1;
                 }))
             .then(Commands.literal("debug-prime-creeper")
@@ -181,6 +184,7 @@ public final class FFCommands {
                     creeper.setDeltaMovement(0.0, 0.0, 0.0);
                     creeper.setOnGround(true);
                     creeper.resetFallDistance();
+                    MindHostRegistry.startDebugMobTickCounter(creeper);
                     creeper.ignite();
                     ctx.getSource().sendSuccess(() -> Component.literal(
                         "DEBUG primed Creeper mind " + creeper.getUUID() + "."), true);
@@ -197,9 +201,11 @@ public final class FFCommands {
                     float progress = creeper.getSwelling(1.0f);
                     int entityTicks = creeper.tickCount;
                     long worldTick = creeper.level().getGameTime();
+                    long nativeTicks = MindHostRegistry.debugMobTickCount(creeper);
                     ctx.getSource().sendSuccess(() -> Component.literal(
                         "DEBUG creeper progress=" + progress + " mind=" + creeper.getUUID()
-                            + " entityTicks=" + entityTicks + " worldTick=" + worldTick), true);
+                            + " entityTicks=" + entityTicks + " nativeTicks=" + nativeTicks
+                            + " worldTick=" + worldTick), true);
                     return 1;
                 })))
             .then(Commands.literal("debug-tick")
