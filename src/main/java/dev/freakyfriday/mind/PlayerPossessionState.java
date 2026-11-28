@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Mob;
 
 /**
@@ -78,6 +79,20 @@ public final class PlayerPossessionState {
             return null;
         }
         return body;
+    }
+
+    /**
+     * Refresh the connected account's streamed chunk/entity view around the
+     * possessed NPC while keeping the ServerPlayer's physical coordinates
+     * unchanged. ChunkMap reads player position during this scoped call, so
+     * EntityBodyContextMixin supplies the NPC position only for view tracking.
+     */
+    public static void refreshCameraChunkTracking(ServerPlayer player) {
+        Mob npcBody = npcBodyForPlayer(player);
+        if (npcBody == null || !(player.level() instanceof ServerLevel level)) return;
+        try (MindBodyContext.Scope ignored = MindBodyContext.bind(player, npcBody)) {
+            level.getChunkSource().move(player);
+        }
     }
 
     /** Reverse the exact same pair and restore the account body's camera. */
