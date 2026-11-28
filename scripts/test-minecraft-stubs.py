@@ -374,6 +374,7 @@ public final class ServerLevel extends Level {public record Dimension(Identifier
 private long time=0; public long getGameTime(){return time;}public void tick(){++time;}
 public ServerLevel(String id){dim=new Dimension(new Identifier(id));}public Dimension dimension(){return dim;}public boolean isClientSide(){return false;}public void add(Entity e){entities.put(e.getUUID(),e);}
 public Entity getEntity(UUID id){return entities.get(id);}
+public Iterable<Entity> getAllEntities(){return entities.values();}
 public java.util.List<Entity> getEntities(Entity except,net.minecraft.world.phys.AABB bounds,java.util.function.Predicate<? super Entity> selector){
 return entities.values().stream().filter(e->e!=except).filter(selector).toList();
 } }''',
