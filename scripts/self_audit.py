@@ -40,6 +40,14 @@ assert '--runtime-smoke-test' in (root/'scripts/verify-build-artifact.py').read_
 assert (root/'src/main/java/dev/freakyfriday/mind/MindBodyBindings.java').exists()
 assert (root/'src/test/java/dev/freakyfriday/mind/MindBodyBindingsSelfTest.java').exists()
 assert (root/'src/main/java/dev/freakyfriday/mind/MindBodyContext.java').exists()
+for source in ('PlayerPossessionState.java','PlayerInputBridge.java','MindExchangeRuntime.java'):
+    assert (root/'src/main/java/dev/freakyfriday/mind'/source).exists(), f'missing player possession source: {source}'
+for mixin in ('PlayerPossessionTickMixin.java','PlayerBodyAiStepMixin.java',
+              'ServerPlayerPossessionCameraMixin.java','ServerPlayerPossessionPacketMixin.java'):
+    assert (root/'src/main/java/dev/freakyfriday/mixin'/mixin).exists(), f'missing possession Mixin: {mixin}'
+for mixin in ('PlayerPossessionTickMixin','PlayerBodyAiStepMixin',
+              'ServerPlayerPossessionCameraMixin','ServerPlayerPossessionPacketMixin'):
+    assert mixin in mixin_config['mixins'], f'possession mixin not registered: {mixin}'
 assert (root/'src/test/java/dev/freakyfriday/mind/MindBodyContextSelfTest.java').exists()
 assert "version = '0.13.2-alpha'" in (root/'build.gradle').read_text()
 assert (root/'src/platform/minecraft-26.2/java/dev/freakyfriday/compat/PlatformHooks.java').exists()
