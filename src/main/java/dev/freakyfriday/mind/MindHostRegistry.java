@@ -89,10 +89,16 @@ public final class MindHostRegistry {
             // preserving subclass-owned mind state without double-ticking the body.
             controller.tick();
 
-            // Then run the recipient's concrete tick override and its complete
-            // physical LivingEntity/Mob lifecycle exactly once. Its aiStep call
-            // is redirected to the controller by LivingEntityAiStepBodyBridgeMixin.
-            physicalBody.tick();
+            // Run only the recipient's physical LivingEntity tick, not its
+            // concrete Mob/subclass tick. Every Mob object is both a physical
+            // entity and one controller host, so invoking physicalBody.tick()
+            // here would execute that same subclass tick a second time when
+            // its own entity-manager turn arrives. The LivingEntity superclass
+            // still performs baseTick, effects, travel, collision and aiStep;
+            // its aiStep is bridged to the donor and then to recipient body
+            // capabilities by LivingEntityAiStepBodyBridgeMixin.
+            ((LivingEntityTickInvoker) (Object) physicalBody)
+                .freakyfriday$invokeLivingEntityTick();
         }
     }
 
@@ -101,7 +107,10 @@ public final class MindHostRegistry {
      * from the physical body it now inhabits. Used for both Mob and Player bodies.
      */
     public static void prepareControllerTick(Mob controller, net.minecraft.world.entity.Entity physicalBody) {
-        controller.tickCount++;
+        // ServerLevel increments every loaded entity's tickCount exactly once
+        // before dispatch. The controller host is still an entity in that
+        // manager, so do NOT increment it here or it will count twice per
+        // world tick. Its own manager turn advances the same native host clock.
         controller.xo = physicalBody.xo;
         controller.yo = physicalBody.yo;
         controller.zo = physicalBody.zo;
