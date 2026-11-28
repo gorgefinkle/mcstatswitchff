@@ -798,6 +798,7 @@ public static void main(String[] args){
  var explosion=registry.register("minecraft:explosion_knockback_resistance");
  var waypointReceive=registry.register("minecraft:waypoint_receive_range");
  var waypointTransmit=registry.register("minecraft:waypoint_transmit_range");
+ var followRange=registry.register("minecraft:follow_range");
  var flight=registry.register("minecraft:flying_speed");var modded=registry.register("othermod:dragon_rage");
  var cow=new EntityType<LivingEntity>("cow"); var skeleton=new EntityType<LivingEntity>("skeleton");
  var event=new EntityAttributeModificationEvent();
@@ -806,12 +807,14 @@ public static void main(String[] args){
  event= new EntityAttributeModificationEvent(event.types);
  PortableAttributes.addToEntityTypes(event);
  for(var type:new EntityType[]{cow,skeleton}){
-   for(var attribute:new net.minecraft.core.Holder[]{armor,absorption,oxygen,knockback,toughness,explosion})
-     ok(event.has(type,attribute),type.name+" missing shared numerical attribute");
-   ok(!event.has(type,modded),"unknown modded property should not be speculatively installed");
+   for(var attribute:new net.minecraft.core.Holder[]{health,armor,absorption,oxygen,knockback,toughness,explosion,waypointReceive,waypointTransmit,followRange,flight,modded})
+     ok(event.has(type,attribute),type.name+" missing registered attribute slot "+attribute.value().name());
  }
- ok(event.has(skeleton,flight),"existing native flight stat unchanged");
- ok(!event.has(cow,flight),"new flight property must not pretend to grant flight");
+ ok(event.has(skeleton,flight),"existing native flight stat remains present");
+ ok(event.has(cow,flight),"the physical body has a default flight-speed slot for any controller that queries it");
+ ok(event.types.get(cow).get(flight)==0.0,"missing flight speed uses its declared default and does not grant flying behavior");
+ ok(event.has(cow,followRange),"cow exposes follow_range for any native target goal");
+ ok(event.has(EntityTypes.PLAYER,followRange),"player body exposes follow_range for an NPC target goal");
  ok(event.has(EntityTypes.PLAYER,waypointReceive),"player has a waypoint receive range for ServerPlayer chunk tracking");
  ok(event.has(EntityTypes.PLAYER,waypointTransmit),"player has a waypoint transmit range");
  ok(event.types.get(EntityTypes.PLAYER).get(waypointReceive)==6.0E7,"player receive range preserves the vanilla 60-million-block default");
@@ -844,11 +847,14 @@ public static void main(String[] args){
  ok(a.getAbsorptionAmount()==0 && b.getAbsorptionAmount()==2,"current absorption swapped with whole category");
  ok(AttributeCategorySwapper.exchange(a,b,"vitality")==null,"reverse whole Vitality succeeds");
  error=AttributeCategorySwapper.exchange(a,b,"mobility");
- ok(error!=null && error.contains("Incompatible category"),"unsupported flight remains blocked, not reported as success");
+ ok(error==null,"whole mobility schema is available to both bodies: "+error);
+ ok(a.getAttributes().getInstance(flight).getBaseValue()==1.0,"native flight-speed value transfers without adding flight behavior");
+ error=AttributeCategorySwapper.exchange(a,b,"modded");
+ ok(error==null,"registered modded attribute is also available on both bodies: "+error);
  int additions=event.additions;
  PortableAttributes.addToEntityTypes(event);
  ok(additions==event.additions,"event hook must be idempotent");
- System.out.println("PASS PortabilityHarness: "+checks+" checks; entity-type attribute augmentation + native preservation + no speculative modded/flight additions");
+ System.out.println("PASS PortabilityHarness: "+checks+" checks; complete registered attribute schema, native value preservation, player goal-query slots and idempotence");
 }
 }''')
 (STUB/'dev/freakyfriday/FreakyFriday.java').unlink()
