@@ -40,6 +40,8 @@ assert '--runtime-smoke-test' in (root/'scripts/verify-build-artifact.py').read_
 assert (root/'src/main/java/dev/freakyfriday/mind/MindBodyBindings.java').exists()
 assert (root/'src/test/java/dev/freakyfriday/mind/MindBodyBindingsSelfTest.java').exists()
 assert (root/'src/main/java/dev/freakyfriday/mind/MindBodyContext.java').exists()
+assert 'npcBodyForPlayer' in (root/'src/main/java/dev/freakyfriday/mind/PlayerPossessionState.java').read_text()
+assert '@WrapMethod(method = "handleAttack")' in (root/'src/main/java/dev/freakyfriday/mixin/ServerPlayerPossessionPacketMixin.java').read_text()
 assert (root/'src/main/java/dev/freakyfriday/mixin/LivingEntityPhysicalAiStepMixin.java').exists()
 assert 'LivingEntityPhysicalAiStepMixin' in mixin_config['mixins']
 assert 'physicalBodyAiStep' in (root/'src/main/java/dev/freakyfriday/mind/MindBodyContext.java').read_text()
