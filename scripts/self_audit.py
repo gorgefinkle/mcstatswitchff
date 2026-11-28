@@ -40,6 +40,9 @@ assert '--runtime-smoke-test' in (root/'scripts/verify-build-artifact.py').read_
 assert (root/'src/main/java/dev/freakyfriday/mind/MindBodyBindings.java').exists()
 assert (root/'src/test/java/dev/freakyfriday/mind/MindBodyBindingsSelfTest.java').exists()
 assert (root/'src/main/java/dev/freakyfriday/mind/MindBodyContext.java').exists()
+assert (root/'src/main/java/dev/freakyfriday/mixin/LivingEntityPhysicalAiStepMixin.java').exists()
+assert 'LivingEntityPhysicalAiStepMixin' in mixin_config['mixins']
+assert 'physicalBodyAiStep' in (root/'src/main/java/dev/freakyfriday/mind/MindBodyContext.java').read_text()
 for source in ('PlayerPossessionState.java','PlayerInputBridge.java','MindExchangeRuntime.java'):
     assert (root/'src/main/java/dev/freakyfriday/mind'/source).exists(), f'missing player possession source: {source}'
 for mixin in ('PlayerPossessionTickMixin.java','PlayerBodyAiStepMixin.java',
