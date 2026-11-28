@@ -30,7 +30,9 @@ public final class PortableAttributes {
         "minecraft:armor",                      // generic damage reduction
         "minecraft:armor_toughness",            // generic damage reduction
         "minecraft:knockback_resistance",       // general knockback reduction
-        "minecraft:explosion_knockback_resistance" // general explosion knockback
+        "minecraft:explosion_knockback_resistance", // general explosion knockback
+        "minecraft:waypoint_receive_range",         // generic waypoint visibility range
+        "minecraft:waypoint_transmit_range"         // generic waypoint broadcast range
     );
 
     public static void addToEntityTypes(EntityAttributeModificationEvent event) {
@@ -39,6 +41,19 @@ public final class PortableAttributes {
             if (id == null || !SHARED_NUMERIC.contains(id.toString())) return;
             for (EntityType<? extends LivingEntity> type : event.getTypes()) {
                 if (!event.has(type, holder)) event.add(type, holder);
+            }
+
+            // Player's waypoint ranges are normally supplied by Player's
+            // vanilla attribute builder. Some dedicated/mock ServerPlayer
+            // construction paths can arrive without those two instances,
+            // while ServerPlayer.tick unconditionally queries the receive
+            // range during chunk-view updates. Ensure the canonical player
+            // defaults exist before any world/player is constructed.
+            if (id.toString().equals("minecraft:waypoint_receive_range")
+                    || id.toString().equals("minecraft:waypoint_transmit_range")) {
+                if (!event.has(EntityType.PLAYER, holder)) {
+                    event.add(EntityType.PLAYER, holder, 6.0E7);
+                }
             }
         });
     }
