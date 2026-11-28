@@ -14,7 +14,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.CommonListenerCookie;
 import net.minecraft.world.entity.Mob;
-import net.minecraft.world.entity.player.GameType;
+import net.minecraft.world.level.GameType;
 import net.minecraft.world.entity.player.Input;
 import net.minecraft.world.phys.Vec3;
 
