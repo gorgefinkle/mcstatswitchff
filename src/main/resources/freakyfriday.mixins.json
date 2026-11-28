@@ -14,7 +14,8 @@
     "PlayerPossessionTickMixin",
     "ServerPlayerPossessionCameraMixin",
     "ServerPlayerPossessionPacketMixin",
-    "LivingEntityPhysicalAiStepMixin"
+    "LivingEntityPhysicalAiStepMixin",
+    "MobAiStepBodyOwnershipMixin"
   ],
   "injectors": {
     "defaultRequire": 1
