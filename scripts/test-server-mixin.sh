@@ -128,34 +128,49 @@ prime_command = f"freakyfriday debug-prime-creeper {creeper_selector}"
 command_until(prime_command, lambda response: "DEBUG primed Creeper mind " in response)
 
 progress_command = f"freakyfriday debug-creeper-progress {creeper_selector}"
-def progress(response):
+def sample(response):
     import re
-    match = re.search(r"DEBUG creeper progress=([0-9.]+)", response)
-    if not match:
-        raise SystemExit(f"Missing numeric Creeper progress in RCON response: {response!r}")
-    return float(match.group(1))
+    progress_match = re.search(r"DEBUG creeper progress=([0-9.]+)", response)
+    ticks_match = re.search(r"entityTicks=(\\d+)", response)
+    world_match = re.search(r"worldTick=(\\d+)", response)
+    if not progress_match or not ticks_match or not world_match:
+        raise SystemExit(f"Missing Creeper progress/tick counters in RCON response: {response!r}")
+    return float(progress_match.group(1)), int(ticks_match.group(1)), int(world_match.group(1))
 
-initial = command_until(progress_command, lambda response: "DEBUG creeper progress=" in response)
+def assert_one_fuse_step_per_world_tick(before, after, label):
+    fuse_steps = (after[0] - before[0]) * 28.0  # vanilla Creeper default fuse divisor: maxSwell 30 - 2
+    entity_ticks = after[1] - before[1]
+    world_ticks = after[2] - before[2]
+    if world_ticks <= 0:
+        raise SystemExit(f"{label}: no world ticks elapsed between samples")
+    if entity_ticks != world_ticks:
+        raise SystemExit(
+            f"{label}: Mob tickCount advanced {entity_ticks} but world advanced {world_ticks}; "
+            "controller clock is not single-stepping"
+        )
+    if abs(fuse_steps - world_ticks) > 1.1:
+        raise SystemExit(
+            f"{label}: Creeper fuse advanced {fuse_steps:.2f} steps over {world_ticks} world ticks; "
+            "a concrete subclass tick was skipped or executed more than once"
+        )
+
+initial = sample(command_until(progress_command, lambda response: "DEBUG creeper progress=" in response))
 
 exchange_command = f"freakyfriday debug-exchange {zombie_selector} {creeper_selector}"
 command_until(exchange_command, lambda response: "DEBUG controller/body assignment exchanged." in response)
 time.sleep(0.4)
-during_swap = command_until(progress_command, lambda response: "DEBUG creeper progress=" in response)
+during_swap = sample(command_until(progress_command, lambda response: "DEBUG creeper progress=" in response))
+assert_one_fuse_step_per_world_tick(initial, during_swap, "Creeper mind on Zombie body")
 
 command_until(exchange_command, lambda response: "DEBUG controller/body assignment exchanged." in response)
 time.sleep(0.4)
-after_reverse = command_until(progress_command, lambda response: "DEBUG creeper progress=" in response)
+after_reverse = sample(command_until(progress_command, lambda response: "DEBUG creeper progress=" in response))
+assert_one_fuse_step_per_world_tick(during_swap, after_reverse, "Creeper mind after reversal")
 
-initial_value = progress(initial)
-swapped_value = progress(during_swap)
-reversed_value = progress(after_reverse)
-if not (swapped_value > initial_value and reversed_value > swapped_value):
-    raise SystemExit(
-        f"Creeper mind state did not advance across exchange/reversal: "
-        f"initial={initial_value}, swapped={swapped_value}, reversed={reversed_value}"
-    )
-print(f"PASS Creeper native fuse state progressed on Zombie body then continued after reversal: "
-      f"{initial_value} -> {swapped_value} -> {reversed_value}")
+print("PASS Creeper native fuse advanced exactly once per world tick while on Zombie body and after reversal: "
+      f"{initial[0]:.3f} -> {during_swap[0]:.3f} -> {after_reverse[0]:.3f}; "
+      f"entityTicks={initial[1]}->{during_swap[1]}->{after_reverse[1]}, "
+      f"worldTicks={initial[2]}->{during_swap[2]}->{after_reverse[2]}")
 
 # Stop the server cleanly over its authenticated control channel.
 send_packet(sock, 51, 2, "stop")
