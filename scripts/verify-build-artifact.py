@@ -43,6 +43,7 @@ def main():
         "dev/freakyfriday/mixin/EntityBodyContextMixin.class",
         "dev/freakyfriday/mixin/LivingEntityBodyContextMixin.class",
         "dev/freakyfriday/mixin/MobServerAiStepMixin.class",
+        "dev/freakyfriday/mixin/MobAiStepBodyOwnershipMixin.class",
         "dev/freakyfriday/mind/NativeBrainSwap.class",
         "dev/freakyfriday/mind/GoalMindRuntime.class",
         "dev/freakyfriday/mind/GoalSelectorState.class",
