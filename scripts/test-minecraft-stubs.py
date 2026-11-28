@@ -537,6 +537,7 @@ public final class ServerLevel extends Level {public record Dimension(Identifier
 private long time=0; private final ServerChunkCache chunkSource=new ServerChunkCache(); public long getGameTime(){return time;}public ServerChunkCache getChunkSource(){return chunkSource;}public void tick(){++time;}
 public ServerLevel(String id){dim=new Dimension(new Identifier(id));}public Dimension dimension(){return dim;}public boolean isClientSide(){return false;}public void add(Entity e){entities.put(e.getUUID(),e);}
 public Entity getEntity(UUID id){return entities.get(id);}
+public Entity getEntityOrPart(int id){return null;}
 public Iterable<Entity> getAllEntities(){return entities.values();}
 public java.util.List<Entity> getEntities(Entity except,net.minecraft.world.phys.AABB bounds,java.util.function.Predicate<? super Entity> selector){
 return entities.values().stream().filter(e->e!=except).filter(selector).toList();
@@ -586,7 +587,13 @@ public class JumpControl {private final Mob mob;private boolean jump;
 ''',
 'net/minecraft/world/entity/ai/sensing/Sensing.java':'''package net.minecraft.world.entity.ai.sensing; public class Sensing {}
 ''',
-'net/minecraft/world/level/Level.java':'''package net.minecraft.world.level; public class Level { public boolean isClientSide(){return false;} }
+'net/minecraft/world/level/Level.java':'''package net.minecraft.world.level;
+import net.minecraft.world.level.border.WorldBorder;
+public class Level {public boolean isClientSide(){return false;}public WorldBorder getWorldBorder(){return new WorldBorder();}}
+''',
+'net/minecraft/world/level/border/WorldBorder.java':'''package net.minecraft.world.level.border;
+import net.minecraft.core.BlockPos;
+public class WorldBorder {public boolean isWithinBounds(BlockPos pos){return true;}}
 ''',
 'net/minecraft/world/phys/Vec3.java':'''package net.minecraft.world.phys; public class Vec3 {
  public static final Vec3 ZERO=new Vec3(0,0,0);
