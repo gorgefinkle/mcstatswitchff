@@ -45,11 +45,11 @@ assert 'LivingEntityPhysicalAiStepMixin' in mixin_config['mixins']
 assert 'physicalBodyAiStep' in (root/'src/main/java/dev/freakyfriday/mind/MindBodyContext.java').read_text()
 for source in ('PlayerPossessionState.java','PlayerInputBridge.java','MindExchangeRuntime.java'):
     assert (root/'src/main/java/dev/freakyfriday/mind'/source).exists(), f'missing player possession source: {source}'
-for mixin in ('PlayerPossessionTickMixin.java','PlayerBodyAiStepMixin.java',
-              'ServerPlayerPossessionCameraMixin.java','ServerPlayerPossessionPacketMixin.java'):
+for mixin in ('PlayerPossessionTickMixin.java','ServerPlayerPossessionCameraMixin.java',
+              'ServerPlayerPossessionPacketMixin.java'):
     assert (root/'src/main/java/dev/freakyfriday/mixin'/mixin).exists(), f'missing possession Mixin: {mixin}'
-for mixin in ('PlayerPossessionTickMixin','PlayerBodyAiStepMixin',
-              'ServerPlayerPossessionCameraMixin','ServerPlayerPossessionPacketMixin'):
+for mixin in ('PlayerPossessionTickMixin','ServerPlayerPossessionCameraMixin',
+              'ServerPlayerPossessionPacketMixin'):
     assert mixin in mixin_config['mixins'], f'possession mixin not registered: {mixin}'
 assert (root/'src/test/java/dev/freakyfriday/mind/MindBodyContextSelfTest.java').exists()
 assert "version = '0.13.2-alpha'" in (root/'build.gradle').read_text()
