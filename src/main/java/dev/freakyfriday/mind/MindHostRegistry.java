@@ -5,8 +5,10 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import net.minecraft.world.entity.Mob;
 import org.slf4j.Logger;
@@ -28,6 +30,10 @@ public final class MindHostRegistry {
     // and atomic counters add overhead without providing useful safety here.
     private static final Map<UUID, HostRef> HOSTS = new HashMap<>();
     private static final Map<String, Long> AI_PHASES_BY_TYPE = new HashMap<>();
+    // Disabled in normal play; only operator diagnostics opt a Mob into counting.
+    private static final Set<UUID> DEBUG_TICK_WATCH = new HashSet<>();
+    private static final Map<UUID, Long> DEBUG_NATIVE_MOB_TICKS = new HashMap<>();
+    private static boolean debugTickCountingActive;
     private static boolean hookActivationLogged;
 
     private MindHostRegistry() {}
@@ -167,6 +173,28 @@ public final class MindHostRegistry {
         int after = controller == null ? -1 : controller.tickCount;
         LOGGER.info("Freaky Friday DEBUG tick: body {} ({}) ran controller {} ({}) tickCount {} -> {}",
             physicalBody.getUUID(), physicalBody.getType(), controllerId, typeOf(controllerId), before, after);
+    }
+
+    /** Start a bounded diagnostic counter for one selected Mob's concrete Mob.tick calls. */
+    public static void startDebugMobTickCounter(Mob mob) {
+        if (mob == null) throw new IllegalArgumentException("A Mob is required");
+        UUID id = mob.getUUID();
+        DEBUG_TICK_WATCH.add(id);
+        DEBUG_NATIVE_MOB_TICKS.put(id, 0L);
+        debugTickCountingActive = true;
+    }
+
+    /** Called by the Mob.tick HEAD Mixin; normal play takes one predictable boolean branch. */
+    public static void countDebugMobTick(Mob mob) {
+        if (!debugTickCountingActive || mob == null) return;
+        UUID id = mob.getUUID();
+        if (DEBUG_TICK_WATCH.contains(id))
+            DEBUG_NATIVE_MOB_TICKS.merge(id, 1L, Long::sum);
+    }
+
+    public static long debugMobTickCount(Mob mob) {
+        if (mob == null) return -1L;
+        return DEBUG_NATIVE_MOB_TICKS.getOrDefault(mob.getUUID(), -1L);
     }
 
     public static void observeServerAiPhase(Mob host) {
