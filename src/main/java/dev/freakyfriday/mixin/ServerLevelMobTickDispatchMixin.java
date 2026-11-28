@@ -1,6 +1,8 @@
 package dev.freakyfriday.mixin;
 
 import dev.freakyfriday.mind.MindHostRegistry;
+import dev.freakyfriday.mind.PlayerInputBridge;
+import dev.freakyfriday.mind.PlayerPossessionState;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
@@ -22,7 +24,10 @@ abstract class ServerLevelMobTickDispatchMixin {
     )
     private void freakyfriday$dispatchNativeControllerTick(Entity physicalEntity) {
         if (physicalEntity instanceof Mob mob) {
-            MindHostRegistry.tickAssignedController(mob);
+            if (PlayerPossessionState.isPlayerControlledBody(mob))
+                PlayerInputBridge.tickControlledMob(mob);
+            else
+                MindHostRegistry.tickAssignedController(mob);
         } else {
             physicalEntity.tick();
         }
