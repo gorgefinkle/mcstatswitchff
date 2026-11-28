@@ -397,11 +397,11 @@ public class Player extends LivingEntity {
 import java.util.*;import net.minecraft.world.entity.Entity;import net.minecraft.world.entity.LivingEntity;import net.minecraft.world.entity.player.*;
 import net.minecraft.network.chat.Component;
 public final class ServerPlayer extends Player {
- public final List<String> messages=new ArrayList<>();private Input last=Input.EMPTY;
+ public final List<String> messages=new ArrayList<>();private Input last=Input.EMPTY;private Entity camera;
  public ServerPlayer(String name,ServerLevel l){super(name,l);}public ServerPlayer(net.minecraft.world.entity.EntityType<? extends LivingEntity> t,net.minecraft.world.level.Level l){super(t,l);}
  public ServerLevel serverLevel(){return (ServerLevel)level();}public void sendSystemMessage(Component c){messages.add(c.getString());}
  public void setLastClientInput(Input input){last=input;}public Input getLastClientInput(){return last;}
- public void setCamera(Entity entity){}
+ public void setCamera(Entity entity){camera=entity;} public Entity getCamera(){return camera==null?this:camera;}
  public boolean teleportTo(ServerLevel level,double x,double y,double z,Set<net.minecraft.world.entity.Relative> relatives,float yRot,float xRot,boolean resetCamera){return true;}
  public void resetLastActionTime(){}
 }''',
