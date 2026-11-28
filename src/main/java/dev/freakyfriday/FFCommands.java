@@ -28,13 +28,12 @@ public final class FFCommands {
     }
 
     private static List<Mob> nearbyMobs(net.minecraft.commands.CommandSourceStack source) {
-        var position = source.getPosition();
         return java.util.stream.StreamSupport.stream(
-                source.getLevel().getAllEntities().spliterator(), false)
+                source.getServer().getAllLevels().spliterator(), false)
+            .flatMap(level -> java.util.stream.StreamSupport.stream(
+                level.getAllEntities().spliterator(), false))
             .filter(Mob.class::isInstance)
             .map(Mob.class::cast)
-            .filter(mob -> Math.abs(mob.getX() - position.x) <= 256
-                && Math.abs(mob.getZ() - position.z) <= 256)
             .sorted(Comparator.comparingDouble((Mob mob) -> mob.getX()).thenComparingDouble(mob -> mob.getZ()))
             .toList();
     }
