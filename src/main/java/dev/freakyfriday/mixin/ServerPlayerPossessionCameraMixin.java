@@ -5,6 +5,7 @@ import java.util.Set;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.Relative;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
@@ -26,7 +27,7 @@ abstract class ServerPlayerPossessionCameraMixin {
             float yRot, float xRot, boolean resetCamera) {
         if (PlayerPossessionState.isActive(player)) return true;
         @SuppressWarnings("unchecked")
-        Set<Entity.Relative> typedRelatives = (Set<Entity.Relative>) relatives;
+        Set<Relative> typedRelatives = (Set<Relative>) relatives;
         return player.teleportTo(level, x, y, z, typedRelatives, yRot, xRot, resetCamera);
     }
 
