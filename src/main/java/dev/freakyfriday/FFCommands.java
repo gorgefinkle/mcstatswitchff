@@ -12,7 +12,7 @@ import net.minecraft.server.permissions.Permission;
 import net.minecraft.server.permissions.PermissionLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
-import net.minecraft.world.phys.AABB;
+import net.minecraft.world.entity.monster.Creeper;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
@@ -95,6 +95,38 @@ public final class FFCommands {
                         ctx.getSource().sendFailure(Component.literal("Debug exchange failed: " + failure.getMessage()));
                         return 0;
                     }
+                }))
+            .then(Commands.literal("debug-prime-creeper-loaded")
+                .requires(source -> source.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.GAMEMASTERS)))
+                .executes(ctx -> {
+                    Creeper creeper = nearbyMobs(ctx.getSource()).stream()
+                        .filter(Creeper.class::isInstance)
+                        .map(Creeper.class::cast)
+                        .findFirst().orElse(null);
+                    if (creeper == null) {
+                        ctx.getSource().sendFailure(Component.literal("Debug prime requires a loaded Creeper near the command source."));
+                        return 0;
+                    }
+                    creeper.ignite();
+                    ctx.getSource().sendSuccess(() -> Component.literal(
+                        "DEBUG primed Creeper mind " + creeper.getUUID() + "."), true);
+                    return 1;
+                }))
+            .then(Commands.literal("debug-creeper-progress-loaded")
+                .requires(source -> source.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.GAMEMASTERS)))
+                .executes(ctx -> {
+                    Creeper creeper = nearbyMobs(ctx.getSource()).stream()
+                        .filter(Creeper.class::isInstance)
+                        .map(Creeper.class::cast)
+                        .findFirst().orElse(null);
+                    if (creeper == null) {
+                        ctx.getSource().sendFailure(Component.literal("Debug progress requires a loaded Creeper near the command source."));
+                        return 0;
+                    }
+                    float progress = creeper.getSwelling(1.0f);
+                    ctx.getSource().sendSuccess(() -> Component.literal(
+                        "DEBUG creeper progress=" + progress + " mind=" + creeper.getUUID()), true);
+                    return 1;
                 }))
             .then(Commands.literal("debug-tick")
                 .requires(source -> source.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.GAMEMASTERS)))
