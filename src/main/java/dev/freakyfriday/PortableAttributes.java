@@ -39,8 +39,15 @@ public final class PortableAttributes {
         BuiltInRegistries.ATTRIBUTE.listElements().forEach(holder -> {
             Identifier id = BuiltInRegistries.ATTRIBUTE.getKey(holder.value());
             if (id == null || !SHARED_NUMERIC.contains(id.toString())) return;
+            boolean waypointRange = id.toString().equals("minecraft:waypoint_receive_range")
+                || id.toString().equals("minecraft:waypoint_transmit_range");
             for (EntityType<? extends LivingEntity> type : event.getTypes()) {
-                if (!event.has(type, holder)) event.add(type, holder);
+                if (!event.has(type, holder)) {
+                    double defaultValue = type == EntityType.PLAYER && waypointRange
+                        ? 6.0E7
+                        : holder.value().getDefaultValue();
+                    event.add(type, holder, defaultValue);
+                }
             }
 
             // Player's waypoint ranges are normally supplied by Player's
@@ -48,12 +55,10 @@ public final class PortableAttributes {
             // construction paths can arrive without those two instances,
             // while ServerPlayer.tick unconditionally queries the receive
             // range during chunk-view updates. Ensure the canonical player
-            // defaults exist before any world/player is constructed.
-            if (id.toString().equals("minecraft:waypoint_receive_range")
-                    || id.toString().equals("minecraft:waypoint_transmit_range")) {
-                if (!event.has(EntityType.PLAYER, holder)) {
-                    event.add(EntityType.PLAYER, holder, 6.0E7);
-                }
+            // defaults exist before any world/player is constructed, even
+            // when the Player type was absent from the initial event type list.
+            if (waypointRange && !event.has(EntityType.PLAYER, holder)) {
+                event.add(EntityType.PLAYER, holder, 6.0E7);
             }
         });
     }
