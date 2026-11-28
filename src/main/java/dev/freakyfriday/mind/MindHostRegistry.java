@@ -36,6 +36,10 @@ public final class MindHostRegistry {
      * Called at the start of Mob.serverAiStep on the logical server.
      * Hot path is O(1), performs no reflection, and allocates only on first sight.
      */
+    public static void registerNativeHost(Mob host) {
+        registerHost(host);
+    }
+
     private static void registerHost(Mob host) {
         if (host == null || host.level().isClientSide()) return;
         UUID id = host.getUUID();
@@ -77,19 +81,7 @@ public final class MindHostRegistry {
             return;
         }
 
-        // ServerLevel has already incremented the physical body's tickCount
-        // before it calls Entity.tick(). The original controller host is not
-        // being ticked by Level anymore, so advance its AI clock exactly once
-        // to preserve native timers and interval-based decisions.
-        controller.tickCount++;
-        controller.xo = physicalBody.xo;
-        controller.yo = physicalBody.yo;
-        controller.zo = physicalBody.zo;
-        controller.xOld = physicalBody.xOld;
-        controller.yOld = physicalBody.yOld;
-        controller.zOld = physicalBody.zOld;
-        controller.yRotO = physicalBody.yRotO;
-        controller.xRotO = physicalBody.xRotO;
+        prepareControllerTick(controller, physicalBody);
 
         try (MindBodyContext.Scope ignored = MindBodyContext.bind(controller, physicalBody)) {
             // First run the donor's concrete tick override. MobTickBodyBridgeMixin
@@ -102,6 +94,36 @@ public final class MindHostRegistry {
             // is redirected to the controller by LivingEntityAiStepBodyBridgeMixin.
             physicalBody.tick();
         }
+    }
+
+    /**
+     * Advance the original controller's AI clock and interpolation snapshots
+     * from the physical body it now inhabits. Used for both Mob and Player bodies.
+     */
+    public static void prepareControllerTick(Mob controller, net.minecraft.world.entity.Entity physicalBody) {
+        controller.tickCount++;
+        controller.xo = physicalBody.xo;
+        controller.yo = physicalBody.yo;
+        controller.zo = physicalBody.zo;
+        controller.xOld = physicalBody.xOld;
+        controller.yOld = physicalBody.yOld;
+        controller.zOld = physicalBody.zOld;
+        controller.yRotO = physicalBody.yRotO;
+        controller.xRotO = physicalBody.xRotO;
+    }
+
+    /**
+     * Species-agnostic NPC-to-NPC controller assignment. No native Goal/Brain
+     * object is transplanted; original Mob hosts retain their native runtimes.
+     */
+    public static void exchangeMobControllers(Mob first, Mob second) {
+        if (first == null || second == null) throw new IllegalArgumentException("Two Mob bodies are required");
+        if (first == second) throw new IllegalArgumentException("Choose two different Mob bodies");
+        if (!first.isAlive() || !second.isAlive()) throw new IllegalArgumentException("Both bodies must be alive");
+        if (first.level() != second.level()) throw new IllegalArgumentException("Both bodies must be in the same dimension");
+        registerHost(first);
+        registerHost(second);
+        MindBodyBindings.exchangeBodies(first.getUUID(), second.getUUID());
     }
 
     /**
