@@ -38,7 +38,12 @@ abstract class ServerPlayerPossessionCameraMixin {
             target = "Lnet/minecraft/server/level/ServerPlayer;getCamera()Lnet/minecraft/world/entity/Entity;")
     )
     private Entity freakyfriday$keepPhysicalAccountBody(ServerPlayer player) {
-        if (PlayerPossessionState.isActive(player)) return player;
+        if (PlayerPossessionState.isActive(player)) {
+            // Recenter streamed chunks/entities around the NPC without moving
+            // the ServerPlayer account body away from its own world position.
+            PlayerPossessionState.refreshCameraChunkTracking(player);
+            return player;
+        }
         return player.getCamera();
     }
 }
