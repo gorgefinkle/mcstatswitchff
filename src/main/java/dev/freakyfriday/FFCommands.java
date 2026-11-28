@@ -137,6 +137,12 @@ public final class FFCommands {
                         ctx.getSource().sendFailure(Component.literal("Debug prime requires a loaded Creeper near the command source."));
                         return 0;
                     }
+                    // Keep this diagnostic target stationary so fall damage cannot
+                    // change the Creeper fuse independently of its native tick.
+                    creeper.setNoGravity(true);
+                    creeper.setDeltaMovement(0.0, 0.0, 0.0);
+                    creeper.setOnGround(true);
+                    creeper.resetFallDistance();
                     creeper.ignite();
                     ctx.getSource().sendSuccess(() -> Component.literal(
                         "DEBUG primed Creeper mind " + creeper.getUUID() + "."), true);
@@ -169,6 +175,12 @@ public final class FFCommands {
                         ctx.getSource().sendFailure(Component.literal("Debug prime requires a Creeper entity selector."));
                         return 0;
                     }
+                    // Keep this diagnostic target stationary so fall damage cannot
+                    // change the Creeper fuse independently of its native tick.
+                    creeper.setNoGravity(true);
+                    creeper.setDeltaMovement(0.0, 0.0, 0.0);
+                    creeper.setOnGround(true);
+                    creeper.resetFallDistance();
                     creeper.ignite();
                     ctx.getSource().sendSuccess(() -> Component.literal(
                         "DEBUG primed Creeper mind " + creeper.getUUID() + "."), true);
