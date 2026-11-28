@@ -639,7 +639,9 @@ public final Map<EntityType<? extends LivingEntity>,Map<Holder<Attribute>,Double
 private final java.util.List<EntityType<? extends LivingEntity>> initialTypes;
 public int additions;
 public EntityAttributeModificationEvent(){initialTypes=List.of();}
-public EntityAttributeModificationEvent(java.util.Collection<EntityType<? extends LivingEntity>> initial){initialTypes=List.copyOf(initial);}
+public EntityAttributeModificationEvent(Map<EntityType<? extends LivingEntity>,Map<Holder<Attribute>,Double>> initial){
+  types.putAll(initial);initialTypes=List.copyOf(initial.keySet());
+}
 public void type(EntityType<? extends LivingEntity> type,Holder<Attribute> attr,double value){types.computeIfAbsent(type,k->new LinkedHashMap<>()).put(attr,value);}
 public java.util.List<EntityType<? extends LivingEntity>> getTypes(){return initialTypes;}
 public boolean has(EntityType<? extends LivingEntity> type,Holder<Attribute> attribute){return types.getOrDefault(type,Map.of()).containsKey(attribute);}
@@ -798,7 +800,7 @@ public static void main(String[] args){
  var event=new EntityAttributeModificationEvent();
  event.type(cow,health,10);event.type(cow,armor,7);
  event.type(skeleton,health,20);event.type(skeleton,flight,1);
- event= new EntityAttributeModificationEvent(event.types.keySet());
+ event= new EntityAttributeModificationEvent(event.types);
  PortableAttributes.addToEntityTypes(event);
  for(var type:new EntityType[]{cow,skeleton}){
    for(var attribute:new net.minecraft.core.Holder[]{armor,absorption,oxygen,knockback,toughness,explosion})
