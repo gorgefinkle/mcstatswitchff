@@ -201,7 +201,7 @@ for _ in range(12):
 
 import re
 def status_number(name, response):
-    match = re.search(rf"(?:^|\\s){name}=([0-9.]+)", response)
+    match = re.search(rf"(?:^|\s){name}=([0-9.]+)", response)
     if not match:
         raise SystemExit(f"Missing {name} in possession status: {response!r}")
     return float(match.group(1))
