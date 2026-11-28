@@ -37,6 +37,8 @@ assert 'debug-prime-creeper-loaded' in (root/'src/main/java/dev/freakyfriday/FFC
 assert 'debug-exchange-zombie-creeper-loaded' in (root/'src/main/java/dev/freakyfriday/FFCommands.java').read_text()
 assert 'debug-creeper-progress-loaded' in (root/'src/main/java/dev/freakyfriday/FFCommands.java').read_text()
 assert 'entityTicks=' in (root/'src/main/java/dev/freakyfriday/FFCommands.java').read_text()
+assert 'setNoGravity(true)' in (root/'src/main/java/dev/freakyfriday/FFCommands.java').read_text()
+assert 'resetFallDistance()' in (root/'src/main/java/dev/freakyfriday/FFCommands.java').read_text()
 assert 'assert_one_fuse_step_per_world_tick' in (root/'scripts/test-server-mixin.sh').read_text()
 assert 'freakyfriday$invokeLivingEntityTick' in (root/'src/main/java/dev/freakyfriday/mind/MindHostRegistry.java').read_text()
 assert 'getAllLevels()' in (root/'src/main/java/dev/freakyfriday/FFCommands.java').read_text()
