@@ -51,6 +51,35 @@ public final class PlayerPossessionState {
         }
     }
 
+    /**
+     * Called before every possessed Player tick. Any invalid endpoint ends the
+     * session and reverses controller ownership instead of leaving stale maps.
+     */
+    public static void validateOrEnd(ServerPlayer player) {
+        if (player == null) return;
+        Session session = BY_PLAYER.get(player.getUUID());
+        if (session == null) return;
+        Mob npcBody = session.npcBody();
+        boolean valid = player.isAlive()
+            && npcBody.isAlive()
+            && !npcBody.isRemoved()
+            && player.level() == npcBody.level();
+        if (!valid) endSession(session, player.isAlive());
+    }
+
+    /** The physical NPC body currently controlled by this authenticated account. */
+    public static Mob npcBodyForPlayer(ServerPlayer player) {
+        if (player == null) return null;
+        Session session = BY_PLAYER.get(player.getUUID());
+        if (session == null) return null;
+        Mob body = session.npcBody();
+        if (!body.isAlive() || body.isRemoved() || player.level() != body.level()) {
+            validateOrEnd(player);
+            return null;
+        }
+        return body;
+    }
+
     /** Reverse the exact same pair and restore the account body's camera. */
     public static boolean end(ServerPlayer player) {
         if (player == null) return false;
