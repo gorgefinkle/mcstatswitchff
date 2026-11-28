@@ -106,9 +106,11 @@ public final class MindHostRegistry {
         registerHost(first);
         registerHost(second);
         MindBodyBindings.Exchange exchange = MindBodyBindings.exchangeBodies(first.getUUID(), second.getUUID());
-        LOGGER.info("Freaky Friday DEBUG exchange: controller {} ({}) -> body {} ({}); controller {} ({}) -> body {} ({})",
-            exchange.firstController(), typeOf(exchange.firstController()), exchange.firstBody(), first.getType(),
-            exchange.secondController(), typeOf(exchange.secondController()), exchange.secondBody(), second.getType());
+        UUID firstControllerNow = MindBodyBindings.controllerForBody(exchange.firstBody());
+        UUID secondControllerNow = MindBodyBindings.controllerForBody(exchange.secondBody());
+        LOGGER.info("Freaky Friday DEBUG exchange result: body {} ({}) now runs controller {} ({}); body {} ({}) now runs controller {} ({})",
+            exchange.firstBody(), first.getType(), firstControllerNow, typeOf(firstControllerNow),
+            exchange.secondBody(), second.getType(), secondControllerNow, typeOf(secondControllerNow));
     }
 
     private static String typeOf(UUID controllerId) {
@@ -119,7 +121,13 @@ public final class MindHostRegistry {
     /** Invokes one real native controller/body tick from an operator command on the server thread. */
     public static void debugTickBody(Mob physicalBody) {
         if (physicalBody == null) throw new IllegalArgumentException("A Mob body is required");
+        UUID controllerId = MindBodyBindings.controllerForBody(physicalBody.getUUID());
+        Mob controller = resolve(controllerId);
+        int before = controller == null ? -1 : controller.tickCount;
         tickAssignedController(physicalBody);
+        int after = controller == null ? -1 : controller.tickCount;
+        LOGGER.info("Freaky Friday DEBUG tick: body {} ({}) ran controller {} ({}) tickCount {} -> {}",
+            physicalBody.getUUID(), physicalBody.getType(), controllerId, typeOf(controllerId), before, after);
     }
 
     public static void observeServerAiPhase(Mob host) {
