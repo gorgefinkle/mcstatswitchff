@@ -376,6 +376,8 @@ public final class LogUtils { private static final Logger LOGGER=new Logger(){};
 ''',
 'net/minecraft/world/entity/MoverType.java':'''package net.minecraft.world.entity; public enum MoverType {SELF,PLAYER,PISTON,SHULKER}
 ''',
+'net/minecraft/world/entity/Relative.java':'''package net.minecraft.world.entity; public enum Relative {X,Y,Z,Y_ROT,X_ROT,DELTA_X,DELTA_Y,DELTA_Z,ROTATE_DELTA}
+''',
 'net/minecraft/world/entity/player/Input.java':'''package net.minecraft.world.entity.player;
 public record Input(boolean forward,boolean backward,boolean left,boolean right,boolean jump,boolean shift,boolean sprint) {
  public static final Input EMPTY=new Input(false,false,false,false,false,false,false);
@@ -400,7 +402,7 @@ public final class ServerPlayer extends Player {
  public ServerLevel serverLevel(){return (ServerLevel)level();}public void sendSystemMessage(Component c){messages.add(c.getString());}
  public void setLastClientInput(Input input){last=input;}public Input getLastClientInput(){return last;}
  public void setCamera(Entity entity){}
- public boolean teleportTo(ServerLevel level,double x,double y,double z,Set<Entity.Relative> relatives,float yRot,float xRot,boolean resetCamera){return true;}
+ public boolean teleportTo(ServerLevel level,double x,double y,double z,Set<net.minecraft.world.entity.Relative> relatives,float yRot,float xRot,boolean resetCamera){return true;}
  public void resetLastActionTime(){}
 }''',
 'net/minecraft/network/protocol/PacketUtils.java':'''package net.minecraft.network.protocol;
