@@ -39,6 +39,7 @@ def main():
         "dev/freakyfriday/mixin/MobTickBodyBridgeMixin.class",
         "dev/freakyfriday/mind/LivingEntityTickInvoker.class",
         "dev/freakyfriday/mixin/LivingEntityAiStepBodyBridgeMixin.class",
+        "dev/freakyfriday/mixin/LivingEntityPhysicalAiStepMixin.class",
         "dev/freakyfriday/mixin/MobBodyServicesMixin.class",
         "dev/freakyfriday/mixin/EntityBodyContextMixin.class",
         "dev/freakyfriday/mixin/LivingEntityBodyContextMixin.class",
