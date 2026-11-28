@@ -626,7 +626,10 @@ public class WorldBorder {public boolean isWithinBounds(BlockPos pos){return tru
 public enum EquipmentSlot {MAINHAND,OFFHAND,FEET,LEGS,CHEST,HEAD,BODY,SADDLE}
 ''',
 'net/minecraft/world/entity/EntityType.java':'''package net.minecraft.world.entity;
-public final class EntityType<T extends LivingEntity>{public final String name;public EntityType(String name){this.name=name;}}
+public final class EntityType<T extends LivingEntity>{
+ public static final EntityType<LivingEntity> PLAYER=new EntityType<>("player");
+ public final String name;public EntityType(String name){this.name=name;}
+}
 ''',
 'net/neoforged/neoforge/event/entity/EntityAttributeModificationEvent.java':'''package net.neoforged.neoforge.event.entity;
 import java.util.*;import net.minecraft.core.Holder;import net.minecraft.world.entity.*;import net.minecraft.world.entity.ai.attributes.*;
@@ -635,10 +638,11 @@ public final Map<EntityType<? extends LivingEntity>,Map<Holder<Attribute>,Double
 public int additions;
 public void type(EntityType<? extends LivingEntity> type,Holder<Attribute> attr,double value){types.computeIfAbsent(type,k->new LinkedHashMap<>()).put(attr,value);}
 public java.util.List<EntityType<? extends LivingEntity>> getTypes(){return new ArrayList<>(types.keySet());}
-public boolean has(EntityType<? extends LivingEntity> type,Holder<Attribute> attribute){return types.get(type).containsKey(attribute);}
-public void add(EntityType<? extends LivingEntity> type,Holder<Attribute> attribute){
+public boolean has(EntityType<? extends LivingEntity> type,Holder<Attribute> attribute){return types.getOrDefault(type,Map.of()).containsKey(attribute);}
+public void add(EntityType<? extends LivingEntity> type,Holder<Attribute> attribute){add(type,attribute,attribute.value().getDefaultValue());}
+public void add(EntityType<? extends LivingEntity> type,Holder<Attribute> attribute,double value){
   if(has(type,attribute))throw new IllegalArgumentException("duplicate attr");
-  additions++;types.get(type).put(attribute,attribute.value().name().equals("minecraft:max_absorption")?0.0:0.0);
+  additions++;types.computeIfAbsent(type,k->new LinkedHashMap<>()).put(attribute,value);
 }
 }
 ''',
@@ -783,6 +787,8 @@ public static void main(String[] args){
  var absorption=registry.register("minecraft:max_absorption");var oxygen=registry.register("minecraft:oxygen_bonus");
  var knockback=registry.register("minecraft:knockback_resistance");var toughness=registry.register("minecraft:armor_toughness");
  var explosion=registry.register("minecraft:explosion_knockback_resistance");
+ var waypointReceive=registry.register("minecraft:waypoint_receive_range");
+ var waypointTransmit=registry.register("minecraft:waypoint_transmit_range");
  var flight=registry.register("minecraft:flying_speed");var modded=registry.register("othermod:dragon_rage");
  var cow=new EntityType<LivingEntity>("cow"); var skeleton=new EntityType<LivingEntity>("skeleton");
  var event=new EntityAttributeModificationEvent();
@@ -796,6 +802,10 @@ public static void main(String[] args){
  }
  ok(event.has(skeleton,flight),"existing native flight stat unchanged");
  ok(!event.has(cow,flight),"new flight property must not pretend to grant flight");
+ ok(event.has(EntityType.PLAYER,waypointReceive),"player has a waypoint receive range for ServerPlayer chunk tracking");
+ ok(event.has(EntityType.PLAYER,waypointTransmit),"player has a waypoint transmit range");
+ ok(event.types.get(EntityType.PLAYER).get(waypointReceive)==6.0E7,"player receive range preserves the vanilla 60-million-block default");
+ ok(event.types.get(EntityType.PLAYER).get(waypointTransmit)==6.0E7,"player transmit range preserves the vanilla 60-million-block default");
  ok(event.types.get(cow).get(armor)==7.0,"native creature armor was preserved");
  // Simulate TWO spawned creatures built from different native type suppliers.
  // These initially differed by five defensive attributes, and that difference
