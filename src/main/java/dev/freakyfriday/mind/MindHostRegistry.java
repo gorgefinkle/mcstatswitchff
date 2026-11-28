@@ -33,6 +33,10 @@ public final class MindHostRegistry {
     // Disabled in normal play; only operator diagnostics opt a Mob into counting.
     private static final Set<UUID> DEBUG_TICK_WATCH = new HashSet<>();
     private static final Map<UUID, Long> DEBUG_NATIVE_MOB_TICKS = new HashMap<>();
+    // Allocated only for explicit player-possession diagnostics. The normal
+    // server AI hot path performs just one Set membership check for watched IDs.
+    private static final Set<UUID> DEBUG_AI_PHASE_WATCH = new HashSet<>();
+    private static final Map<UUID, Long> DEBUG_NATIVE_AI_PHASES = new HashMap<>();
     private static boolean debugTickCountingActive;
     private static boolean hookActivationLogged;
 
@@ -197,6 +201,27 @@ public final class MindHostRegistry {
         return DEBUG_NATIVE_MOB_TICKS.getOrDefault(mob.getUUID(), -1L);
     }
 
+    /** Enable per-host AI-phase counting for an explicit live-server diagnostic. */
+    public static void startDebugAiPhaseCounter(Mob mob) {
+        if (mob == null) throw new IllegalArgumentException("A Mob is required");
+        UUID id = mob.getUUID();
+        DEBUG_AI_PHASE_WATCH.add(id);
+        DEBUG_NATIVE_AI_PHASES.put(id, 0L);
+    }
+
+    /** Stop and discard the selected host's diagnostic counter. */
+    public static void stopDebugAiPhaseCounter(Mob mob) {
+        if (mob == null) return;
+        UUID id = mob.getUUID();
+        DEBUG_AI_PHASE_WATCH.remove(id);
+        DEBUG_NATIVE_AI_PHASES.remove(id);
+    }
+
+    public static long debugAiPhaseCount(Mob mob) {
+        if (mob == null) return -1L;
+        return DEBUG_NATIVE_AI_PHASES.getOrDefault(mob.getUUID(), -1L);
+    }
+
     public static void observeServerAiPhase(Mob host) {
         if (host == null || host.level().isClientSide()) return;
         registerHost(host);
@@ -209,6 +234,9 @@ public final class MindHostRegistry {
         HostRef reference = HOSTS.get(host.getUUID());
         if (reference != null) {
             AI_PHASES_BY_TYPE.merge(reference.entityType(), 1L, Long::sum);
+        }
+        if (DEBUG_AI_PHASE_WATCH.contains(host.getUUID())) {
+            DEBUG_NATIVE_AI_PHASES.merge(host.getUUID(), 1L, Long::sum);
         }
     }
 
