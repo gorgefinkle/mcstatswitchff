@@ -761,8 +761,8 @@ public class BookInteractionHarness {
   var second=new PlayerInteractEvent.EntityInteract(p,cow);
   BookInteractions.onInteract(second);
   ok(second.isCanceled(),"second click consumes normal interaction");
-  ok(received(p,"HARNESS ONLY: native AI transfer is not executed"),
-     "session harness reaches the explicit non-AI sentinel, not fake success");
+  ok(received(p,"This pairing is not a Mob-to-Mob or NPC-to-authenticated-Player exchange."),
+     "generic LivingEntity fixtures are refused; production Mob/player pairs use the real exchange runtime");
   ok(villager.getAttributes().getInstance(armor).getBaseValue()==8
       && cow.getAttributes().getInstance(armor).getBaseValue()==2,
      "body stats are not silently exchanged alongside minds");
@@ -773,8 +773,8 @@ public class BookInteractionHarness {
   LivingEntity anotherVillager=new LivingEntity("Villager",w);
   BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,villager));
   BookInteractions.onInteract(new PlayerInteractEvent.EntityInteract(p,anotherVillager));
-  ok(received(p,"HARNESS ONLY: native AI transfer is not executed"),
-     "session remains usable after the explicit harness-only sentinel");
+  ok(received(p,"This pairing is not a Mob-to-Mob or NPC-to-authenticated-Player exchange."),
+     "selection remains usable after rejecting a non-Mob test fixture");
 
   p.setMainHand(new Object());
   var noBook=new PlayerInteractEvent.EntityInteract(p,villager);
