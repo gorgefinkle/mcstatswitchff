@@ -49,9 +49,19 @@ abstract class ServerPlayerPossessionPacketMixin {
     // Keep account identity and inventory on ServerPlayer, but perform native
     // packet validation and positional work from the NPC physical body.
     @WrapMethod(method = "handleAttack")
-    private void freakyfriday$attackAtNpcBody(ServerboundAttackPacket packet, Operation<Void> original) {
+    private void freakyfriday$attackWithNpcBody(ServerboundAttackPacket packet, Operation<Void> original) {
         if (!PlayerPossessionState.isActive(this.player)) { original.call(packet); return; }
-        freakyfriday$runActionAtNpcBody(packet, original);
+        Mob body = PlayerPossessionState.npcBodyForPlayer(this.player);
+        if (body == null) return;
+        PacketUtils.ensureRunningOnSameThread(packet,
+            (ServerGamePacketListenerImpl) (Object) this, this.player.level());
+        if (!this.freakyfriday$hasClientLoaded()) return;
+        this.player.resetLastActionTime();
+        net.minecraft.world.entity.Entity target =
+            ((ServerLevel) body.level()).getEntityOrPart(packet.entityId());
+        if (target == null || !((ServerLevel) body.level()).getWorldBorder()
+                .isWithinBounds(target.blockPosition())) return;
+        PlayerBodyActions.attack(body, target);
     }
 
     @WrapMethod(method = "handleInteract")
