@@ -99,6 +99,7 @@ def command(request_id, value):
 command(42, "forceload add 0 0")
 command(43, "summon minecraft:zombie 0 80 0")
 command(44, "summon minecraft:creeper 3 80 0")
+time.sleep(1.0)  # allow ServerLevel's entity manager to finish registration
 command(45, "freakyfriday debug-prime-creeper-loaded")
 initial = command(46, "freakyfriday debug-creeper-progress-loaded")
 command(47, "freakyfriday debug-exchange-loaded")
