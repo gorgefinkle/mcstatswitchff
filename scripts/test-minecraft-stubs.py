@@ -20,6 +20,20 @@ public final class NativeBrainSwap {
   return "HARNESS ONLY: native AI transfer is not executed by this test";
  }
 }''',
+'dev/freakyfriday/mind/PlayerPossessionState.java':'''package dev.freakyfriday.mind;
+import java.util.UUID;
+/** Session-harness sentinel ONLY; player possession is not simulated here. */
+public final class PlayerPossessionState { public static void endOnLogout(UUID id) {} }
+''',
+'dev/freakyfriday/mind/MindExchangeRuntime.java':'''package dev.freakyfriday.mind;
+import net.minecraft.world.entity.LivingEntity;
+/** Session-harness sentinel ONLY; never reports a successful AI exchange. */
+public final class MindExchangeRuntime {
+ public static String exchange(LivingEntity a,LivingEntity b) {
+  return "HARNESS ONLY: native AI transfer is not executed by this test";
+ }
+}
+''',
 'dev/freakyfriday/CategoryPickerNetworking.java':'''package dev.freakyfriday;
 import java.util.Map;
 import dev.freakyfriday.core.CategoryOffers;
@@ -696,6 +710,10 @@ public static void main(String[] args){
 # The real NeoForge CI build compiles network codecs and native Screen classes.
 # They must not be passed to the legacy headless harness whose fake APIs do not
 # implement actual packet serialization, GUI rendering or client registration.
+for sentinel in ('NativeBrainSwap.java','PlayerPossessionState.java','MindExchangeRuntime.java'):
+    sentinel_file = STUB/'dev/freakyfriday/mind'/sentinel
+    if sentinel_file.exists():
+        sentinel_file.unlink()
 real_api_only = {'NativeBrainSwap.java', 'GoalMindRuntime.java', 'GoalSelectorState.java', 'CategoryPickerPayload.java','CategoryPickerNetworking.java',
                  'CategoryPickerScreen.java','ClientCategoryPickerNetworking.java'}
 all_prod=[p for p in (ROOT/'src/main/java').rglob('*.java') if p.name not in real_api_only] + list((ROOT/'src/platform/minecraft-26.2/java').rglob('*.java'))
