@@ -131,28 +131,36 @@ progress_command = f"freakyfriday debug-creeper-progress {creeper_selector}"
 def sample(response):
     import re
     progress_match = re.search(r"DEBUG creeper progress=([0-9.]+)", response)
-    ticks_match = re.search(r"entityTicks=([0-9]+)", response)
+    mind_match = re.search(r"mind=([0-9a-f-]+)", response)
+    entity_match = re.search(r"entityTicks=([0-9]+)", response)
+    native_match = re.search(r"nativeTicks=([0-9]+)", response)
     world_match = re.search(r"worldTick=([0-9]+)", response)
-    if not progress_match or not ticks_match or not world_match:
-        raise SystemExit(f"Missing Creeper progress/tick counters in RCON response: {response!r}")
-    return float(progress_match.group(1)), int(ticks_match.group(1)), int(world_match.group(1))
+    if not all((progress_match, mind_match, entity_match, native_match, world_match)):
+        raise SystemExit(f"Missing Creeper diagnostic counters in RCON response: {response!r}")
+    return (
+        float(progress_match.group(1)), mind_match.group(1),
+        int(entity_match.group(1)), int(native_match.group(1)), int(world_match.group(1))
+    )
 
-def assert_one_fuse_step_per_world_tick(before, after, label):
-    fuse_steps = (after[0] - before[0]) * 28.0  # vanilla Creeper default fuse divisor: maxSwell 30 - 2
-    entity_ticks = after[1] - before[1]
-    world_ticks = after[2] - before[2]
+def assert_one_concrete_mob_tick_per_world_tick(before, after, label):
+    world_ticks = after[4] - before[4]
+    entity_ticks = after[2] - before[2]
+    native_ticks = after[3] - before[3]
     if world_ticks <= 0:
         raise SystemExit(f"{label}: no world ticks elapsed between samples")
     if entity_ticks != world_ticks:
         raise SystemExit(
-            f"{label}: Mob tickCount advanced {entity_ticks} but world advanced {world_ticks}; "
-            "controller clock is not single-stepping"
+            f"{label}: entity tickCount advanced {entity_ticks} but world advanced {world_ticks}"
         )
-    if abs(fuse_steps - world_ticks) > 1.1:
+    if native_ticks != world_ticks:
         raise SystemExit(
-            f"{label}: Creeper fuse advanced {fuse_steps:.2f} steps over {world_ticks} world ticks; "
-            "a concrete subclass tick was skipped or executed more than once"
+            f"{label}: concrete Mob.tick was invoked {native_ticks} times over "
+            f"{world_ticks} world ticks; duplicate or skipped subclass tick"
         )
+    if after[1] != before[1]:
+        raise SystemExit(f"{label}: selected Creeper mind UUID changed between samples")
+    if after[0] <= before[0]:
+        raise SystemExit(f"{label}: Creeper fuse did not continue progressing")
 
 initial = sample(command_until(progress_command, lambda response: "DEBUG creeper progress=" in response))
 
@@ -160,17 +168,18 @@ exchange_command = f"freakyfriday debug-exchange {zombie_selector} {creeper_sele
 command_until(exchange_command, lambda response: "DEBUG controller/body assignment exchanged." in response)
 time.sleep(0.4)
 during_swap = sample(command_until(progress_command, lambda response: "DEBUG creeper progress=" in response))
-assert_one_fuse_step_per_world_tick(initial, during_swap, "Creeper mind on Zombie body")
+assert_one_concrete_mob_tick_per_world_tick(initial, during_swap, "Creeper mind on Zombie body")
 
 command_until(exchange_command, lambda response: "DEBUG controller/body assignment exchanged." in response)
 time.sleep(0.4)
 after_reverse = sample(command_until(progress_command, lambda response: "DEBUG creeper progress=" in response))
-assert_one_fuse_step_per_world_tick(during_swap, after_reverse, "Creeper mind after reversal")
+assert_one_concrete_mob_tick_per_world_tick(during_swap, after_reverse, "Creeper mind after reversal")
 
-print("PASS Creeper native fuse advanced exactly once per world tick while on Zombie body and after reversal: "
-      f"{initial[0]:.3f} -> {during_swap[0]:.3f} -> {after_reverse[0]:.3f}; "
-      f"entityTicks={initial[1]}->{during_swap[1]}->{after_reverse[1]}, "
-      f"worldTicks={initial[2]}->{during_swap[2]}->{after_reverse[2]}")
+print("PASS Creeper concrete Mob.tick ran exactly once per world tick while on Zombie body and after reversal: "
+      f"fuse={initial[0]:.3f}->{during_swap[0]:.3f}->{after_reverse[0]:.3f}; "
+      f"entityTicks={initial[2]}->{during_swap[2]}->{after_reverse[2]}, "
+      f"nativeTicks={initial[3]}->{during_swap[3]}->{after_reverse[3]}, "
+      f"worldTicks={initial[4]}->{during_swap[4]}->{after_reverse[4]}")
 
 # Stop the server cleanly over its authenticated control channel.
 send_packet(sock, 51, 2, "stop")
