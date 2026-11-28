@@ -808,7 +808,7 @@ public static void main(String[] args){
  PortableAttributes.addToEntityTypes(event);
  for(var type:new EntityType[]{cow,skeleton}){
    for(var attribute:new net.minecraft.core.Holder[]{health,armor,absorption,oxygen,knockback,toughness,explosion,waypointReceive,waypointTransmit,followRange,flight,modded})
-     ok(event.has(type,attribute),type.name+" missing registered attribute slot "+attribute.value().name());
+     ok(event.has(type,attribute),type.name+" missing a registered attribute slot");
  }
  ok(event.has(skeleton,flight),"existing native flight stat remains present");
  ok(event.has(cow,flight),"the physical body has a default flight-speed slot for any controller that queries it");
