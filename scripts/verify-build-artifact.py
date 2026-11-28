@@ -32,7 +32,6 @@ def main():
         "dev/freakyfriday/mind/PlayerInputBridge.class",
         "dev/freakyfriday/mind/MindExchangeRuntime.class",
         "dev/freakyfriday/mixin/PlayerPossessionTickMixin.class",
-        "dev/freakyfriday/mixin/PlayerBodyAiStepMixin.class",
         "dev/freakyfriday/mixin/ServerPlayerPossessionCameraMixin.class",
         "dev/freakyfriday/mixin/ServerPlayerPossessionPacketMixin.class",
         "dev/freakyfriday/mixin/ServerLevelMobTickDispatchMixin.class",
