@@ -1,8 +1,24 @@
 # NPC ↔ Player Mind Exchange — Minecraft 26.2 Design
 
-Status: design and implementation plan; no player-control exchange is implemented yet  
+Status: partial 26.2 possession prototype is wired into the book transaction; not yet validated in a real client session  
 Active target: Minecraft 26.2 / NeoForge 26.2.0.95 / Java 25  
-Prerequisite: universal NPC ↔ NPC native AI exchange must pass its live acceptance suite
+Prerequisite status: NPC ↔ NPC controller exchange and Creeper fuse continuity pass a 26.2 dedicated-server smoke; full cross-species behavioral acceptance remains in progress
+
+## Implementation status — 2026-11-28
+
+The current branch has source-level NPC ↔ Player possession wiring:
+- a server-owned session exchanges controller/body UUID bindings and rolls them back if setup fails;
+- PlayerPossessionTickMixin runs the NPC's preserved native controller against the ServerPlayer physical body;
+- the NPC body is switched to player-input-driven ticking, with the native goal scheduler suppressed for that body;
+- ServerboundPlayerInputPacket captures the seven digital inputs, while ServerboundMovePlayerPacket contributes validated rotation only and its position coordinates are ignored;
+- camera routing keeps the client viewing the NPC while the ServerPlayer's physical position is not teleported to or continuously snapped onto that NPC;
+- attack, entity-interaction, player-action, item-use, player-command, and swing handlers are wrapped in an NPC physical-body context;
+- PlayerPossessionState.validateOrEnd reverses the session when either endpoint is no longer valid; logout cleanup is wired;
+- /freakyfriday end is the explicit player escape/reversal command.
+
+**What has actually been verified:** on Minecraft 26.2 / NeoForge 26.2, all registered Mixins apply on a dedicated server; the existing Zombie ↔ Creeper controller test and native Creeper fuse-state continuity pass; the full source audit and build pass.
+
+**What has not been verified:** there has not yet been a real client-driven NPC ↔ Player possession session. Movement feel, camera synchronization, attack reach/damage, right-click interactions, block breaking/placement, inventory/equipment ownership semantics, packet ordering, reverse command behavior, and death/unload recovery still require dedicated in-game tests. This prototype is not a test-ready release.
 
 ## Goal and exact meaning
 
@@ -176,4 +192,4 @@ NPC-to-NPC must pass first. Then test NPC ↔ Player in both directions:
 4. Integrate camera routing and packet interception as one atomic possession transaction.
 5. Run the full acceptance suite. Do not release a player-swap test JAR before both input directions and camera restoration work in-game.
 
-This document describes the required design and test plan. It does not claim that NPC-to-player swapping is implemented.
+This document describes both the required design and the currently wired but unvalidated prototype. Source wiring and dedicated-server Mixin loading must not be treated as proof of working player possession.
