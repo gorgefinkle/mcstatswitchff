@@ -39,6 +39,7 @@ public final class DebugPlayerPossession {
         if (!SESSIONS.isEmpty())
             return "A debug ServerPlayer possession fixture is already active; end it first.";
 
+        boolean aiCounterStarted = false;
         UUID profileId = UUID.randomUUID();
         String profileName = "FFPossess" + profileId.toString().substring(0, 8);
         CommonListenerCookie cookie = CommonListenerCookie.createInitial(
@@ -69,6 +70,8 @@ public final class DebugPlayerPossession {
             Vec3 accountStart = player.position();
             Vec3 npcStart = npcBody.position();
             PlayerPossessionState.begin(player, npcBody);
+            MindHostRegistry.startDebugAiPhaseCounter(npcBody);
+            aiCounterStarted = true;
             PlayerInputBridge.capture(player,
                 new Input(true, false, false, false, false, false, false));
             SESSIONS.put(player.getUUID(),
@@ -78,6 +81,7 @@ public final class DebugPlayerPossession {
                 + " camera=" + player.getCamera().getUUID()
                 + ". Natural server ticks will now drive both bodies.";
         } catch (RuntimeException failure) {
+            if (aiCounterStarted) MindHostRegistry.stopDebugAiPhaseCounter(npcBody);
             PlayerPossessionState.end(player);
             if (player.connection != null) {
                 player.connection.disconnect(Component.literal("Freaky Friday debug fixture setup failed"));
@@ -107,6 +111,7 @@ public final class DebugPlayerPossession {
             + " npcPos=" + vector(npcNow)
             + " playerTicks=" + player.tickCount
             + " npcTicks=" + npc.tickCount
+            + " npcAiPhases=" + MindHostRegistry.debugAiPhaseCount(npc)
             + " playerMindOnNpc=" + MindBodyBindings.controllerForBody(npc.getUUID()).equals(player.getUUID())
             + " npcMindOnPlayer=" + MindBodyBindings.controllerForBody(player.getUUID()).equals(npc.getUUID());
     }
@@ -116,6 +121,7 @@ public final class DebugPlayerPossession {
         if (session == null) return "DEBUG no ServerPlayer possession fixture is active.";
         ServerPlayer player = session.player();
         PlayerPossessionState.end(player);
+        MindHostRegistry.stopDebugAiPhaseCounter(session.npcBody());
         SESSIONS.remove(player.getUUID());
         if (player.connection != null)
             player.connection.disconnect(Component.literal("Freaky Friday debug possession fixture ended"));
