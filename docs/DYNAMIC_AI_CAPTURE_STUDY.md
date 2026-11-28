@@ -268,6 +268,13 @@ Minecraft 26.2's shared `Mob.serverAiStep()` is the native AI phase: it advances
 
 During a mind-controller phase, `MobAiStepBodyOwnershipMixin` preserves the donor's concrete subclass overrides but makes the base `Mob.aiStep()` call only its inherited `LivingEntity.aiStep()`. That still runs the donor's native `serverAiStep()` and movement pipeline, while skipping the base Mob's post-super physical upkeep. The recipient then runs its own concrete `aiStep()` body phase, with its native selector/navigation phase suppressed. This avoids the obvious capability leak of applying a Zombie's base daylight-burning upkeep to a Creeper recipient. It does not prove that every arbitrary third-party subclass separates its private AI from physical side effects; those remain a required modded-mob test boundary.
 
+1. Invoke the original controller host's concrete `tick()` chain under `MindBodyContext`. This preserves its concrete subclass tick state (for example, Creeper fuse state).
+2. At the donor's `Mob.tick() → LivingEntity.tick()` boundary, suppress the donor's superclass physical tick. Its controller-owned concrete tick logic has already run.
+3. Invoke only the recipient physical body's `LivingEntity.tick()` superclass path, not its concrete Mob/subclass `tick()`. In this architecture each Mob object is also the live host for its own native mind and will run its concrete subclass tick once when assigned as a controller. Calling its concrete tick again as a recipient would double-advance private subclass state.
+4. Redirect that physical body's `LivingEntity.tick() → aiStep()` call to the donor controller's `aiStep()`, then execute the recipient's `aiStep()` under a scope that suppresses only its native Goal/Brain scheduler. This retains shared movement/physics plus recipient-side body effects that live in `aiStep()`.
+5. Body navigation, sensing and movement controls are still resolved to the physical recipient.
+6. Do not manually increment the donor's `tickCount`: `ServerLevel.tickNonPassenger` increments every loaded entity before dispatch. The controller host's own entity-manager turn advances its clock once; an extra increment in the controller bridge creates a second clock tick.
+
 ### Why this is only a candidate until proven
 
 The controller's concrete tick/aiStep override can still write its own private subclass fields directly. That is usually correct for mind-owned task state (such as an active fuse timer), but a subclass method can also mutate fields that represent physical state, set a dead flag, discard itself, or invoke world actions directly. A generic body facade must distinguish those effects.
