@@ -24,6 +24,7 @@ abstract class PlayerPossessionTickMixin {
             return;
         }
 
+        PlayerPossessionState.validateOrEnd(serverPlayer);
         Mob controller = PlayerPossessionState.controllerForPlayerBody(serverPlayer);
         if (controller == null) {
             original.call();
