@@ -5,6 +5,7 @@ import net.minecraft.core.Holder;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.neoforged.neoforge.event.entity.EntityAttributeModificationEvent;
@@ -43,7 +44,7 @@ public final class PortableAttributes {
                 || id.toString().equals("minecraft:waypoint_transmit_range");
             for (EntityType<? extends LivingEntity> type : event.getTypes()) {
                 if (!event.has(type, holder)) {
-                    double defaultValue = type == EntityType.PLAYER && waypointRange
+                    double defaultValue = type == EntityTypes.PLAYER && waypointRange
                         ? 6.0E7
                         : holder.value().getDefaultValue();
                     event.add(type, holder, defaultValue);
@@ -57,8 +58,8 @@ public final class PortableAttributes {
             // range during chunk-view updates. Ensure the canonical player
             // defaults exist before any world/player is constructed, even
             // when the Player type was absent from the initial event type list.
-            if (waypointRange && !event.has(EntityType.PLAYER, holder)) {
-                event.add(EntityType.PLAYER, holder, 6.0E7);
+            if (waypointRange && !event.has(EntityTypes.PLAYER, holder)) {
+                event.add(EntityTypes.PLAYER, holder, 6.0E7);
             }
         });
     }
