@@ -18,35 +18,40 @@ abstract class MobBodyServicesMixin {
     @Inject(method = "getNavigation", at = @At("HEAD"), cancellable = true)
     private void freakyfriday$physicalNavigation(CallbackInfoReturnable<PathNavigation> callback) {
         Mob controller = (Mob) (Object) this;
-        Mob body = (Mob) MindBodyContext.bodyFor(controller);
-        if (body != controller) callback.setReturnValue(body.getNavigation());
+        Object body = MindBodyContext.bodyFor(controller);
+        if (body instanceof Mob bodyMob && bodyMob != controller)
+            callback.setReturnValue(bodyMob.getNavigation());
     }
 
     @Inject(method = "getMoveControl", at = @At("HEAD"), cancellable = true)
     private void freakyfriday$physicalMoveControl(CallbackInfoReturnable<MoveControl> callback) {
         Mob controller = (Mob) (Object) this;
-        Mob body = (Mob) MindBodyContext.bodyFor(controller);
-        if (body != controller) callback.setReturnValue(body.getMoveControl());
+        Object body = MindBodyContext.bodyFor(controller);
+        if (body instanceof Mob bodyMob && bodyMob != controller)
+            callback.setReturnValue(bodyMob.getMoveControl());
     }
 
     @Inject(method = "getLookControl", at = @At("HEAD"), cancellable = true)
     private void freakyfriday$physicalLookControl(CallbackInfoReturnable<LookControl> callback) {
         Mob controller = (Mob) (Object) this;
-        Mob body = (Mob) MindBodyContext.bodyFor(controller);
-        if (body != controller) callback.setReturnValue(body.getLookControl());
+        Object body = MindBodyContext.bodyFor(controller);
+        if (body instanceof Mob bodyMob && bodyMob != controller)
+            callback.setReturnValue(bodyMob.getLookControl());
     }
 
     @Inject(method = "getJumpControl", at = @At("HEAD"), cancellable = true)
     private void freakyfriday$physicalJumpControl(CallbackInfoReturnable<JumpControl> callback) {
         Mob controller = (Mob) (Object) this;
-        Mob body = (Mob) MindBodyContext.bodyFor(controller);
-        if (body != controller) callback.setReturnValue(body.getJumpControl());
+        Object body = MindBodyContext.bodyFor(controller);
+        if (body instanceof Mob bodyMob && bodyMob != controller)
+            callback.setReturnValue(bodyMob.getJumpControl());
     }
 
     @Inject(method = "getSensing", at = @At("HEAD"), cancellable = true)
     private void freakyfriday$physicalSensing(CallbackInfoReturnable<Sensing> callback) {
         Mob controller = (Mob) (Object) this;
-        Mob body = (Mob) MindBodyContext.bodyFor(controller);
-        if (body != controller) callback.setReturnValue(body.getSensing());
+        Object body = MindBodyContext.bodyFor(controller);
+        if (body instanceof Mob bodyMob && bodyMob != controller)
+            callback.setReturnValue(bodyMob.getSensing());
     }
 }
