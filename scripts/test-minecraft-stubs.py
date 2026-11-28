@@ -506,7 +506,8 @@ public class LivingEntity extends Entity {
  public AttributeMap getAttributes(){return attrs;}public AttributeInstance getAttribute(Holder<Attribute> attribute){return attrs.getInstance(attribute);}
  public double getAttributeValue(Holder<Attribute> attribute){AttributeInstance instance=attrs.getInstance(attribute);return instance==null?0.0:instance.getValue();}
  public void tick(){super.tick();aiStep();}public void aiStep(){}
- public void swing(InteractionHand hand){}public void swing(InteractionHand hand,boolean sendToEntity){}
+ public int swingCalls;public void swing(InteractionHand hand){swingCalls++;}public void swing(InteractionHand hand,boolean sendToEntity){swingCalls++;}
+ public boolean hasLineOfSight(Entity target){return target!=null&&target.level()==level();}
  public void setJumping(boolean value){jumping=value;}public boolean isJumping(){return jumping;}
  public ItemStack getItemBySlot(EquipmentSlot slot){return equipment.getOrDefault(slot,ItemStack.EMPTY);}
  public void setItemSlot(EquipmentSlot slot,ItemStack stack){equipment.put(slot,stack==null?ItemStack.EMPTY:stack);}
@@ -563,6 +564,11 @@ public class Mob extends LivingEntity {
  public LookControl getLookControl(){return look;}public JumpControl getJumpControl(){return jump;}public Sensing getSensing(){return sensing;}
  public void setZza(float v){zza=v;}public void setXxa(float v){xxa=v;}public void setSpeed(float v){speed=v;setZza(v);}
  public float getZza(){return zza;}public float getXxa(){return xxa;}public float getSpeed(){return speed;}
+ public boolean canAttack(LivingEntity target){return target!=null&&target.isAlive();}
+ public boolean isWithinMeleeAttackRange(LivingEntity target){return true;}
+ public int attackCalls;public boolean attackResult=true;
+ public boolean doHurtTarget(ServerLevel level,Entity target){attackCalls++;return attackResult;}
+
 }''',
 'net/minecraft/world/entity/ai/navigation/PathNavigation.java':'''package net.minecraft.world.entity.ai.navigation; public class PathNavigation {}
 ''',
@@ -947,6 +953,16 @@ public final class PlayerPossessionHarness {
   npc.setItemSlot(EquipmentSlot.MAINHAND,new net.minecraft.world.item.ItemStack("npc-sword",5));
   npc.setItemSlot(EquipmentSlot.OFFHAND,new net.minecraft.world.item.ItemStack("npc-shield",1));
   npc.setItemSlot(EquipmentSlot.HEAD,new net.minecraft.world.item.ItemStack("npc-helmet",1));
+  LivingEntity attackTarget=new LivingEntity("Target",world);
+  ok(PlayerBodyActions.attack(npc,attackTarget),"body native attack succeeds when body has attack capability");
+  ok(npc.attackCalls==1,"native Mob.doHurtTarget runs on NPC body exactly once");
+  ok(player.swingCalls==0,"authenticated Player account does not supply NPC attack animation");
+  ok(npc.swingCalls==1,"NPC physical body supplies attack swing animation");
+  npc.attackResult=false;
+  ok(!PlayerBodyActions.attack(npc,attackTarget),"body-rejected attack remains a no-op, not a session rejection");
+  ok(npc.attackCalls==2,"second attack delegates to the body again");
+  npc.attackResult=true;
+
   int droppedOne=PlayerBodyActions.dropMainHand(npc,false);
   ok(droppedOne==1,"DROP_ITEM removes one NPC main-hand item");
   ok(npc.getItemBySlot(EquipmentSlot.MAINHAND).getCount()==4,"one-item drop leaves four in NPC main hand");
