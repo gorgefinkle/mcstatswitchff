@@ -42,6 +42,8 @@ assert (root/'src/test/java/dev/freakyfriday/mind/MindBodyBindingsSelfTest.java'
 assert (root/'src/main/java/dev/freakyfriday/mind/MindBodyContext.java').exists()
 assert 'npcBodyForPlayer' in (root/'src/main/java/dev/freakyfriday/mind/PlayerPossessionState.java').read_text()
 assert '@WrapMethod(method = "handleAttack")' in (root/'src/main/java/dev/freakyfriday/mixin/ServerPlayerPossessionPacketMixin.java').read_text()
+assert 'Commands.literal("end")' in (root/'src/main/java/dev/freakyfriday/FFCommands.java').read_text()
+assert 'PlayerPossessionState.end(player)' in (root/'src/main/java/dev/freakyfriday/FFCommands.java').read_text()
 assert (root/'src/main/java/dev/freakyfriday/mixin/LivingEntityPhysicalAiStepMixin.java').exists()
 assert 'LivingEntityPhysicalAiStepMixin' in mixin_config['mixins']
 assert 'physicalBodyAiStep' in (root/'src/main/java/dev/freakyfriday/mind/MindBodyContext.java').read_text()
