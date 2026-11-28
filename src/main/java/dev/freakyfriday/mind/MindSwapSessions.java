@@ -13,8 +13,9 @@ import net.minecraft.world.entity.LivingEntity;
  * One book, two bodies, no category choice. Everything is resolved on the
  * server; the client never provides a target UUID in a command.
  *
- * A pair is committed only if the whole-mind runtime validates and activates
- * both recipient Brains. Unsupported pairings receive an explicit diagnostic.
+ * A pair is committed only if the server-side controller/body transaction
+ * validates and commits. Native controller hosts remain intact; no Goal or
+ * Brain object is copied between entity classes.
  */
 public final class MindSwapSessions {
     private MindSwapSessions() {}
