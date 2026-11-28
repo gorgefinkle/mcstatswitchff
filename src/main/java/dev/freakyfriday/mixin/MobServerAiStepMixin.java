@@ -25,7 +25,8 @@ abstract class MobServerAiStepMixin {
     @Inject(method = "serverAiStep", at = @At("HEAD"), cancellable = true)
     private void freakyfriday$observeOrSuppressNativeAi(CallbackInfo callback) {
         Mob mob = (Mob) (Object) this;
-        if (PlayerPossessionState.isPlayerControlledBody(mob)) {
+        if (PlayerPossessionState.isPlayerControlledBody(mob)
+                || MindBodyContext.isExecutingPhysicalBodyAiStep(mob)) {
             callback.cancel();
             return;
         }
