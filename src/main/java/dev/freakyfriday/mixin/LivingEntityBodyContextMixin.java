@@ -1,5 +1,7 @@
 package dev.freakyfriday.mixin;
 
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import dev.freakyfriday.mind.MindBodyContext;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.AttributeMap;
@@ -12,6 +14,16 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 /** Routes common health and attribute observations/writes to the physical body. */
 @Mixin(LivingEntity.class)
 abstract class LivingEntityBodyContextMixin {
+    @WrapMethod(method = "swing(Lnet/minecraft/world/InteractionHand;)V")
+    private void freakyfriday$swingPhysicalBody(net.minecraft.world.InteractionHand hand, Operation<Void> original) {
+        LivingEntity body = freakyfriday$body();
+        if (body != (LivingEntity) (Object) this) {
+            body.swing(hand);
+            return;
+        }
+        original.call(hand);
+    }
+
     private LivingEntity freakyfriday$body() {
         return (LivingEntity) MindBodyContext.bodyFor((LivingEntity) (Object) this);
     }
