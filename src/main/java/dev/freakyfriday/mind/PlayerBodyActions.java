@@ -36,4 +36,27 @@ public final class PlayerBodyActions {
         body.spawnAtLocation(level, dropped);
         return droppedCount;
     }
+
+    /**
+     * Execute the body species' own native attack method. This deliberately
+     * avoids ServerPlayer.attack(): modded Mob overrides of doHurtTarget are
+     * honored automatically, and unsupported attacks simply have no effect.
+     */
+    public static boolean attack(Mob body, net.minecraft.world.entity.Entity target) {
+        if (body == null || target == null || !body.isAlive() || body.isRemoved()
+                || target == body || target.isRemoved() || body.level() != target.level()
+                || !(body.level() instanceof ServerLevel level)
+                || !(target instanceof net.minecraft.world.entity.LivingEntity livingTarget)) {
+            return false;
+        }
+        if (!livingTarget.isAlive() || !body.canAttack(livingTarget)
+                || !body.isWithinMeleeAttackRange(livingTarget)
+                || !body.hasLineOfSight(livingTarget)) {
+            return false;
+        }
+
+        boolean hit = body.doHurtTarget(level, target);
+        if (hit) body.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+        return hit;
+    }
 }
