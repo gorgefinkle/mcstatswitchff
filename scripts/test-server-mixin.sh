@@ -88,22 +88,44 @@ auth_id, _, _ = read_packet(sock)
 if auth_id != 41:
     raise SystemExit("RCON authentication failed")
 
-for request_id, command in (
-    (42, "forceload add 0 0"),
-    (43, "summon minecraft:zombie 0 80 0"),
-    (44, "summon minecraft:creeper 3 80 0"),
-    (45, "freakyfriday debug-exchange-loaded"),
-    (46, "freakyfriday debug-tick-loaded"),
-    (47, "freakyfriday debug-exchange-loaded"),
-    (48, "freakyfriday debug-tick-loaded"),
-):
-    send_packet(sock, request_id, 2, command)
+def command(request_id, value):
+    send_packet(sock, request_id, 2, value)
     response_id, _, response = read_packet(sock)
     if response_id != request_id:
-        raise SystemExit(f"RCON response mismatch for {command!r}: {response_id}")
-    print(f"RCON {command}: {response}")
+        raise SystemExit(f"RCON response mismatch for {value!r}: {response_id}")
+    print(f"RCON {value}: {response}")
+    return response
 
-time.sleep(6)
+command(42, "forceload add 0 0")
+command(43, "summon minecraft:zombie 0 80 0")
+command(44, "summon minecraft:creeper 3 80 0")
+command(45, "freakyfriday debug-prime-creeper-loaded")
+initial = command(46, "freakyfriday debug-creeper-progress-loaded")
+command(47, "freakyfriday debug-exchange-loaded")
+time.sleep(0.4)
+during_swap = command(48, "freakyfriday debug-creeper-progress-loaded")
+command(49, "freakyfriday debug-exchange-loaded")
+time.sleep(0.4)
+after_reverse = command(50, "freakyfriday debug-creeper-progress-loaded")
+
+import re
+def progress(response):
+    match = re.search(r"DEBUG creeper progress=([0-9.]+)", response)
+    if not match:
+        raise SystemExit(f"Missing numeric Creeper progress in RCON response: {response!r}")
+    return float(match.group(1))
+
+initial_value = progress(initial)
+swapped_value = progress(during_swap)
+reversed_value = progress(after_reverse)
+if not (swapped_value > initial_value and reversed_value > swapped_value):
+    raise SystemExit(
+        f"Creeper mind state did not advance across exchange/reversal: "
+        f"initial={initial_value}, swapped={swapped_value}, reversed={reversed_value}"
+    )
+print(f"PASS Creeper native fuse state progressed on Zombie body then continued after reversal: "
+      f"{initial_value} -> {swapped_value} -> {reversed_value}")
+
 # Stop the server cleanly over its authenticated control channel.
 send_packet(sock, 51, 2, "stop")
 sock.close()
@@ -127,8 +149,16 @@ if ! grep -Fq 'Freaky Friday 26.2 native Mob AI observer is active' "$CONSOLE_LO
   exit 1
 fi
 
-if [[ "$(grep -h -F 'DEBUG exchange:' "$CONSOLE_LOG" "$LOG_FILE" 2>/dev/null | wc -l)" -lt 2 ]]; then
+if [[ "$(grep -h -F 'DEBUG exchange result:' "$CONSOLE_LOG" "$LOG_FILE" 2>/dev/null | wc -l)" -lt 2 ]]; then
   echo "The debug exchange/reversal commands did not both reach native controller/body binding."
   exit 1
 fi
-echo "PASS dedicated 26.2 server applied the full Mob tick Mixin, exchanged and reversed Zombie/Creeper controllers, and invoked both body ticks in both assignments."
+if ! grep -h -E 'body .*\(entity\.minecraft\.zombie\) now runs controller .*\(entity\.minecraft\.creeper\)' "$CONSOLE_LOG" "$LOG_FILE" >/dev/null 2>&1; then
+  echo "The Zombie body was not assigned the Creeper controller during the first exchange."
+  exit 1
+fi
+if ! grep -h -E 'body .*\(entity\.minecraft\.creeper\) now runs controller .*\(entity\.minecraft\.zombie\)' "$CONSOLE_LOG" "$LOG_FILE" >/dev/null 2>&1; then
+  echo "The Creeper body was not assigned the Zombie controller during the first exchange."
+  exit 1
+fi
+echo "PASS dedicated 26.2 server loaded all Mixin hooks, exchanged the two controllers, advanced Creeper fuse state while controlling the Zombie body, then reversed and continued the same fuse state."
