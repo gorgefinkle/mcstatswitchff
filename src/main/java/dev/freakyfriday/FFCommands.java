@@ -2,6 +2,7 @@ package dev.freakyfriday;
 
 import dev.freakyfriday.mind.MindHostRegistry;
 import dev.freakyfriday.mind.MindSwapSessions;
+import dev.freakyfriday.mind.DebugPlayerPossession;
 import dev.freakyfriday.mind.PlayerPossessionState;
 import java.util.Comparator;
 import java.util.List;
@@ -63,6 +64,39 @@ public final class FFCommands {
                 }
                 return 1;
             }))
+            .then(Commands.literal("debug-player-possess")
+                .requires(source -> source.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.GAMEMASTERS)))
+                .then(Commands.argument("npc", EntityArgument.entity()).executes(ctx -> {
+                    Entity entity = EntityArgument.getEntity(ctx, "npc");
+                    if (!(entity instanceof Mob npc)) {
+                        ctx.getSource().sendFailure(Component.literal("Debug possession requires a Mob body."));
+                        return 0;
+                    }
+                    try {
+                        String result = DebugPlayerPossession.start(
+                            ctx.getSource().getServer(), ctx.getSource().getLevel(), npc);
+                        ctx.getSource().sendSuccess(() -> Component.literal(result), true);
+                        return result.startsWith("DEBUG ServerPlayer possession started") ? 1 : 0;
+                    } catch (RuntimeException failure) {
+                        ctx.getSource().sendFailure(Component.literal(
+                            "Debug ServerPlayer possession failed: " + failure.getMessage()));
+                        return 0;
+                    }
+                })))
+            .then(Commands.literal("debug-player-possession-status")
+                .requires(source -> source.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.GAMEMASTERS)))
+                .executes(ctx -> {
+                    String result = DebugPlayerPossession.status();
+                    ctx.getSource().sendSuccess(() -> Component.literal(result), true);
+                    return result.contains("active=true") ? 1 : 0;
+                }))
+            .then(Commands.literal("debug-player-possession-end")
+                .requires(source -> source.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.GAMEMASTERS)))
+                .executes(ctx -> {
+                    String result = DebugPlayerPossession.stop();
+                    ctx.getSource().sendSuccess(() -> Component.literal(result), true);
+                    return result.startsWith("DEBUG ServerPlayer possession ended") ? 1 : 0;
+                }))
             .then(Commands.literal("debug-exchange")
                 .requires(source -> source.permissions().hasPermission(new Permission.HasCommandLevel(PermissionLevel.GAMEMASTERS)))
                 .then(Commands.argument("first", EntityArgument.entity())
