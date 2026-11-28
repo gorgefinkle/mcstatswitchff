@@ -71,7 +71,7 @@ abstract class LivingEntityBodyContextMixin {
         return body != (LivingEntity) (Object) this ? body.getUseItemRemainingTicks() : original.call();
     }
 
-    @WrapMethod(method = "getTicksUsingItem")
+    @WrapMethod(method = "getTicksUsingItem()I")
     private int freakyfriday$bodyTicksUsingItem(Operation<Integer> original) {
         LivingEntity body = freakyfriday$body();
         return body != (LivingEntity) (Object) this ? body.getTicksUsingItem() : original.call();
