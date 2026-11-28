@@ -131,8 +131,8 @@ progress_command = f"freakyfriday debug-creeper-progress {creeper_selector}"
 def sample(response):
     import re
     progress_match = re.search(r"DEBUG creeper progress=([0-9.]+)", response)
-    ticks_match = re.search(r"entityTicks=(\\d+)", response)
-    world_match = re.search(r"worldTick=(\\d+)", response)
+    ticks_match = re.search(r"entityTicks=([0-9]+)", response)
+    world_match = re.search(r"worldTick=([0-9]+)", response)
     if not progress_match or not ticks_match or not world_match:
         raise SystemExit(f"Missing Creeper progress/tick counters in RCON response: {response!r}")
     return float(progress_match.group(1)), int(ticks_match.group(1)), int(world_match.group(1))
