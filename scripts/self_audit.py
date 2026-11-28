@@ -34,6 +34,7 @@ assert 'debugExchangeControllers' in (root/'src/main/java/dev/freakyfriday/mind/
 assert 'debugTickBody' in (root/'src/main/java/dev/freakyfriday/mind/MindHostRegistry.java').read_text()
 assert 'debug-prime-creeper-loaded' in (root/'src/main/java/dev/freakyfriday/FFCommands.java').read_text()
 assert 'debug-creeper-progress-loaded' in (root/'src/main/java/dev/freakyfriday/FFCommands.java').read_text()
+assert 'getAllLevels()' in (root/'src/main/java/dev/freakyfriday/FFCommands.java').read_text()
 assert '--runtime-smoke-test' in (root/'scripts/verify-build-artifact.py').read_text()
 assert (root/'src/main/java/dev/freakyfriday/mind/MindBodyBindings.java').exists()
 assert (root/'src/test/java/dev/freakyfriday/mind/MindBodyBindingsSelfTest.java').exists()
