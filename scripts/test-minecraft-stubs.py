@@ -472,7 +472,7 @@ public class Entity {
  private final UUID uuid=UUID.randomUUID();private final ServerLevel level;public final String name;
  public final List<ItemStack> droppedItems=new ArrayList<>();
  public int tickCount;public double xo,yo,zo,xOld,yOld,zOld;public float yRotO,xRotO;
- private Vec3 position=new Vec3(0,0,0), movement=new Vec3(0,0,0);private float yaw=0,pitch=0;private boolean removed,shift,sprinting;
+ private Vec3 position=new Vec3(0,0,0), movement=new Vec3(0,0,0);private float yaw=0,pitch=0;private boolean removed,shift,sprinting,noGravity,onGround;private float fallDistance;
  public Entity(String name,ServerLevel l){this.name=name;level=l;l.add(this);}public UUID getUUID(){return uuid;}public ServerLevel level(){return level;}
  public void tick(){} public boolean isRemoved(){return removed;} public void discard(){removed=true;}
  public Vec3 position(){return position;} public BlockPos blockPosition(){return new BlockPos((int)position.x,(int)position.y,(int)position.z);}
@@ -484,6 +484,9 @@ public class Entity {
  public void move(MoverType type,Vec3 amount){position=new Vec3(position.x+amount.x,position.y+amount.y,position.z+amount.z);}
 public Object spawnAtLocation(net.minecraft.server.level.ServerLevel level,ItemStack stack){droppedItems.add(stack);return stack;}
  public void absSnapTo(double x,double y,double z,float yRot,float xRot){position=new Vec3(x,y,z);yaw=yRot;pitch=xRot;}
+ public void setNoGravity(boolean value){noGravity=value;}public boolean isNoGravity(){return noGravity;}
+ public void setOnGround(boolean value){onGround=value;}public boolean onGround(){return onGround;}
+ public void resetFallDistance(){fallDistance=0.0f;}
  public void setShiftKeyDown(boolean value){shift=value;}public boolean isShiftKeyDown(){return shift;}
  public void setSprinting(boolean value){sprinting=value;}public boolean isSprinting(){return sprinting;}
  public Component getDisplayName(){return Component.literal(name);}
