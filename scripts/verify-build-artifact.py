@@ -9,6 +9,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--minecraft", required=True, choices=("26.2",))
     parser.add_argument("--output", default="build/reports/freakyfriday")
+    parser.add_argument("--runtime-smoke-test", action="store_true",
+                        help="Record that the dedicated 26.2 runtime smoke test completed successfully")
     args = parser.parse_args()
     jars = sorted(p for p in Path("build/libs").glob("*.jar") if not p.name.endswith(("-sources.jar", "-javadoc.jar")))
     if len(jars) != 1:
@@ -74,7 +76,7 @@ def main():
     (out / f"BUILD-mc{args.minecraft}.txt").write_text(
         f"minecraft={args.minecraft}\njar={jar.name}\nsha256={digest}\n"
         "verification=zip-integrity,mod-metadata,core-classes,resource-entries\n"
-        "runtime-smoke-test=not-performed\n", encoding="utf-8"
+        f"runtime-smoke-test={'passed' if args.runtime_smoke_test else 'not-performed'}\n", encoding="utf-8"
     )
     print(f"Verified {jar} ({jar.stat().st_size} bytes), sha256={digest}")
 
