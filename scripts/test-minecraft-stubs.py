@@ -475,6 +475,7 @@ public LivingEntity(String name,ServerLevel l){super(name,l);}
 protected LivingEntity(EntityType<? extends LivingEntity> type,Level level){super("mixin",(ServerLevel)level);}
 public AttributeMap getAttributes(){return attrs;}
 public void tick(){super.tick();aiStep();} public void aiStep(){}
+public void swing(net.minecraft.world.InteractionHand hand){} public void swing(net.minecraft.world.InteractionHand hand,boolean sendToEntity){}
 public void setJumping(boolean value){jumping=value;}public boolean isJumping(){return jumping;}
 public float getHealth(){return health;}public void setHealth(float value){health=Math.max(0,Math.min(value,getMaxHealth()));}
 public float getMaxHealth(){var h=attrs.getInstance(BuiltInRegistries.ATTRIBUTE.register("minecraft:max_health"));return h==null?20:(float)h.getValue()-maxHealthPenalty;}
