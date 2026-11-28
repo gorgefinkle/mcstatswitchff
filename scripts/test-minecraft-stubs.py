@@ -469,11 +469,16 @@ import java.util.function.Function;import net.neoforged.bus.api.IEventBus;import
 public class DeferredRegister{public static Items createItems(String modid){return new Items();}
 public static class Items{public <T extends Item> DeferredItem<T> registerItem(String name,Function<Item.Properties,T> factory){return new DeferredItem<>(factory.apply(new Item.Properties()));}
 public void register(IEventBus bus){}}}''',
+'net/minecraft/server/MinecraftServer.java':'''package net.minecraft.server;
+import net.minecraft.server.level.ServerLevel;import java.util.List;
+public class MinecraftServer {public Iterable<ServerLevel> getAllLevels(){return List.of(new ServerLevel("minecraft:overworld"));}}
+''',
 'net/minecraft/commands/CommandSourceStack.java':'''package net.minecraft.commands;
 import net.minecraft.server.level.ServerLevel;import net.minecraft.world.phys.Vec3;import net.minecraft.server.permissions.PermissionSet;
 public class CommandSourceStack {
  public Vec3 getPosition(){return new Vec3(0,0,0);}
  public ServerLevel getLevel(){return new ServerLevel("minecraft:overworld");}
+ public net.minecraft.server.MinecraftServer getServer(){return new net.minecraft.server.MinecraftServer();}
  public PermissionSet permissions(){return permission->true;}
 }
 ''',
