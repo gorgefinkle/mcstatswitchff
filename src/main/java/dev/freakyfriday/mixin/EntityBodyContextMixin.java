@@ -1,8 +1,11 @@
 package dev.freakyfriday.mixin;
 
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import dev.freakyfriday.mind.MindBodyContext;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -15,6 +18,16 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 /** Redirect common spatial reads and motion writes to the physical body. */
 @Mixin(Entity.class)
 abstract class EntityBodyContextMixin {
+    @WrapMethod(method = "move(Lnet/minecraft/world/entity/MoverType;Lnet/minecraft/world/phys/Vec3;)V")
+    private void freakyfriday$movePhysicalBody(MoverType type, Vec3 movement, Operation<Void> original) {
+        Entity physicalBody = freakyfriday$body();
+        if (physicalBody != (Entity) (Object) this) {
+            physicalBody.move(type, movement);
+            return;
+        }
+        original.call(type, movement);
+    }
+
     private Entity freakyfriday$body() {
         return (Entity) MindBodyContext.bodyFor((Entity) (Object) this);
     }
