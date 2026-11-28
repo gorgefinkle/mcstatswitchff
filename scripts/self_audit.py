@@ -45,6 +45,8 @@ assert '@WrapMethod(method = "handleAttack")' in (root/'src/main/java/dev/freaky
 assert "PlayerPossessionHarness" in (root/'scripts/test-minecraft-stubs.py').read_text()
 assert "PlayerPossessionHarness" in (root/'scripts/test-minecraft-stubs.py').read_text()
 assert 'Commands.literal("end")' in (root/'src/main/java/dev/freakyfriday/FFCommands.java').read_text()
+assert 'Commands.literal("debug-prime-creeper")' in (root/'src/main/java/dev/freakyfriday/FFCommands.java').read_text()
+assert 'Commands.literal("debug-creeper-progress")' in (root/'src/main/java/dev/freakyfriday/FFCommands.java').read_text()
 assert 'PlayerPossessionState.end(player)' in (root/'src/main/java/dev/freakyfriday/FFCommands.java').read_text()
 assert (root/'src/main/java/dev/freakyfriday/mixin/LivingEntityPhysicalAiStepMixin.java').exists()
 assert 'LivingEntityPhysicalAiStepMixin' in mixin_config['mixins']
