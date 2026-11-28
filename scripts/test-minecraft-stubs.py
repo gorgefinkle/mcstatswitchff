@@ -378,6 +378,10 @@ public Iterable<Entity> getAllEntities(){return entities.values();}
 public java.util.List<Entity> getEntities(Entity except,net.minecraft.world.phys.AABB bounds,java.util.function.Predicate<? super Entity> selector){
 return entities.values().stream().filter(e->e!=except).filter(selector).toList();
 } }''',
+'net/minecraft/world/entity/monster/Zombie.java':'''package net.minecraft.world.entity.monster;
+import net.minecraft.server.level.ServerLevel;import net.minecraft.world.entity.Mob;
+public class Zombie extends Mob {public Zombie(String name,ServerLevel level){super(name,level);}}
+''',
 'net/minecraft/world/entity/monster/Creeper.java':'''package net.minecraft.world.entity.monster;
 import net.minecraft.server.level.ServerLevel;import net.minecraft.world.entity.Mob;
 public class Creeper extends Mob {private float swelling; public Creeper(String name,ServerLevel level){super(name,level);}
