@@ -262,6 +262,12 @@ The dispatcher now separates the native tick chains rather than replacing the re
 
 The point of the split is that neither side loses its concrete subclass tick override: the donor's private AI/timer state is advanced, and the recipient's physical species tick remains active. It must still be tested for concrete examples that store behavior in `aiStep()`, not only `tick()`; the present redirect routes the LivingEntity aiStep call to the donor and therefore does not yet prove every recipient-specific aiStep side effect is retained.
 
+### Donor AI step versus recipient Mob upkeep
+
+Minecraft 26.2's shared `Mob.serverAiStep()` is the native AI phase: it advances sensing, target/goal selectors, navigation, custom server AI, and move/look/jump controls. The base `Mob.aiStep()` also performs physical Mob upkeep after its `LivingEntity.aiStep()` call (including tag-based daylight burning and loot pickup).
+
+During a mind-controller phase, `MobAiStepBodyOwnershipMixin` preserves the donor's concrete subclass overrides but makes the base `Mob.aiStep()` call only its inherited `LivingEntity.aiStep()`. That still runs the donor's native `serverAiStep()` and movement pipeline, while skipping the base Mob's post-super physical upkeep. The recipient then runs its own concrete `aiStep()` body phase, with its native selector/navigation phase suppressed. This avoids the obvious capability leak of applying a Zombie's base daylight-burning upkeep to a Creeper recipient. It does not prove that every arbitrary third-party subclass separates its private AI from physical side effects; those remain a required modded-mob test boundary.
+
 ### Why this is only a candidate until proven
 
 The controller's concrete tick/aiStep override can still write its own private subclass fields directly. That is usually correct for mind-owned task state (such as an active fuse timer), but a subclass method can also mutate fields that represent physical state, set a dead flag, discard itself, or invoke world actions directly. A generic body facade must distinguish those effects.
