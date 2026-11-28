@@ -30,6 +30,7 @@ def main():
         "dev/freakyfriday/mind/MindBodyContext.class",
         "dev/freakyfriday/mind/PlayerPossessionState.class",
         "dev/freakyfriday/mind/PlayerInputBridge.class",
+        "dev/freakyfriday/mind/PlayerBodyActions.class",
         "dev/freakyfriday/mind/MindExchangeRuntime.class",
         "dev/freakyfriday/mixin/PlayerPossessionTickMixin.class",
         "dev/freakyfriday/mixin/ServerPlayerPossessionCameraMixin.class",
