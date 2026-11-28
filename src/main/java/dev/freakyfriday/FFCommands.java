@@ -154,8 +154,11 @@ public final class FFCommands {
                         return 0;
                     }
                     float progress = creeper.getSwelling(1.0f);
+                    int entityTicks = creeper.tickCount;
+                    long worldTick = creeper.level().getGameTime();
                     ctx.getSource().sendSuccess(() -> Component.literal(
-                        "DEBUG creeper progress=" + progress + " mind=" + creeper.getUUID()), true);
+                        "DEBUG creeper progress=" + progress + " mind=" + creeper.getUUID()
+                            + " entityTicks=" + entityTicks + " worldTick=" + worldTick), true);
                     return 1;
                 }))
             .then(Commands.literal("debug-prime-creeper")
@@ -180,8 +183,11 @@ public final class FFCommands {
                         return 0;
                     }
                     float progress = creeper.getSwelling(1.0f);
+                    int entityTicks = creeper.tickCount;
+                    long worldTick = creeper.level().getGameTime();
                     ctx.getSource().sendSuccess(() -> Component.literal(
-                        "DEBUG creeper progress=" + progress + " mind=" + creeper.getUUID()), true);
+                        "DEBUG creeper progress=" + progress + " mind=" + creeper.getUUID()
+                            + " entityTicks=" + entityTicks + " worldTick=" + worldTick), true);
                     return 1;
                 })))
             .then(Commands.literal("debug-tick")
