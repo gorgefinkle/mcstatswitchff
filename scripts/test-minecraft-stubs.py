@@ -398,10 +398,12 @@ import java.util.*;import net.minecraft.world.entity.Entity;import net.minecraft
 import net.minecraft.network.chat.Component;
 public final class ServerPlayer extends Player {
  public final List<String> messages=new ArrayList<>();private Input last=Input.EMPTY;private Entity camera;
+ public boolean failCameraNext;
  public ServerPlayer(String name,ServerLevel l){super(name,l);}public ServerPlayer(net.minecraft.world.entity.EntityType<? extends LivingEntity> t,net.minecraft.world.level.Level l){super(t,l);}
  public ServerLevel serverLevel(){return (ServerLevel)level();}public void sendSystemMessage(Component c){messages.add(c.getString());}
  public void setLastClientInput(Input input){last=input;}public Input getLastClientInput(){return last;}
- public void setCamera(Entity entity){camera=entity;} public Entity getCamera(){return camera==null?this:camera;}
+ public void setCamera(Entity entity){if(failCameraNext){failCameraNext=false;throw new IllegalStateException("injected camera failure");}camera=entity;}
+ public Entity getCamera(){return camera==null?this:camera;}
  public boolean teleportTo(ServerLevel level,double x,double y,double z,Set<net.minecraft.world.entity.Relative> relatives,float yRot,float xRot,boolean resetCamera){return true;}
  public void resetLastActionTime(){}
 }''',
@@ -507,12 +509,13 @@ import net.minecraft.world.entity.ai.navigation.PathNavigation;import net.minecr
 public class Mob extends LivingEntity {
  private final EntityType<Mob> type=new EntityType<>("test:mob");
  private final PathNavigation navigation=new PathNavigation();private final MoveControl move=new MoveControl();
- private final LookControl look=new LookControl();private final JumpControl jump=new JumpControl();private final Sensing sensing=new Sensing();
+ private final LookControl look=new LookControl();private final JumpControl jump=new JumpControl(this);private final Sensing sensing=new Sensing();
  private float zza,xxa,speed;
  public Mob(String name,ServerLevel level){super(name,level);}public EntityType<Mob> getType(){return type;}
  public void tick(){super.tick();}public PathNavigation getNavigation(){return navigation;}public MoveControl getMoveControl(){return move;}
  public LookControl getLookControl(){return look;}public JumpControl getJumpControl(){return jump;}public Sensing getSensing(){return sensing;}
  public void setZza(float v){zza=v;}public void setXxa(float v){xxa=v;}public void setSpeed(float v){speed=v;}
+ public float getZza(){return zza;}public float getXxa(){return xxa;}public float getSpeed(){return speed;}
 }''',
 'net/minecraft/world/entity/ai/navigation/PathNavigation.java':'''package net.minecraft.world.entity.ai.navigation; public class PathNavigation {}
 ''',
@@ -521,7 +524,12 @@ public class Mob extends LivingEntity {
 'net/minecraft/world/entity/ai/control/LookControl.java':'''package net.minecraft.world.entity.ai.control; public class LookControl {}
 ''',
 'net/minecraft/world/entity/ai/control/JumpControl.java':'''package net.minecraft.world.entity.ai.control;
-public class JumpControl {public void jump(){}public void tick(){}}
+import net.minecraft.world.entity.Mob;
+public class JumpControl {private final Mob mob;private boolean jump;
+ public JumpControl(Mob mob){this.mob=mob;}
+ public void jump(){jump=true;}
+ public void tick(){if(mob!=null)mob.setJumping(jump);jump=false;}
+}
 ''',
 'net/minecraft/world/entity/ai/sensing/Sensing.java':'''package net.minecraft.world.entity.ai.sensing; public class Sensing {}
 ''',
@@ -848,6 +856,97 @@ public class BookInteractionHarness {
 ''')
 subprocess.run(['javac','-cp',str(OUT),'-d',str(OUT),str(STUB/'dev/freakyfriday/BookInteractionHarness.java')],check=True)
 subprocess.run(['java','-ea','-cp',str(OUT),'dev.freakyfriday.BookInteractionHarness'],check=True)
+
+(STUB/'dev/freakyfriday/PlayerPossessionHarness.java').write_text('''package dev.freakyfriday;
+import dev.freakyfriday.mind.*;
+import net.minecraft.server.level.*;
+import net.minecraft.world.entity.*;
+import net.minecraft.world.entity.player.Input;
+import net.minecraft.world.phys.Vec3;
+
+public final class PlayerPossessionHarness {
+ static int checks;
+ static void ok(boolean value,String message){checks++;if(!value)throw new AssertionError(message);}
+ static void eq(double actual,double expected,String message){
+   ok(Math.abs(actual-expected)<1.0e-6,message+" expected="+expected+" actual="+actual);
+ }
+ public static void main(String[] args) {
+  ServerLevel world=new ServerLevel("minecraft:overworld");
+  ServerPlayer player=new ServerPlayer("Account",world);
+  Mob npc=new Mob("Zombie",world);
+  var playerId=player.getUUID();var npcId=npc.getUUID();
+
+  ok(MindBodyBindings.controllerForBody(playerId).equals(playerId),"player begins with own controller");
+  ok(MindBodyBindings.controllerForBody(npcId).equals(npcId),"NPC begins with own controller");
+
+  PlayerPossessionState.begin(player,npc);
+  ok(PlayerPossessionState.isActive(player),"possession session published");
+  ok(MindBodyBindings.controllerForBody(playerId).equals(npcId),"NPC mind assigned to player physical body");
+  ok(MindBodyBindings.controllerForBody(npcId).equals(playerId),"player input identity assigned to NPC physical body");
+  ok(PlayerPossessionState.controllerForPlayerBody(player)==npc,"NPC controller resolves for player body");
+  ok(PlayerPossessionState.playerForNpcBody(npc)==player,"account resolves for controlled NPC body");
+  ok(player.getCamera()==npc,"camera routes to NPC without changing account entity identity");
+
+  Input input=new Input(true,false,true,false,true,true,true);
+  PlayerInputBridge.capture(player,input);
+  PlayerInputBridge.captureLook(player,91.0f,-17.0f);
+  PlayerInputBridge.tickControlledMob(npc);
+  eq(npc.getZza(),1.0,"forward input becomes positive Mob forward axis");
+  eq(npc.getXxa(),1.0,"left input becomes positive Mob strafe axis");
+  ok(npc.isShiftKeyDown(),"shift input reaches NPC body");
+  ok(npc.isSprinting(),"sprint input reaches NPC body");
+  ok(npc.isJumping(),"jump input reaches NPC body's jump controller");
+  eq(npc.getYRot(),91.0,"look yaw reaches NPC body");
+  eq(npc.getXRot(),-17.0,"look pitch reaches NPC body");
+  Vec3 intent=PlayerInputBridge.movementIntent(player);
+  eq(intent.x,1.0,"movement intent strafe axis");
+  eq(intent.z,1.0,"movement intent forward axis");
+
+  ok(PlayerPossessionState.end(player),"explicit end succeeds");
+  ok(!PlayerPossessionState.isActive(player),"end removes session state");
+  ok(MindBodyBindings.controllerForBody(playerId).equals(playerId),"end restores player controller");
+  ok(MindBodyBindings.controllerForBody(npcId).equals(npcId),"end restores NPC controller");
+  ok(player.getCamera()==player,"end restores account camera");
+  eq(PlayerInputBridge.movementIntent(player).x,0.0,"end clears captured input x");
+  eq(PlayerInputBridge.movementIntent(player).z,0.0,"end clears captured input z");
+
+  // Repeated cycles and endpoint death must reverse the exact same bijection.
+  PlayerPossessionState.begin(player,npc);
+  npc.kill();
+  PlayerPossessionState.validateOrEnd(player);
+  ok(!PlayerPossessionState.isActive(player),"dead NPC invalidates session");
+  ok(MindBodyBindings.controllerForBody(playerId).equals(playerId),"dead NPC cleanup restores player binding");
+  ok(MindBodyBindings.controllerForBody(npcId).equals(npcId),"dead NPC cleanup restores NPC binding");
+  ok(player.getCamera()==player,"dead NPC cleanup restores camera");
+  npc.revive();
+
+  // A camera failure after ownership publication must roll back both indexes
+  // and clear the staged player controls.
+  player.failCameraNext=true;
+  boolean failed=false;
+  try { PlayerPossessionState.begin(player,npc); }
+  catch(IllegalStateException expected){failed=true;}
+  ok(failed,"injected camera setup failure propagated");
+  ok(!PlayerPossessionState.isActive(player),"failed transaction is not published");
+  ok(MindBodyBindings.controllerForBody(playerId).equals(playerId),"failed setup rolls back player mapping");
+  ok(MindBodyBindings.controllerForBody(npcId).equals(npcId),"failed setup rolls back NPC mapping");
+  ok(player.getCamera()==player,"failed setup leaves original camera intact");
+  eq(PlayerInputBridge.movementIntent(player).x,0.0,"failed setup clears staged controls");
+
+  // Logout cleanup reverses mapping without relying on a client camera packet.
+  PlayerPossessionState.begin(player,npc);
+  PlayerPossessionState.endOnLogout(playerId);
+  ok(!PlayerPossessionState.isActive(player),"logout cleanup ends session");
+  ok(MindBodyBindings.controllerForBody(playerId).equals(playerId),"logout cleanup restores player binding");
+  ok(MindBodyBindings.controllerForBody(npcId).equals(npcId),"logout cleanup restores NPC binding");
+
+  System.out.println("PASS PlayerPossessionHarness: "+checks
+    +" assertions; controller mapping, camera, seven-bit input, reversal, death cleanup, rollback and logout");
+ }
+}
+''')
+subprocess.run(['javac','-cp',str(OUT),'-d',str(OUT),str(STUB/'dev/freakyfriday/PlayerPossessionHarness.java')],check=True)
+subprocess.run(['java','-ea','-cp',str(OUT),'dev.freakyfriday.PlayerPossessionHarness'],check=True)
 
 (STUB/'dev/freakyfriday/ClientKeyHarness.java').write_text('''package dev.freakyfriday;
 import net.minecraft.client.*;import net.neoforged.neoforge.client.event.*;
