@@ -15,6 +15,7 @@ import java.util.Objects;
  */
 public final class MindBodyContext {
     private static final ThreadLocal<Frame> CURRENT = new ThreadLocal<>();
+    private static final ThreadLocal<BodyAiStepFrame> PHYSICAL_BODY_AI_STEP = new ThreadLocal<>();
 
     private MindBodyContext() {}
 
@@ -55,7 +56,50 @@ public final class MindBodyContext {
         return CURRENT.get() != null;
     }
 
+    /**
+     * Marks the physical recipient's subclass aiStep phase. During this phase,
+     * species-specific code still executes but the shared LivingEntity base
+     * movement/physics aiStep is skipped because the controller phase already
+     * ran it against the same physical body.
+     */
+    public static BodyAiStepScope physicalBodyAiStep(Object physicalBody) {
+        Objects.requireNonNull(physicalBody, "physicalBody");
+        BodyAiStepFrame frame = new BodyAiStepFrame(
+            physicalBody, PHYSICAL_BODY_AI_STEP.get(), Thread.currentThread());
+        PHYSICAL_BODY_AI_STEP.set(frame);
+        return new BodyAiStepScope(frame);
+    }
+
+    public static boolean isExecutingPhysicalBodyAiStep(Object physicalBody) {
+        BodyAiStepFrame frame = PHYSICAL_BODY_AI_STEP.get();
+        return frame != null && frame.physicalBody == physicalBody;
+    }
+
     private record Frame(Object controller, Object physicalBody, Frame parent, Thread ownerThread) {}
+    private record BodyAiStepFrame(Object physicalBody, BodyAiStepFrame parent, Thread ownerThread) {}
+
+    public static final class BodyAiStepScope implements AutoCloseable {
+        private final BodyAiStepFrame frame;
+        private boolean closed;
+
+        private BodyAiStepScope(BodyAiStepFrame frame) {
+            this.frame = frame;
+        }
+
+        @Override
+        public void close() {
+            if (closed) return;
+            if (Thread.currentThread() != frame.ownerThread) {
+                throw new IllegalStateException("Physical-body AI phase must close on its opening server thread");
+            }
+            if (PHYSICAL_BODY_AI_STEP.get() != frame) {
+                throw new IllegalStateException("Physical-body AI phases must close in LIFO order");
+            }
+            if (frame.parent == null) PHYSICAL_BODY_AI_STEP.remove();
+            else PHYSICAL_BODY_AI_STEP.set(frame.parent);
+            closed = true;
+        }
+    }
 
     public static final class Scope implements AutoCloseable {
         private final Frame frame;
